@@ -19,7 +19,7 @@ The initial roadmap is deliberately linear. Complete terrain-aware advection \(\
 
 ## Milestone 1: Repository and scientific contract
 
-- [ ] Complete
+- [x] Complete
 
 ### Purpose
 
@@ -55,7 +55,7 @@ None.
 
 ## Milestone 2: Mapped geometry and physical-field reconstruction
 
-- [ ] Complete
+- [x] Complete
 
 ### Purpose
 
@@ -97,7 +97,7 @@ Milestone 1.
 
 ## Milestone 3: Exact linear terrain tendency kernel
 
-- [ ] Complete
+- [x] Complete
 
 ### Purpose
 
@@ -169,7 +169,7 @@ Milestones 1 and 2.
 
 ## Milestone 4: WaveVortexModel forcing integration
 
-- [ ] Complete
+- [x] Complete
 
 ### Purpose
 
