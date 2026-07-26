@@ -45,6 +45,8 @@ The constructor precomputes the bottom-pressure projection on the transform's na
 
 Milestones 1--6, 8, and 9 of the development [roadmap](milestones.md) are implemented on the `mean-depth-wave-generator` branch. The optional comparison in Milestone 7 was intentionally skipped.
 
+A separate [second-order roadmap](second-order-milestones.md) specifies the strict second Born hierarchy, its endpoint-convergence gate, and the tests required before it can be presented as a physical $O(h^2)$ scattering approximation. That hierarchy is planned work and is not part of the current forcing classes.
+
 The scientific and computational status of the earlier repositories and branches is summarized in [PRIOR_APPROACHES.md](PRIOR_APPROACHES.md).
 
 ## Exact sinusoidal-ridge example
@@ -141,6 +143,8 @@ The movie masks the reconstructed field beneath the physical bottom, uses wet po
 ## Scientific scope
 
 Both forcings are accurate through first order in terrain height. The prescribed generator supports broadband terrain with arbitrary stationary stratification, transform-resolution rebuilding, and restart persistence. The autonomous forcing adds wave--wave scattering with the same production behavior. Its strict perturbation hierarchy conserves the first-order physical energy; when the first-order operator is iterated autonomously, the unresolved energy tendency is $O(h^2)$.
+
+The planned strict second Born model will retain the zeroth-, first-, and second-order coefficients separately and stop before uncontrolled higher-order feedback. See the [second-order milestones](second-order-milestones.md) for its scientific gates and implementation sequence.
 
 The following remain outside the initial proof of concept:
 

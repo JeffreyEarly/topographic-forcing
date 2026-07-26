@@ -356,3 +356,5 @@ h\,\partial_zw_d.
 The initial proof of concept is complete when Milestones 1--6 pass: the spectral forcing agrees with the Green-identity oracle, directly forces no balanced coefficient or linear QGPV, reproduces bottom pressure work, and converges to the analytic sinusoidal-terrain response under adaptive integration.
 
 The prescribed generator is production-ready for research use when Milestone 8 passes. The optional autonomous first-order extension is complete when Milestone 9 passes. Promotion into WaveVortexModel, an MPM release, dynamic barotropic backreaction, independent bottom buoyancy, nonlinear terrain dynamics, and exact finite-amplitude topography remain outside this roadmap.
+
+Development of a strict second Born hierarchy continues in the separate [second-order scattering roadmap](second-order-milestones.md). The completed milestones in this document remain the scientific and engineering baseline for that work.
