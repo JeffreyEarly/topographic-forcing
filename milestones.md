@@ -1,57 +1,56 @@
-# Mean-depth bottom wave-generation milestones
+# Terrain-energy Galerkin milestones
 
 ## Objective
 
-Develop `WVBottomWaveGenerationForcing`, a fast spectral forcing for `WVTransformBoussinesq` that generates internal waves from the first-order mean-depth bottom condition without directly forcing linear interior QGPV. The proof of concept will prescribe a horizontally uniform barotropic tide and project its bottom velocity onto the ordinary rigid-lid wave modes using their bottom pressure values.
+Develop `WVTerrainEnergyGalerkin`, a pressure-free Galerkin system for the linear rotating Boussinesq equations over stationary bottom topography. The formulation is linear in flow amplitude, exact in the resolved terrain, and conserves the discrete finite-terrain energy.
 
-For stationary topography $h(\boldsymbol{x})$ and a prescribed barotropic current,
-
-```math
-\boldsymbol{U}_{\mathrm{bt}}(t)
-=
-R(t)\mathrm{Re}
-\left\{
-\widehat{\boldsymbol{U}}_{\mathrm{bt}}
-e^{-i\omega(t-t_0)}
-\right\},
-\qquad
-g_b
-=
-\boldsymbol{U}_{\mathrm{bt}}\boldsymbol{\cdot}\nabla_Hh.
-```
-
-The phase-inclusive modal tendency is
+The semidiscrete evolution is
 
 ```math
-\dot A_\alpha
-=
-\frac{1}{A E_\alpha}
-\int_Ap_{\alpha,d}^*(\boldsymbol{x},t)g_b(\boldsymbol{x},t)\,dA,
+E_\gamma\dot{\boldsymbol a}=J_\gamma\boldsymbol a,
 \qquad
-\alpha\in\{+,-\}.
+E_\gamma=E_\gamma^*>0,
+\qquad
+J_\gamma=-J_\gamma^*.
 ```
 
-Only $F_+$ and $F_-$ are modified. The forcing leaves the incoming $F_0$ unchanged, requires no finite-terrain pressure solve or modal terrain matrix, and is first order in terrain height.
+The mathematical specification is `terrain-energy-galerkin.tex` at commit `72c967c` in the `ape-apv-bottom-topography` literature repository. The implementation will use ordinary hydrostatic modes as economical vertical coordinates, retain one explicit bottom-displacement coefficient per horizontal wavenumber, recover the complete flat nonhydrostatic modes through weak diagonalization, and construct finite-terrain modes through a generalized Hermitian eigensolve and residual-based enrichment.
+
+The completed mean-depth generator and scattering implementation is retained as reusable engineering infrastructure. Its scientific roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md). Neither existing forcing is used as the terrain-energy evolution operator.
 
 ## Fixed conventions and boundaries
 
-- `topographicHeight` is a real, finite, stationary, upward-positive field sampled on the transform's periodic $N_x\times N_y$ horizontal grid.
-- `barotropicVelocityAmplitude` is a finite complex two-component vector $\widehat{\boldsymbol U}_{\mathrm{bt}}$ with units of velocity.
-- `frequency` is a finite positive angular frequency, `rampDuration` is finite and nonnegative, and `startTime` is finite.
-- The transform target is `WVTransformBoussinesq` with arbitrary stationary $N^2(z)$ supported by the transform.
-- The forcing uses the transform's native retained wavenumbers and is agnostic to `shouldAntialias`.
-- The initial barotropic current is prescribed and horizontally uniform. It is an external energy reservoir rather than a prognostic part of the model state.
-- Complete wave modes include their spatial and temporal phases. WaveVortexModel's stored interaction coefficients therefore receive the phase conversion required by the conjugated output-mode pressure.
-- The initial generator applies the additive term $g_b=\boldsymbol U_{\mathrm{bt}}\boldsymbol{\cdot}\nabla_Hh$. Autonomous wave scattering is deferred to Milestone 9.
-- WaveVortexModel remains an external dependency. This research repository will not initially be released as an MPM package.
+- The public target is `WVTransformBoussinesq`; WaveVortexModel remains an external dependency and is not modified.
+- `topographicHeight` is a real, finite, stationary, upward-positive, horizontally periodic field on the transform grid.
+- The mapped geometry is
+
+  ```math
+  \gamma=1-\frac{h}{D}>0.
+  ```
+
+- The prognostic weak state contains \((\hat u,\hat v,\hat w,\hat\eta)\) and one bottom-displacement coefficient per retained horizontal wavenumber. Pressure is recovered only as a post-solve diagnostic.
+- The velocity satisfies mapped continuity and homogeneous normal-flow conditions,
+
+  ```math
+  \nabla_\xi\boldsymbol{\cdot}\hat{\boldsymbol u}=0,
+  \qquad
+  \hat w(-D)=\hat w(0)=0.
+  ```
+
+- Surface displacement vanishes. The bottom value of \(\hat\eta\) is unrestricted and evolves through the displacement equation.
+- Independent surface-buoyancy anomalies are excluded. Independent bottom buoyancy is retained in the zero-frequency balanced state space.
+- Hydrostatic modes are coordinates only. The projected equations, recovered flat modes, finite-terrain modes, and evolution remain nonhydrostatic.
+- Galerkin states use complex horizontal Fourier coefficients with explicit conjugacy maps for real physical fields.
+- Terrain products use a common oversampled quadrature and adjoint-consistent reconstruction and projection.
+- The formulation is not an additive `WVForcing`; ordinary evolution acts through \(E_\gamma^{-1}J_\gamma\), terrain-mode phases, or an energy-preserving implicit step.
 
 ## Milestone 1: Repository and scientific contract
 
-- [x] Complete
+- [ ] Complete
 
 ### Purpose
 
-Replace the mapped strong-form experiment with a narrowly defined public API for prescribed bottom wave generation.
+Establish the standalone public API and state conventions without changing the existing mean-depth forcing classes or WaveVortexModel.
 
 ### Dependencies
 
@@ -59,38 +58,38 @@ None.
 
 ### Deliverables
 
-- Replace `WVExactTopographicForcing` and its tests with `WVBottomWaveGenerationForcing`.
-- Implement the public constructor:
+- Add `WVTerrainEnergyGalerkin` as a standalone scientific class with the expensive construction path
 
   ```matlab
-  forcing = WVBottomWaveGenerationForcing(wvt, ...
+  problem = WVTerrainEnergyGalerkin.fromTopography( ...
+      wvt, ...
       topographicHeight=h, ...
-      barotropicVelocityAmplitude=Uhat, ...
-      frequency=omega, ...
-      rampDuration=rampDuration, ...
-      startTime=wvt.t, ...
-      name="bottom wave generation");
+      verticalModeIndices=j, ...
+      horizontalOversamplingFactor=2);
   ```
 
-- Validate the supported transform, terrain dimensions and values, the two-component velocity amplitude, frequency, ramp duration, start time, and name with structured class-specific errors.
-- Store authoritative scientific inputs as read-only state.
-- Retain a portable `runTests` entry point that resolves WaveVortexModel from an explicit option, then `WAVE_VORTEX_MODEL_ROOT`, then the sibling repository, and restores the original MATLAB path.
-- Document that the forcing is first order in terrain height, wave-only, and energetically open because the barotropic current is prescribed.
+- Support only `WVTransformBoussinesq` initially.
+- Validate terrain size, reality, finiteness, periodic layout, and \(\gamma>0\) with structured class-specific errors.
+- Treat `verticalModeIndices` as the retained hydrostatic reference coordinates and require a positive integer `horizontalOversamplingFactor`.
+- Store authoritative geometry, terrain, basis settings, originating transform metadata, and construction diagnostics as read-only scientific state.
+- Document units, coefficient ordering, bottom-displacement coordinates, real-field conjugacy, energy normalization, and the distinction between the Galerkin system and `WVForcing`.
+- Extend the portable `runTests` entry point without changing permanent MATLAB paths.
 
 ### Automated acceptance
 
-- Constructor tests accept flat, uniform-offset, sinusoidal, and broadband real terrain arrays.
-- Constructor tests reject unsupported transforms, bad terrain shapes, complex or nonfinite terrain, invalid velocity amplitudes, nonpositive frequency, negative ramp duration, and nonfinite start time.
-- The test runner leaves the user's permanent MATLAB path unchanged.
-- The old public class name and mapped-coordinate scientific claims no longer appear in active source or tests.
+- Constructor tests accept flat, uniform-offset, sinusoidal, and broadband terrain.
+- Constructor tests reject unsupported transforms, bad terrain dimensions, complex or nonfinite terrain, \(\gamma\leq0\), invalid mode indices, and invalid oversampling factors.
+- The originating transform and authoritative terrain are not modified during construction.
+- Existing mean-depth generation and scattering tests remain green.
+- No Galerkin class subclasses `WVForcing` or registers an additive terrain forcing.
 
-## Milestone 2: Boundary-projection oracle
+## Milestone 2: Mixed hydrostatic and bottom-displacement basis
 
-- [x] Complete
+- [ ] Complete
 
 ### Purpose
 
-Establish the exact WaveVortexModel normalization and phase convention for the bottom Green-identity projection before optimizing it.
+Construct the complete coordinate space required by the finite-terrain weak equations before forming any dynamical matrices.
 
 ### Dependencies
 
@@ -98,26 +97,50 @@ Milestone 1.
 
 ### Deliverables
 
-- Build a low-resolution reference routine that reconstructs the complete phase-inclusive bottom pressure $p_{\alpha,d}(\boldsymbol{x},t)$ of every active $+$ and $-$ mode.
-- Evaluate $g_b$ in physical space and compute each modal tendency by direct horizontal quadrature.
-- Evaluate the same overlap from the Fourier coefficient of $g_b$ selected by the output mode.
-- Treat the transform's half-complex Fourier layout, inactive entries, horizontal zero mode, branch normalization, modal energy $E_\alpha$, and conjugacy explicitly.
-- Keep the oracle independent of the production forcing callback.
+- Construct a matched `WVTransformHydrostatic` using the target domain, grid, stratification, Coriolis parameter, density, gravity, and antialias convention.
+- Use its ordinary \(F\)–\(G\) modes for the homogeneous interior fields.
+- Add one bottom-displacement coefficient per retained horizontal wavenumber with
+
+  ```math
+  \chi_{\kappa b}(\xi)=
+  \begin{cases}
+  \sinh(-\kappa\xi)/\sinh(\kappa D),&\kappa>0,\\
+  -\xi/D,&\kappa=0.
+  \end{cases}
+  ```
+
+- Represent displacement as
+
+  ```math
+  \hat\eta_{\boldsymbol K}(\xi)
+  =
+  \eta_{b,\boldsymbol K}\chi_{\kappa b}(\xi)
+  +
+  \sum_j\eta_{\boldsymbol K}^jG^j(\xi).
+  ```
+
+- Implement deterministic packing and unpacking for the interior modal coefficients and bottom coefficients.
+- Implement reconstruction of \((\hat u,\hat v,\hat w,\hat\eta)\), reconstruction of physical \((u,v,w)\), and the exact mapped volume quadrature.
+- Implement the adjoints of every reconstruction map using the same vertical weights and horizontal normalization.
+- Implement real-field conjugacy and the discrete finite-terrain APV map.
+- Verify directly that writing the linear displacement equation using \(\eta_i=(1-\gamma)\xi+\hat\eta\) produces the same interior and bottom evolution as the \(\hat\eta\) formulation.
 
 ### Automated acceptance
 
-- Direct quadrature and Fourier selection agree within $10^{-12}$ relative error for deterministic single-mode and random band-limited terrain.
-- Results agree at $t=t_0$ and at nonzero model times containing nondegenerate wave phases.
-- Reconstructed real boundary fields and coefficient conjugacy close to $10^{-12}$.
-- No balanced coefficient is evaluated or retained by the oracle.
+- Pack/unpack and reconstruction/projection round trips close within \(10^{-12}\) relative error.
+- The bottom function has the requested endpoint values to roundoff and introduces exactly one bottom value per horizontal coefficient.
+- Reconstructed velocity satisfies mapped continuity and homogeneous \(\hat w\) boundary values to \(10^{-12}\).
+- Real coefficient sets reconstruct real fields and return with conjugacy defects below \(10^{-12}\).
+- Numerical reconstruction and projection satisfy their weighted adjoint identity within \(10^{-12}\).
+- The \(\eta_i\) and \(\hat\eta\) tendencies agree at every grid point and at the bottom within \(10^{-12}\).
 
-## Milestone 3: Fast prescribed-generation kernel
+## Milestone 3: Flat nonhydrostatic dense oracle
 
-- [x] Complete
+- [ ] Complete — blocking scientific gate
 
 ### Purpose
 
-Reduce prescribed barotropic generation to precomputed spectral response arrays and inexpensive time-dependent scalar factors.
+Prove that the mixed hydrostatic coordinates recover the complete flat nonhydrostatic wave–vortex problem before introducing terrain.
 
 ### Dependencies
 
@@ -125,63 +148,95 @@ Milestone 2.
 
 ### Deliverables
 
-- Precompute the spectral terrain gradients and the projections of unit currents in the $x$ and $y$ directions onto every active wave mode.
-- Verify the equivalent complex-amplitude identity
+- Form dense \(E_0\), \(J_0\), and \(Q_0\) by probing every mixed-basis coordinate at low resolution.
+- Solve the generalized Hermitian problem independently at each horizontal wavenumber:
 
-```math
-\widehat g_b(\boldsymbol K)
-=
-i\boldsymbol K\boldsymbol{\cdot}
-\widehat{\boldsymbol U}_{\mathrm{bt}}\,
-\widehat h(\boldsymbol K).
-```
+  ```math
+  iJ_0\boldsymbol c=\omega E_0\boldsymbol c.
+  ```
 
-- At runtime evaluate the real ramped current, combine the two precomputed responses, apply the output-mode interaction phases componentwise, and return $F_+$ and $F_-$.
-- Preserve exact zeros at inactive and excluded coefficient locations.
-- Leave the incoming $F_0$ unchanged rather than assigning a new zero array.
+- Recover internal-wave, inertial, geostrophic, mean-density-anomaly, and independent bottom-buoyancy subspaces.
+- For constant stratification, compare with
+
+  ```math
+  \omega_{\kappa j}^2
+  =
+  \frac{N^2\kappa^2+f^2m_j^2}
+  {\kappa^2+m_j^2}.
+  ```
+
+- For arbitrary stationary stratification, compare frequencies, energy-normalized eigenfunctions, polarization, and APV with `WVTransformBoussinesq`.
+- Report convergence with retained hydrostatic vertical modes and the indicator \(\kappa/m_j\).
+- Record raw structural residuals before any explicit symmetrization.
 
 ### Automated acceptance
 
-- Production tendencies agree with the direct-quadrature oracle within $10^{-12}$ at multiple model times.
-- The flat-terrain and zero-current limits vanish exactly apart from signed floating-point zero.
-- Tendencies scale linearly with terrain amplitude and barotropic velocity to $10^{-12}$.
-- Repeated evaluation is deterministic and does not modify `wvt.t`, `Ap`, `Am`, or `A0`.
+- Raw matrices satisfy
 
-## Milestone 4: WaveVortexModel forcing integration
+  ```math
+  \frac{\lVert E_0-E_0^*\rVert}{\lVert E_0\rVert}\leq10^{-13},
+  \qquad
+  \frac{\lVert J_0+J_0^*\rVert}{\lVert J_0\rVert}\leq10^{-13}.
+  ```
 
-- [x] Complete
+- \(E_0\) is positive definite on the retained state space.
+- Constant-stratification frequencies agree with the analytic dispersion relation to approximately \(10^{-11}\) relative error.
+- Variable-stratification frequencies and eigenfunctions converge to the directly computed nonhydrostatic modes as vertical coordinates are added.
+- Nonzero-frequency modes have negligible discrete APV and the zero-frequency dimension matches the expected balanced, MDA, and bottom-buoyancy coordinates.
+- Failure to recover the flat problem or acceptable conditioning blocks Milestone 4.
+
+## Milestone 4: Exact finite-terrain dense forms
+
+- [ ] Complete
 
 ### Purpose
 
-Connect the validated kernel to the standard WaveVortexModel spectral forcing and adaptive integration path.
+Establish the exact-in-resolved-\(h\) finite-terrain weak system as a low-resolution dense scientific oracle.
 
 ### Dependencies
 
-Milestones 1 through 3.
+Milestone 3.
 
 ### Deliverables
 
-- Implement `WVBottomWaveGenerationForcing` as `WVForcingType("Spectral")`.
-- In `addSpectralForcing`, add only this forcing's contributions to the incoming `Fp` and `Fm` and return the incoming `F0` unchanged.
-- Preserve contributions from every previously registered forcing.
-- Run a model from rest after removing nonlinear advection and registering only the bottom generator.
-- Use WaveVortexModel's default adaptive `ode78` integrator.
-- During this milestone, return a structured unsupported-operation error from resolution conversion; Milestone 8 replaces this temporary gate with spectral rebuilding.
+- Evaluate
+
+  ```math
+  \gamma,\qquad
+  \gamma^{-1},\qquad
+  \nabla_H\ln\gamma,\qquad
+  N^2(\gamma\xi)
+  ```
+
+  on a common oversampled grid.
+- Form dense \(E_\gamma\), \(J_\gamma\), and \(Q_\gamma\) by direct quadrature of every mixed-basis pair.
+- Preserve the raw matrices and their structural defects for diagnosis before any roundoff-level restoration.
+- Verify the exact flat limit and random-state identity
+
+  ```math
+  \operatorname{Re}
+  \left(\boldsymbol a^*J_\gamma\boldsymbol a\right)=0.
+  ```
+
+- Use constant \(\gamma\) as an exact mapped-coordinate oracle and compare against an independent flat transform of physical depth \(H=\gamma D\).
+- Separate quadrature, truncation, and eigensolver errors in the diagnostics.
 
 ### Automated acceptance
 
-- Direct callback results agree with the independently evaluated pack, phase, and projection calculation at zero and nonzero model times.
-- Existing `Fp`, `Fm`, and `F0` arrays are incremented exactly once or left unchanged as appropriate.
-- A short adaptive run produces nonzero wave coefficients and identically zero direct balanced forcing.
-- An ordinary forcing call performs no pressure solve, wave--vortex transform, terrain matrix construction, or runtime horizontal transform.
+- Raw finite-terrain structural residuals are below \(10^{-12}\).
+- \(E_\gamma\) is positive definite and remains well conditioned at the documented reference terrains.
+- Random-state finite-terrain energy tendencies close to roundoff.
+- For \(h=0\), all finite-terrain matrices reproduce the Milestone-3 flat matrices within \(10^{-12}\).
+- Uniform-depth frequencies, mapped eigenfunctions, and energy normalization converge to the independent depth-\(H\) solution within \(10^{-9}\).
+- Repeated dense construction is deterministic to \(10^{-13}\).
 
-## Milestone 5: No-PV and energy-work scientific gates
+## Milestone 5: Terrain modes and wave–balanced separation
 
-- [x] Complete
+- [ ] Complete — blocking scientific gate
 
 ### Purpose
 
-Demonstrate that the implemented source generates waves without directly generating linear interior QGPV and that its energetics reproduce the bottom pressure work.
+Demonstrate that the finite-terrain weak system produces physically admissible oscillatory and balanced modes before production optimization.
 
 ### Dependencies
 
@@ -189,35 +244,45 @@ Milestone 4.
 
 ### Deliverables
 
-- Verify that the isolated forcing has $F_0=0$ in the transform's independent coefficient layout.
-- Reconstruct the physical wave tendencies and evaluate their linear QGPV source with the transform's native derivative operators.
-- Compare the modal wave-energy tendency with the bottom work in WaveVortexModel's energy-per-density normalization,
+- Solve the complete dense generalized Hermitian problem
 
-```math
-P_b
-=
-\frac1A
-\int_A\frac{p_{w,d}}{\rho_0}g_b\,dA,
-```
+  ```math
+  iJ_\gamma\boldsymbol c_n
+  =
+  \Omega_nE_\gamma\boldsymbol c_n.
+  ```
 
-  where $p_{w,d}$ is the bottom pressure reconstructed from the evolving wave state.
-- Test deterministic random wave states, states reached during forced evolution, and both wave branches.
-- Verify amplitude scaling and the flat-terrain and zero-current limits independently.
+- Classify nonzero-frequency modes with \(Q_\gamma\) and retain the zero-frequency balanced complement, including bottom buoyancy.
+- Normalize modes in the finite-terrain energy and resolve degenerate eigenspaces by \(E_\gamma\)-orthogonalization.
+- Use sinusoidal terrain to verify leading Fourier selection and terrain-induced modal coupling.
+- Verify the oscillatory bottom relation
+
+  ```math
+  \sigma i\Omega\hat\eta_b
+  =
+  \boldsymbol u_{H,b}\boldsymbol{\cdot}\nabla_Hh.
+  ```
+
+- Recover a zero-mean pressure after convergence by fitting the strong momentum equations. Treat this as a diagnostic only.
+- Report strong horizontal and vertical momentum, continuity, surface, and physical-bottom residuals separately.
 
 ### Automated acceptance
 
-- The isolated balanced and modal QGPV tendencies are exactly zero. The independently differentiated physical linear-QGPV tendency is below $10^{-10}$ relative to its vorticity-plus-stretching cancellation scale.
-- Modal source power and bottom pressure work agree within $10^{-12}$ relative error for one RHS evaluation.
-- Terrain and current rescaling produce the corresponding linear source rescaling within $10^{-12}$.
-- Any failure of the PV or work identities blocks Milestone 6 and is resolved without empirical correction factors.
+- Terrain frequencies are real to \(10^{-10}\) relative accuracy.
+- Distinct-frequency modes are \(E_\gamma\)-orthogonal to \(10^{-10}\).
+- Nonzero-frequency modes have negligible APV at the spatial-discretization tolerance.
+- The balanced dimension and bottom-buoyancy freedom agree with the discrete state count.
+- Sinusoidal terrain produces the predicted Fourier couplings.
+- Bottom and strong-equation residuals decrease under horizontal and vertical refinement.
+- Failure of the APV, energy, bottom, or strong-residual gates blocks Milestone 6.
 
-## Milestone 6: Known-solution linear benchmark
+## Milestone 6: Residual-enriched terrain dressing
 
-- [x] Complete
+- [ ] Complete
 
 ### Purpose
 
-Validate the complete forcing and adaptive model evolution against an analytically integrated modal response.
+Construct selected terrain modes efficiently from flat nonhydrostatic seeds without diagonalizing the complete global dense problem.
 
 ### Dependencies
 
@@ -225,51 +290,29 @@ Milestone 5.
 
 ### Deliverables
 
-- Use
-
-```math
-[L_x,L_y,D]=[20,20,2]\ {\rm km},
-\qquad
-N^2=2\times10^{-5}\ {\rm s}^{-2},
-\qquad
-h(x)=50\ {\rm m}\cos(2\pi x/L_x),
-```
-
-  at latitude $45^\circ$, with a $5\ {\rm cm\,s^{-1}}$ $x$-directed M2 barotropic velocity and no startup ramp.
-- Use resolution `[8 4 5]` for the automated oracle and `[32 4 17]` for the default visual example.
-- Initialize from rest, remove nonlinear advection, and register only `WVBottomWaveGenerationForcing`.
-- Integrate the phase-inclusive forced coefficient equations analytically for every excited mode and use them as the reference solution.
-- Run `WVModel` with adaptive relative and absolute tolerances $10^{-6}$, $10^{-8}$, and $10^{-10}$.
-- Report coefficient error, wave-energy growth, integrated bottom work, QGPV, branch energy, and vertical-mode distribution without committing generated output.
-- Provide a user-facing example that returns the benchmark diagnostics and, by default, shows:
-  - exact-solution convergence, energy-work closure, branch energy, and vertical-mode distribution;
-  - the ridge, local bottom work density, vertical velocity, and displacement at the time of maximum exact wave energy.
+- Use the Milestone-3 flat nonhydrostatic Ritz modes as initial vectors.
+- Evaluate each seed's residual in the exact finite-terrain generalized eigenproblem.
+- Apply block residual corrections preconditioned by the flat signed-frequency operator.
+- Remove the complete degenerate or near-resonant flat eigenspace before applying the complementary inverse.
+- Include the bottom coefficient in the same correction, energy orthogonalization, and reduced Ritz solve.
+- Rediagonalize the exact reduced \((iJ_\gamma,E_\gamma)\) pair after every enrichment step.
+- Compare selective dressed modes with the complete dense terrain oracle.
 
 ### Automated acceptance
 
-- Only the terrain's horizontal Fourier pair is directly forced.
-- Coefficient errors decrease with adaptive tolerance and are below $10^{-8}$ at the tightest tolerance.
-- Integrated bottom work and wave-energy change agree within $10^{-8}$ at the tightest tolerance and converge together as tolerances tighten.
-- The balanced coefficient and linear QGPV norms remain below $10^{-10}$ of the wave response.
-- Both example figures render with finite plotted data and no generated files are required.
+- For weak nonresonant terrain, one correction reduces an \(O(h)\) seed residual to \(O(h^2)\), with observed terrain-amplitude order at least 1.8.
+- Degenerate tests converge only after the complete coupled block is included.
+- Residual norms decrease monotonically after accepted enrichment steps.
+- Repeated enrichment reproduces targeted dense eigenvalues and energy-normalized eigenspaces within \(10^{-9}\).
+- Dressed nonzero-frequency modes retain negligible APV and satisfy the bottom relation at the dense-oracle tolerance.
 
-## Milestone 7: Comparison with Pseudo-topography
+## Milestone 7: Matrix-free operator actions
 
-- [x] Skipped by decision
-
-### Status
-
-This optional comparison was intentionally skipped after the prescribed generator passed its direct scientific gates. It is not a dependency of the production implementation.
-
-No comparison code or dependency on `Pseudo-topography` is added.
-
-## Milestone 8: Generalization and production behavior
-
-- [x] Complete
+- [ ] Complete
 
 ### Purpose
 
-Extend the validated generator to practical terrain, stratification, resolution, persistence, and performance requirements without changing its scientific definition.
+Replace global dense terrain matrices with adjoint-consistent field reconstruction, terrain multiplication, and projection.
 
 ### Dependencies
 
@@ -277,31 +320,70 @@ Milestone 6.
 
 ### Deliverables
 
-- Support broadband periodic terrain and arbitrary stationary $N^2(z)$ available to `WVTransformBoussinesq`.
-- Add a deterministic periodic Goff abyssal-hill generator by adapting the validated implementation from `Pseudo-topography` without introducing a repository dependency.
-- Implement `forcingWithResolutionOfTransform` by resampling the authoritative terrain and rebuilding all modal projection factors for the new transform.
-- Verify explicit rebuilding for WaveVortexModel transforms created at alternate antialias resolutions.
-- Add restart persistence for the terrain, barotropic amplitude, frequency, ramp duration, start time, and forcing name; rebuild transform-derived response arrays after restoration.
-- Add a variable-stratification Goff-terrain model example showing the terrain spectrum, generated wave-energy distribution, and bottom-work budget.
-- Profile construction, storage, and runtime application at three resolutions.
-- Retain the pressure-free and matrix-free runtime path.
+- Implement matrix-free applications of \(E_\gamma\), \(J_\gamma\), and \(Q_\gamma\).
+- Unpack interior and bottom coordinates, reconstruct the mapped and physical fields, multiply by terrain and stratification weights on an oversampled grid, and project with the exact adjoints.
+- Use a default horizontal oversampling factor of two and permit larger factors for convergence studies.
+- Implement flat signed-frequency preconditioning and block iterative eigensolves.
+- Exploit preserved meridional wavenumber and Bloch classes when the terrain provides those symmetries.
+- Keep diagnostic pressure recovery outside ordinary operator applications.
 
 ### Automated acceptance
 
-- The optimized response agrees with the direct-quadrature oracle within $10^{-10}$ at reference resolution for constant and variable stratification.
-- Resolution conversion preserves forcing phase, conjugacy, and the zero-PV identity.
-- Restart round trips reproduce forcing tendencies within $10^{-12}$.
-- Adaptive continuation after restart agrees with an uninterrupted control within $10^{-10}$ in the stored wave coefficients.
-- The Goff generator reproduces its requested statistics and cutoff, is deterministic without changing the global random state, and its example renders finite diagnostics without generated files.
-- Runtime application contains only scalar current evaluation, componentwise phase factors, and additions of precomputed wave arrays.
+- Matrix-free actions agree with the dense oracle within \(10^{-10}\) at reference resolution.
+- Matrix-free energy and exchange actions satisfy their adjoint identities within \(10^{-12}\).
+- Matrix-free Ritz values, eigenspaces, APV, and residual histories reproduce the dense results.
+- Results converge independently with Fourier resolution, vertical modes, oversampling factor, and dressing iterations.
+- Runtime operator applications allocate no global dense terrain matrix and perform no pressure solve.
 
-## Milestone 9: Optional autonomous wave scattering
+## Milestone 8: Energy-preserving linear evolution and examples
 
-- [x] Complete
+- [ ] Complete
 
 ### Purpose
 
-Extend the validated additive generator to first-order scattering of an evolving zero-interior-APV wave field.
+Evolve finite-terrain states without converting the weak system into an additive flat forcing.
+
+### Dependencies
+
+Milestone 7.
+
+### Deliverables
+
+- Evolve resolved terrain modes by exact phase multiplication:
+
+  ```math
+  A_n(t)=A_n(0)e^{-i\Omega_nt}.
+  ```
+
+- Evolve broader mixed states with the midpoint/Cayley step
+
+  ```math
+  \left(E_\gamma-\frac{\Delta t}{2}J_\gamma\right)\boldsymbol a^{n+1}
+  =
+  \left(E_\gamma+\frac{\Delta t}{2}J_\gamma\right)\boldsymbol a^n.
+  ```
+
+- Use the flat energy and signed-frequency operator as the iterative-solve preconditioner.
+- Convert between Galerkin states and WaveVortexModel field and coefficient conventions at initialization and output.
+- Add uniform-depth, sinusoidal-terrain, and Gaussian-ridge examples showing modal scattering, physical \(x\)–\(z\) fields, bottom displacement, APV, and finite-terrain energy.
+- Report operator, eigensolver, and time-integration errors separately.
+
+### Automated acceptance
+
+- Terrain-mode phase evolution agrees with direct matrix exponentiation at low resolution.
+- Cayley evolution conserves \(\boldsymbol a^*E_\gamma\boldsymbol a/2\) to the linear-solver tolerance.
+- The uniform-depth evolution agrees with the independent exact depth-\(H\) solution.
+- Sinusoidal and Gaussian examples converge with time step, horizontal resolution, vertical modes, and dressing iterations.
+- Nonzero-frequency evolution remains in the discrete zero-APV wave space.
+- Ordinary time stepping performs no diagnostic pressure solve.
+
+## Milestone 9: Research-production behavior
+
+- [ ] Complete
+
+### Purpose
+
+Add the resolution, persistence, performance, and broadband capabilities required for repeatable research calculations.
 
 ### Dependencies
 
@@ -309,52 +391,35 @@ Milestone 8.
 
 ### Deliverables
 
-- Reconstruct the instantaneous bottom fields of the wave state and evaluate
-
-```math
-g_b
-=
-\boldsymbol u_{H,d}\boldsymbol{\cdot}\nabla_Hh
--
-h\,\partial_zw_d.
-```
-
-- Add a separate `WVBottomWaveScatteringForcing` subclass so prescribed generation and autonomous scattering retain distinct scientific contracts.
-- Reconstruct only the wave contribution to the instantaneous bottom fields and ignore any nonzero balanced coefficients.
-- Apply the same pressure-weighted projection only to $A_+$ and $A_-$ while leaving the incoming $F_0$ unchanged.
-- Treat bottom displacement as a postprocessed diagnostic rather than a prognostic model variable.
-- Implement `WVBottomWaveScatteringForcing.bottomDisplacementFromFile` to read accepted `t`, `Ap`, and `Am` samples from the standard `wave-vortex` NetCDF group and integrate
-
-```math
-\partial_t\eta_d=g_b
-```
-
-  by cumulative trapezoidal quadrature in horizontal Fourier space.
-- Verify the sinusoidal-terrain sideband rule $\boldsymbol K\mapsto\boldsymbol K\pm\boldsymbol q$ and linear leading-order dependence on terrain amplitude.
-- Evaluate the first-order physical energy and verify that the autonomously iterated model's residual scales as $O(h^2)$.
-- Add a uniform-depth frequency-shift benchmark and a sinusoidal-ridge model example with bottom-displacement figures.
+- Support arbitrary stationary stratification and broadband periodic terrain through the already validated generalized forms.
+- Reuse the deterministic Goff terrain generator from the mean-depth implementation without reusing its forcing operator.
+- Rebuild geometry, basis functions, and operator state when the target transform resolution changes.
+- Add restartable NetCDF output for canonical inputs, Galerkin coefficients, bottom coefficients, time, basis metadata, and construction version.
+- Add selective terrain-mode and broad-state restart continuation.
+- Benchmark construction, memory, eigensolve, reconstruction, and one online evolution step at three resolutions.
+- Preserve the pressure-free online path and distinguish diagonal terrain-mode evolution from matrix-free Cayley evolution in performance reports.
 
 ### Automated acceptance
 
-- Direct linear interior QGPV remains zero to $10^{-12}$.
-- Leading sidebands scale linearly with terrain amplitude, while the first-order energy residual converges quadratically.
-- A uniform bottom offset reproduces the exact depth-$D-h_0$ wave-frequency shift through first order, with an $O(h_0^2)$ residual.
-- Bottom displacement reconstructed from standard model output agrees with an analytic harmonic integral and converges at second order with output interval.
-- Resolution conversion, explicit antialias rebuilding, forcing persistence, and adaptive restart continuation preserve the autonomous forcing.
-- Both autonomous examples render finite diagnostics and use the default adaptive integration path.
-- Dynamic barotropic backreaction, independent bottom buoyancy, nonlinear terrain dynamics, and finite-amplitude exactness remain explicitly unsupported.
+- Repeated construction is deterministic and resolution rebuilding preserves conjugacy, energy normalization, and APV classification.
+- Restart continuation matches uninterrupted evolution to \(10^{-10}\) in energy-normalized coefficients.
+- Broadband and variable-stratification calculations retain the structural, energy, APV, and strong-residual gates.
+- Benchmarks report construction time, peak stored state, operator-application time, iteration counts, and reconstruction time.
+- Selective terrain-mode evolution reduces to phase multiplication and reconstruction.
+- Broad-state evolution reduces to matrix-free \(E_\gamma\) and \(J_\gamma\) actions plus preconditioned Cayley solves.
 
 ## Planning and implementation cadence
 
-- Plan and implement Milestones 1--4 together as the first executable vertical slice.
-- Plan Milestones 5--6 together after the forcing callback passes its algebraic tests. Milestone 5 is a blocking scientific gate.
-- Proceed directly from Milestone 6 to Milestone 8; Milestone 7 is intentionally skipped.
-- Treat Milestone 9 as a separate extension; it is not required to establish the prescribed bottom wave generator.
+- **Batch A — Milestones 1–3.** Plan these milestones together and implement them sequentially. Milestone 3 is a blocking scientific gate: stop if the mixed hydrostatic basis does not accurately and stably recover the flat nonhydrostatic transform.
+- **Batch B — Milestones 4–6.** Plan only after the flat gate passes. Establish the complete dense finite-terrain oracle before implementing selective residual dressing. Milestone 5 is the second blocking gate.
+- **Batch C — Milestones 7–9.** Plan only after the dense terrain modes and residual-enrichment tests pass. Implement matrix-free actions before online evolution, resolution rebuilding, or persistence.
+- Use one focused commit per completed milestone and retain the acceptance evidence in the automated tests and examples.
+- Do not bypass a blocking gate by symmetrizing a scientifically incorrect operator or by introducing empirical correction factors.
 
 ## Definition of done
 
-The initial proof of concept is complete when Milestones 1--6 pass: the spectral forcing agrees with the Green-identity oracle, directly forces no balanced coefficient or linear QGPV, reproduces bottom pressure work, and converges to the analytic sinusoidal-terrain response under adaptive integration.
+The scientific proof of concept is established when Milestones 1–6 pass: the mixed basis recovers the flat nonhydrostatic modes, the dense finite-terrain forms have the correct energy structure, oscillatory modes have negligible APV and satisfy the physical bottom condition, and residual dressing converges to the dense oracle.
 
-The prescribed generator is production-ready for research use when Milestone 8 passes. The optional autonomous first-order extension is complete when Milestone 9 passes. Promotion into WaveVortexModel, an MPM release, dynamic barotropic backreaction, independent bottom buoyancy, nonlinear terrain dynamics, and exact finite-amplitude topography remain outside this roadmap.
+The research implementation is complete when Milestones 7–9 pass: matrix-free actions reproduce the oracle, linear evolution preserves finite-terrain energy, the uniform-depth and scattering examples converge, and restartable broadband calculations require no diagnostic pressure solve during ordinary evolution.
 
-Development of a strict second Born hierarchy continues in the separate [second-order scattering roadmap](second-order-milestones.md). The completed milestones in this document remain the scientific and engineering baseline for that work.
+Nonlinear terrain dynamics, an additive terrain `WVForcing`, an MPM release, modifications to WaveVortexModel, independent surface buoyancy, and dynamic barotropic backreaction remain outside this roadmap.

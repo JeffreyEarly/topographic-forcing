@@ -1,5 +1,7 @@
 # Mean-depth bottom wave generation
 
+> **Development branch:** `terrain-energy-galerkin` is the workspace for the pressure-free, finite-terrain-energy Galerkin system described in the active [terrain-energy roadmap](milestones.md). The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
+
 `topographic-forcing` provides a fast, first-order bottom wave generator for WaveVortexModel. The formulation retains the ordinary rigid-lid wave--vortex basis and represents weak topography through the mean-depth bottom condition.
 
 For a prescribed, horizontally uniform barotropic current, the bottom velocity is
@@ -43,9 +45,9 @@ The constructor precomputes the bottom-pressure projection on the transform's na
 
 `forcingWithResolutionOfTransform` spectrally transfers the terrain and rebuilds all modal responses for the new transform. The physical forcing configuration is also included when its parent transform or model is written to NetCDF; transform-derived response arrays are rebuilt after restoration.
 
-Milestones 1--6, 8, and 9 of the development [roadmap](milestones.md) are implemented on the `mean-depth-wave-generator` branch. The optional comparison in Milestone 7 was intentionally skipped.
+Milestones 1--6, 8, and 9 of the archived [mean-depth development roadmap](mean-depth-wave-generator-milestones.md) are implemented on the `mean-depth-wave-generator` branch. The optional comparison in Milestone 7 was intentionally skipped.
 
-A separate [second-order roadmap](second-order-milestones.md) specifies the strict second Born hierarchy, its endpoint-convergence gate, and the tests required before it can be presented as a physical $O(h^2)$ scattering approximation. That hierarchy is planned work and is not part of the current forcing classes.
+A separate [second-order roadmap](second-order-milestones.md) records a possible extension of the mean-depth scattering approach. That hierarchy is planned work and is not part of the current forcing classes or the terrain-energy Galerkin roadmap.
 
 The scientific and computational status of the earlier repositories and branches is summarized in [PRIOR_APPROACHES.md](PRIOR_APPROACHES.md).
 
