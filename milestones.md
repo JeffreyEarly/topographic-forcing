@@ -297,7 +297,7 @@ Milestone 6.
 
 ## Milestone 9: Optional autonomous wave scattering
 
-- [ ] Complete
+- [x] Complete
 
 ### Purpose
 
@@ -319,16 +319,29 @@ g_b
 h\,\partial_zw_d.
 ```
 
-- Apply the same pressure-weighted projection only to $A_+$ and $A_-$.
-- Advance the separate bottom displacement diagnostic with $\partial_t\eta_d=g_b$.
+- Add a separate `WVBottomWaveScatteringForcing` subclass so prescribed generation and autonomous scattering retain distinct scientific contracts.
+- Reconstruct only the wave contribution to the instantaneous bottom fields and ignore any nonzero balanced coefficients.
+- Apply the same pressure-weighted projection only to $A_+$ and $A_-$ while leaving the incoming $F_0$ unchanged.
+- Treat bottom displacement as a postprocessed diagnostic rather than a prognostic model variable.
+- Implement `WVBottomWaveScatteringForcing.bottomDisplacementFromFile` to read accepted `t`, `Ap`, and `Am` samples from the standard `wave-vortex` NetCDF group and integrate
+
+```math
+\partial_t\eta_d=g_b
+```
+
+  by cumulative trapezoidal quadrature in horizontal Fourier space.
 - Verify the sinusoidal-terrain sideband rule $\boldsymbol K\mapsto\boldsymbol K\pm\boldsymbol q$ and linear leading-order dependence on terrain amplitude.
 - Evaluate the first-order physical energy and verify that the autonomously iterated model's residual scales as $O(h^2)$.
+- Add a uniform-depth frequency-shift benchmark and a sinusoidal-ridge model example with bottom-displacement figures.
 
 ### Automated acceptance
 
 - Direct linear interior QGPV remains zero to $10^{-12}$.
 - Leading sidebands scale linearly with terrain amplitude, while the first-order energy residual converges quadratically.
-- The bottom displacement diagnostic agrees with the time integral of $g_b$.
+- A uniform bottom offset reproduces the exact depth-$D-h_0$ wave-frequency shift through first order, with an $O(h_0^2)$ residual.
+- Bottom displacement reconstructed from standard model output agrees with an analytic harmonic integral and converges at second order with output interval.
+- Resolution conversion, explicit antialias rebuilding, forcing persistence, and adaptive restart continuation preserve the autonomous forcing.
+- Both autonomous examples render finite diagnostics and use the default adaptive integration path.
 - Dynamic barotropic backreaction, independent bottom buoyancy, nonlinear terrain dynamics, and finite-amplitude exactness remain explicitly unsupported.
 
 ## Planning and implementation cadence
@@ -342,4 +355,4 @@ h\,\partial_zw_d.
 
 The initial proof of concept is complete when Milestones 1--6 pass: the spectral forcing agrees with the Green-identity oracle, directly forces no balanced coefficient or linear QGPV, reproduces bottom pressure work, and converges to the analytic sinusoidal-terrain response under adaptive integration.
 
-The prescribed generator is production-ready for research use when Milestone 8 passes. Promotion into WaveVortexModel, an MPM release, dynamic barotropic backreaction, independent bottom buoyancy, nonlinear terrain dynamics, and exact finite-amplitude topography remain outside this roadmap.
+The prescribed generator is production-ready for research use when Milestone 8 passes. The optional autonomous first-order extension is complete when Milestone 9 passes. Promotion into WaveVortexModel, an MPM release, dynamic barotropic backreaction, independent bottom buoyancy, nonlinear terrain dynamics, and exact finite-amplitude topography remain outside this roadmap.

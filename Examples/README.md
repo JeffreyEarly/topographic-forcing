@@ -50,3 +50,27 @@ benchmark = BottomWaveGenerationPerformanceBenchmark;
 ```
 
 The returned table reports construction time, application time, active wave coefficients, and estimated stored response bytes at three resolutions. Timings are intended for comparisons on the same machine and are not fixed acceptance thresholds.
+
+## Uniform-depth wave scattering
+
+Run the autonomous-scattering frequency oracle with:
+
+```matlab
+result = UniformDepthWaveScatteringBenchmark;
+```
+
+A uniform upward-positive bottom offset changes the physical depth from $D$ to $D-h_0$. The example constructs the first-order physical coefficient generator, compares its eigenfrequency with the exact constant-depth dispersion relation at three values of $h_0$, and confirms the expected $O(h_0^2)$ difference. It also integrates a coupled eigenvector with adaptive `ode78` and compares the resulting wave coefficients with a matrix exponential.
+
+The default figure shows the frequency correction and its second-order error. Use `shouldMakeFigures=false`, `resolution`, `topographicHeights`, or `relativeTolerance` to configure the benchmark.
+
+## Sinusoidal-ridge wave scattering
+
+Run a complete autonomous calculation with:
+
+```matlab
+result = SinusoidalRidgeWaveScatteringExample;
+```
+
+The example initializes one $+$-branch internal wave, scatters it from a sinusoidal ridge, and shows the incident mode, the $k\pm k_h$ sidebands, and the flat and first-order physical energy histories. A second figure shows the final bottom velocity and bottom displacement.
+
+The model uses the adaptive integrator and standard WaveVortexModel NetCDF output. After the run, `WVBottomWaveScatteringForcing.bottomDisplacementFromFile` reconstructs the bottom displacement from the saved `wave-vortex` coefficients; no extra prognostic displacement is added to the model. Temporary output is deleted automatically. Pass `outputPath` to retain the file, or use `resolution`, `numberOfWavePeriods`, `numberOfOutputTimes`, `relativeTolerance`, `shouldAntialias`, and `shouldMakeFigures` to configure the run.
