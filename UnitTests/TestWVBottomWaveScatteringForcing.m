@@ -37,8 +37,8 @@ classdef TestWVBottomWaveScatteringForcing < matlab.unittest.TestCase
             testCase.verifyError(@()WVBottomWaveScatteringForcing(wvt,topographicHeight=terrain),"WVBottomWaveScatteringForcing:InvalidTopographicHeight")
             terrain(1) = 0;
             testCase.verifyError(@()WVBottomWaveScatteringForcing(wvt,topographicHeight=terrain,name=""),"WVBottomWaveScatteringForcing:InvalidName")
-            hydrostatic = WVTransformHydrostatic([wvt.Lx wvt.Ly wvt.Lz],[wvt.Nx wvt.Ny wvt.Nz],N2=@(z)2e-5*ones(size(z)),latitude=45,shouldAntialias=false);
-            testCase.verifyError(@()WVBottomWaveScatteringForcing(hydrostatic,topographicHeight=terrain),"WVBottomWaveScatteringForcing:UnsupportedTransform")
+            barotropic = WVTransformBarotropicQG([wvt.Lx wvt.Ly],[wvt.Nx wvt.Ny],latitude=45,shouldAntialias=false);
+            testCase.verifyError(@()WVBottomWaveScatteringForcing(barotropic,topographicHeight=terrain),"WVBottomWaveScatteringForcing:UnsupportedTransform")
         end
 
         function directProjectionAndNoPV(testCase)
@@ -321,25 +321,25 @@ classdef TestWVBottomWaveScatteringForcing < matlab.unittest.TestCase
             directFp = complex(zeros(size(wvt.Ap)));
             directFm = complex(zeros(size(wvt.Am)));
             [~,iBottom] = min(wvt.z);
-            x = reshape(wvt.x,[],1);
-            y = reshape(wvt.y,1,[]);
+            gBottomTransform = wvt.transformFromSpatialDomainWithFourier(repmat(gBottom,1,1,wvt.Nz));
+            gBottomFourier = gBottomTransform(1,:);
             for index = reshape(find(wvt.waveComponent.maskAp),1,[])
                 [~,iHorizontal] = ind2sub(size(wvt.Ap),index);
                 coefficient = complex(zeros(size(wvt.Ap)));
                 coefficient(index) = wvt.NAp(index);
-                pressureFourier = wvt.g*wvt.transformToSpatialDomainWithFw(coefficient);
+                pressure = wvt.g*wvt.transformToSpatialDomainWithF(Apm=coefficient);
+                pressureFourier = wvt.transformFromSpatialDomainWithFourier(pressure);
                 pressureBottom = pressureFourier(iBottom,iHorizontal)*wvt.phase(index);
-                pressurePlane = pressureBottom*exp(1i*(wvt.K(index)*x+wvt.L(index)*y));
-                directFp(index) = mean(conj(pressurePlane).*gBottom,"all")/wvt.Apm_TE_factor(index);
+                directFp(index) = conj(pressureBottom)*gBottomFourier(iHorizontal)/wvt.Apm_TE_factor(index);
             end
             for index = reshape(find(wvt.waveComponent.maskAm),1,[])
                 [~,iHorizontal] = ind2sub(size(wvt.Am),index);
                 coefficient = complex(zeros(size(wvt.Am)));
                 coefficient(index) = wvt.NAm(index);
-                pressureFourier = wvt.g*wvt.transformToSpatialDomainWithFw(coefficient);
+                pressure = wvt.g*wvt.transformToSpatialDomainWithF(Apm=coefficient);
+                pressureFourier = wvt.transformFromSpatialDomainWithFourier(pressure);
                 pressureBottom = pressureFourier(iBottom,iHorizontal)*wvt.conjPhase(index);
-                pressurePlane = pressureBottom*exp(1i*(wvt.K(index)*x+wvt.L(index)*y));
-                directFm(index) = mean(conj(pressurePlane).*gBottom,"all")/wvt.Apm_TE_factor(index);
+                directFm(index) = conj(pressureBottom)*gBottomFourier(iHorizontal)/wvt.Apm_TE_factor(index);
             end
         end
 

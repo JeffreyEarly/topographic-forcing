@@ -16,7 +16,8 @@ for index = reshape(find(wvt.waveComponent.maskAp),1,[])
     [~,iHorizontal] = ind2sub(size(wvt.Ap),index);
     coefficient = complex(zeros(size(wvt.Ap)));
     coefficient(index) = wvt.NAp(index);
-    pressureFourier = wvt.g*wvt.transformToSpatialDomainWithFw(coefficient);
+    pressure = wvt.g*wvt.transformToSpatialDomainWithF(Apm=coefficient);
+    pressureFourier = wvt.transformFromSpatialDomainWithFourier(pressure);
     pressureBottom = pressureFourier(iBottom,iHorizontal)*wvt.phase(index);
     pressurePlane = pressureBottom*exp(1i*(wvt.K(index)*x+wvt.L(index)*y));
     directFp(index) = mean(conj(pressurePlane).*gBottom,"all")/wvt.Apm_TE_factor(index);
@@ -27,7 +28,8 @@ for index = reshape(find(wvt.waveComponent.maskAm),1,[])
     [~,iHorizontal] = ind2sub(size(wvt.Am),index);
     coefficient = complex(zeros(size(wvt.Am)));
     coefficient(index) = wvt.NAm(index);
-    pressureFourier = wvt.g*wvt.transformToSpatialDomainWithFw(coefficient);
+    pressure = wvt.g*wvt.transformToSpatialDomainWithF(Apm=coefficient);
+    pressureFourier = wvt.transformFromSpatialDomainWithFourier(pressure);
     pressureBottom = pressureFourier(iBottom,iHorizontal)*wvt.conjPhase(index);
     pressurePlane = pressureBottom*exp(1i*(wvt.K(index)*x+wvt.L(index)*y));
     directFm(index) = mean(conj(pressurePlane).*gBottom,"all")/wvt.Apm_TE_factor(index);

@@ -52,9 +52,12 @@ classdef WVBottomWaveScatteringForcing < WVForcing
         function self = WVBottomWaveScatteringForcing(wvt,options)
             % Create an autonomous first-order wave-scattering forcing.
             %
+            % The transform must contain a wave component and implement
+            % `waveModeVerticalStructureAtIndex`.
+            %
             % - Topic: Create the forcing
             % - Declaration: forcing = WVBottomWaveScatteringForcing(wvt,options)
-            % - Parameter wvt: `WVTransformBoussinesq` receiving the forcing
+            % - Parameter wvt: supported wave-bearing `WVTransform` receiving the forcing
             % - Parameter options.topographicHeight: real stationary terrain of size $$N_x\times N_y$$ in meters
             % - Parameter options.name: forcing name registered with the transform
             % - Returns forcing: configured `WVBottomWaveScatteringForcing`
@@ -64,8 +67,8 @@ classdef WVBottomWaveScatteringForcing < WVForcing
                 options.name (1,1) string = "bottom wave scattering"
             end
 
-            if ~isa(wvt,"WVTransformBoussinesq")
-                error("WVBottomWaveScatteringForcing:UnsupportedTransform", "WVBottomWaveScatteringForcing currently supports only WVTransformBoussinesq.")
+            if ~WVBottomWaveScatteringForcing.isSupportedTransform(wvt)
+                error("WVBottomWaveScatteringForcing:UnsupportedTransform", "WVBottomWaveScatteringForcing requires a wave-bearing transform that implements waveModeVerticalStructureAtIndex.")
             end
             if ~isequal(size(options.topographicHeight),[wvt.Nx wvt.Ny])
                 error("WVBottomWaveScatteringForcing:InvalidTopographicHeightSize", "topographicHeight must have size [%d %d], matching the transform horizontal grid.", wvt.Nx, wvt.Ny)
@@ -135,7 +138,7 @@ classdef WVBottomWaveScatteringForcing < WVForcing
             %
             % - Topic: Create the forcing
             % - Declaration: forcing = forcingWithResolutionOfTransform(wvtX2)
-            % - Parameter wvtX2: compatible `WVTransformBoussinesq` at the target resolution
+            % - Parameter wvtX2: compatible supported transform at the target resolution
             % - Returns forcing: equivalent forcing rebuilt for `wvtX2`
             arguments (Input)
                 self WVBottomWaveScatteringForcing {mustBeNonempty}
@@ -145,8 +148,8 @@ classdef WVBottomWaveScatteringForcing < WVForcing
                 forcing WVBottomWaveScatteringForcing
             end
 
-            if ~isa(wvtX2,"WVTransformBoussinesq")
-                error("WVBottomWaveScatteringForcing:UnsupportedTransform", "WVBottomWaveScatteringForcing currently supports only WVTransformBoussinesq.")
+            if ~WVBottomWaveScatteringForcing.isSupportedTransform(wvtX2)
+                error("WVBottomWaveScatteringForcing:UnsupportedTransform", "WVBottomWaveScatteringForcing requires a wave-bearing transform that implements waveModeVerticalStructureAtIndex.")
             end
             if ~isequal([self.wvt.Lx self.wvt.Ly self.wvt.Lz],[wvtX2.Lx wvtX2.Ly wvtX2.Lz])
                 error("WVBottomWaveScatteringForcing:IncompatibleDomain", "Resolution conversion requires transforms with identical domain dimensions.")
@@ -215,7 +218,7 @@ classdef WVBottomWaveScatteringForcing < WVForcing
 
         function requireOriginatingTransform(self,wvt)
             if wvt ~= self.wvt
-                error("WVBottomWaveScatteringForcing:TransformMismatch", "The forcing can only be evaluated with the WVTransformBoussinesq instance used during construction.")
+                error("WVBottomWaveScatteringForcing:TransformMismatch", "The forcing can only be evaluated with the WVTransform instance used during construction.")
             end
         end
     end
@@ -223,14 +226,7 @@ classdef WVBottomWaveScatteringForcing < WVForcing
     methods (Static, Access = private)
         function [bottomF,bottomGz,pressureProjectionPlus,pressureProjectionMinus] = buildEndpointFactors(wvt)
             [~,iBottom] = min(wvt.z);
-            bottomF = zeros(size(wvt.Ap));
-            bottomGz = zeros(size(wvt.Ap));
-            derivativeG = wvt.PF0inv*(squeeze(wvt.P0./(wvt.Q0.*wvt.h_0)).*wvt.QG0);
-            for iK = 1:numel(wvt.K2unique)
-                indices = wvt.K2uniqueK2Map{iK};
-                bottomF(:,indices) = repmat(reshape(wvt.PFpmInv(iBottom,:,iK),[],1).*wvt.Ppm(:,iK),1,numel(indices));
-                bottomGz(:,indices) = repmat(reshape(derivativeG(iBottom,:)*wvt.QGpmInv(:,:,iK),[],1).*wvt.Qpm(:,iK),1,numel(indices));
-            end
+            [bottomF,bottomGz] = wvt.waveModeVerticalStructureAtIndex(iBottom);
 
             pressurePlus = wvt.g*bottomF.*wvt.NAp;
             pressureMinus = wvt.g*bottomF.*wvt.NAm;
@@ -240,6 +236,10 @@ classdef WVBottomWaveScatteringForcing < WVForcing
             maskMinus = logical(wvt.waveComponent.maskAm);
             pressureProjectionPlus(maskPlus) = conj(pressurePlus(maskPlus))./wvt.Apm_TE_factor(maskPlus);
             pressureProjectionMinus(maskMinus) = conj(pressureMinus(maskMinus))./wvt.Apm_TE_factor(maskMinus);
+        end
+
+        function tf = isSupportedTransform(wvt)
+            tf = wvt.hasWaveComponent && ismethod(wvt,"waveModeVerticalStructureAtIndex");
         end
 
         function [primaryDFTIndex,conjugateDFTIndex,conjugateWVIndex] = horizontalFourierIndices(wvt)
@@ -279,7 +279,7 @@ classdef WVBottomWaveScatteringForcing < WVForcing
                 diagnostics (1,1) struct
             end
 
-            [wvt,ncfile] = WVTransformBoussinesq.waveVortexTransformFromFile(char(path),iTime=1,shouldReadOnly=true);
+            [wvt,ncfile] = WVTransform.waveVortexTransformFromFile(char(path),iTime=1,shouldReadOnly=true);
             fileCleanup = onCleanup(@()ncfile.close());
             if ~ncfile.hasGroupWithName("wave-vortex")
                 error("WVBottomWaveScatteringForcing:MissingOutputGroup", "The file does not contain the standard 'wave-vortex' output group.")

@@ -27,7 +27,7 @@ The prescribed barotropic current is an external energy reservoir. Wave energy i
 
 ## Quick start
 
-Construct a `WVTransformBoussinesq`, prescribe the terrain and complex barotropic velocity amplitude, and register the spectral forcing:
+Construct a supported wave-bearing transform, prescribe the terrain and complex barotropic velocity amplitude, and register the spectral forcing:
 
 ```matlab
 forcing = WVBottomWaveGenerationForcing(wvt, ...
@@ -39,7 +39,7 @@ wvt.addForcing(forcing);
 
 The velocity amplitude is the complex two-component vector $\widehat{\boldsymbol U}_{\mathrm{bt}}$ in meters per second. The default frequency is M2; `frequency`, `rampDuration`, `startTime`, and `name` are optional constructor arguments.
 
-The constructor precomputes the bottom-pressure projection on the transform's native spectral layout. It supports any stationary stratification represented by `WVTransformBoussinesq`. Each subsequent forcing call evaluates the prescribed current, combines two response arrays per wave branch, and applies WaveVortexModel's interaction phases. There is no runtime pressure solve, FFT, spatial projection, or modal coupling matrix. Transforms with either value of `shouldAntialias` are supported.
+The constructor precomputes the bottom-pressure projection on the transform's native spectral layout. It supports `WVTransformBoussinesq`, both hydrostatic and nonhydrostatic `WVTransformConstantStratification` configurations, and `WVTransformHydrostatic`. These transforms provide their optimized modal endpoint factors through WaveVortexModel's `waveModeVerticalStructureAtIndex` API. Each subsequent forcing call evaluates the prescribed current, combines two response arrays per wave branch, and applies WaveVortexModel's interaction phases. There is no runtime pressure solve, FFT, spatial projection, or modal coupling matrix. Transforms with either value of `shouldAntialias` are supported.
 
 `forcingWithResolutionOfTransform` spectrally transfers the terrain and rebuilds all modal responses for the new transform. The physical forcing configuration is also included when its parent transform or model is written to NetCDF; transform-derived response arrays are rebuilt after restoration.
 
@@ -102,7 +102,7 @@ wvt.removeAllForcing();
 wvt.addForcing(scattering);
 ```
 
-The ordinary forcing call reconstructs only the three required bottom fields, performs horizontal pseudospectral products, and projects the resulting bottom velocity. It does not evaluate full three-dimensional fields, solve for pressure, assemble a modal terrain matrix, or modify the balanced tendency.
+The ordinary forcing call reconstructs only the three required bottom fields, performs horizontal pseudospectral products, and projects the resulting bottom velocity. It supports the same Boussinesq, constant-stratification, and hydrostatic transforms as the generation forcing through WaveVortexModel's endpoint-factor API. It does not evaluate full three-dimensional fields, solve for pressure, assemble a modal terrain matrix, or modify the balanced tendency.
 
 Bottom displacement is a postprocessed diagnostic rather than a model state. Save ordinary WaveVortexModel output and integrate the saved bottom velocity with:
 

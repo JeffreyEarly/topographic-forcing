@@ -44,8 +44,8 @@ classdef TestWVBottomWaveGenerationForcing < matlab.unittest.TestCase
             testCase.verifyError(@()WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0],startTime=NaN),"WVBottomWaveGenerationForcing:InvalidStartTime")
             testCase.verifyError(@()WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0],name=""),"WVBottomWaveGenerationForcing:InvalidName")
 
-            hydrostatic = WVTransformHydrostatic([wvt.Lx wvt.Ly wvt.Lz],[wvt.Nx wvt.Ny wvt.Nz],N2=@(z)2e-5*ones(size(z)),latitude=45,shouldAntialias=false);
-            testCase.verifyError(@()WVBottomWaveGenerationForcing(hydrostatic,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0]),"WVBottomWaveGenerationForcing:UnsupportedTransform")
+            barotropic = WVTransformBarotropicQG([wvt.Lx wvt.Ly],[wvt.Nx wvt.Ny],latitude=45,shouldAntialias=false);
+            testCase.verifyError(@()WVBottomWaveGenerationForcing(barotropic,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0]),"WVBottomWaveGenerationForcing:UnsupportedTransform")
             variableN2 = WVTransformBoussinesq([wvt.Lx wvt.Ly wvt.Lz],[wvt.Nx wvt.Ny wvt.Nz],N2=@(z)2e-5*exp(z/4000),latitude=45,shouldAntialias=false);
             variableForcing = WVBottomWaveGenerationForcing(variableN2,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0]);
             testCase.verifyClass(variableForcing,"WVBottomWaveGenerationForcing")

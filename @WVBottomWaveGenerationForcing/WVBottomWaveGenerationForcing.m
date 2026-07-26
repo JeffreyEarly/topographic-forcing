@@ -84,11 +84,12 @@ classdef WVBottomWaveGenerationForcing < WVForcing
             %
             % The default frequency is the M2 tidal frequency. A zero ramp
             % duration activates the harmonic current immediately at
-            % `startTime`.
+            % `startTime`. The transform must contain a wave component and
+            % implement `waveModeVerticalStructureAtIndex`.
             %
             % - Topic: Create the forcing
             % - Declaration: forcing = WVBottomWaveGenerationForcing(wvt,options)
-            % - Parameter wvt: `WVTransformBoussinesq` receiving the forcing
+            % - Parameter wvt: supported wave-bearing `WVTransform` receiving the forcing
             % - Parameter options.topographicHeight: real stationary terrain of size $$N_x\times N_y$$ in meters
             % - Parameter options.barotropicVelocityAmplitude: finite complex two-component velocity amplitude in meters per second
             % - Parameter options.frequency: positive angular frequency in radians per second
@@ -106,8 +107,8 @@ classdef WVBottomWaveGenerationForcing < WVForcing
                 options.name (1,1) string = "bottom wave generation"
             end
 
-            if ~isa(wvt,"WVTransformBoussinesq")
-                error("WVBottomWaveGenerationForcing:UnsupportedTransform", "WVBottomWaveGenerationForcing currently supports only WVTransformBoussinesq.")
+            if ~WVBottomWaveGenerationForcing.isSupportedTransform(wvt)
+                error("WVBottomWaveGenerationForcing:UnsupportedTransform", "WVBottomWaveGenerationForcing requires a wave-bearing transform that implements waveModeVerticalStructureAtIndex.")
             end
             if ~isequal(size(options.topographicHeight),[wvt.Nx wvt.Ny])
                 error("WVBottomWaveGenerationForcing:InvalidTopographicHeightSize", "topographicHeight must have size [%d %d], matching the transform horizontal grid.", wvt.Nx, wvt.Ny)
@@ -217,7 +218,7 @@ classdef WVBottomWaveGenerationForcing < WVForcing
             %
             % - Topic: Create the forcing
             % - Declaration: forcing = forcingWithResolutionOfTransform(wvtX2)
-            % - Parameter wvtX2: compatible `WVTransformBoussinesq` at the target resolution
+            % - Parameter wvtX2: compatible supported transform at the target resolution
             % - Returns forcing: equivalent forcing rebuilt for `wvtX2`
             arguments (Input)
                 self WVBottomWaveGenerationForcing {mustBeNonempty}
@@ -227,8 +228,8 @@ classdef WVBottomWaveGenerationForcing < WVForcing
                 forcing WVBottomWaveGenerationForcing
             end
 
-            if ~isa(wvtX2,"WVTransformBoussinesq")
-                error("WVBottomWaveGenerationForcing:UnsupportedTransform", "WVBottomWaveGenerationForcing currently supports only WVTransformBoussinesq.")
+            if ~WVBottomWaveGenerationForcing.isSupportedTransform(wvtX2)
+                error("WVBottomWaveGenerationForcing:UnsupportedTransform", "WVBottomWaveGenerationForcing requires a wave-bearing transform that implements waveModeVerticalStructureAtIndex.")
             end
             if ~isequal([self.wvt.Lx self.wvt.Ly self.wvt.Lz],[wvtX2.Lx wvtX2.Ly wvtX2.Lz])
                 error("WVBottomWaveGenerationForcing:IncompatibleDomain", "Resolution conversion requires transforms with identical domain dimensions.")
@@ -274,7 +275,7 @@ classdef WVBottomWaveGenerationForcing < WVForcing
     methods (Access = private)
         function requireOriginatingTransform(self,wvt)
             if wvt ~= self.wvt
-                error("WVBottomWaveGenerationForcing:TransformMismatch", "The forcing can only be evaluated with the WVTransformBoussinesq instance used during construction.")
+                error("WVBottomWaveGenerationForcing:TransformMismatch", "The forcing can only be evaluated with the WVTransform instance used during construction.")
             end
         end
     end
@@ -282,14 +283,9 @@ classdef WVBottomWaveGenerationForcing < WVForcing
     methods (Static, Access = private)
         function [responsePlusX,responsePlusY,responseMinusX,responseMinusY] = buildResponses(wvt,terrainFourier)
             [~,iBottom] = min(wvt.z);
-            piPlus = complex(zeros(size(wvt.Apm_TE_factor)));
-            piMinus = complex(zeros(size(wvt.Apm_TE_factor)));
-            for iK = 1:numel(wvt.K2unique)
-                indices = wvt.K2uniqueK2Map{iK};
-                bottomF = reshape(wvt.PFpmInv(iBottom,:,iK),[],1).*wvt.Ppm(:,iK);
-                piPlus(:,indices) = wvt.g*bottomF.*wvt.NAp(:,indices);
-                piMinus(:,indices) = wvt.g*bottomF.*wvt.NAm(:,indices);
-            end
+            bottomF = wvt.waveModeVerticalStructureAtIndex(iBottom);
+            piPlus = wvt.g*bottomF.*wvt.NAp;
+            piMinus = wvt.g*bottomF.*wvt.NAm;
 
             dHdxFourier = 1i*wvt.K.*terrainFourier;
             dHdyFourier = 1i*wvt.L.*terrainFourier;
@@ -303,6 +299,10 @@ classdef WVBottomWaveGenerationForcing < WVForcing
             responsePlusY(maskPlus) = conj(piPlus(maskPlus)).*dHdyFourier(maskPlus)./wvt.Apm_TE_factor(maskPlus);
             responseMinusX(maskMinus) = conj(piMinus(maskMinus)).*dHdxFourier(maskMinus)./wvt.Apm_TE_factor(maskMinus);
             responseMinusY(maskMinus) = conj(piMinus(maskMinus)).*dHdyFourier(maskMinus)./wvt.Apm_TE_factor(maskMinus);
+        end
+
+        function tf = isSupportedTransform(wvt)
+            tf = wvt.hasWaveComponent && ismethod(wvt,"waveModeVerticalStructureAtIndex");
         end
 
         function [radialWavenumber,radialPowerSpectrum,radialTargetPowerSpectrum,radialModeCount] = radialSpectrum(Kh,realizedPowerSpectrum,targetPowerSpectrum,binWidth)
