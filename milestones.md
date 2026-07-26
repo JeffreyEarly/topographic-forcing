@@ -46,7 +46,7 @@ The completed mean-depth generator and scattering implementation is retained as 
 
 ## Milestone 1: Repository and scientific contract
 
-- [ ] Complete
+- [x] Complete
 
 ### Purpose
 
@@ -85,7 +85,7 @@ None.
 
 ## Milestone 2: Mixed hydrostatic and bottom-displacement basis
 
-- [ ] Complete
+- [x] Complete
 
 ### Purpose
 
@@ -136,7 +136,7 @@ Milestone 1.
 
 ## Milestone 3: Flat nonhydrostatic dense oracle
 
-- [ ] Complete — blocking scientific gate
+- [x] Complete — blocking scientific gate
 
 ### Purpose
 

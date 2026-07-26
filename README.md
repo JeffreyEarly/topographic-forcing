@@ -1,6 +1,31 @@
 # Mean-depth bottom wave generation
 
-> **Development branch:** `terrain-energy-galerkin` is the workspace for the pressure-free, finite-terrain-energy Galerkin system described in the active [terrain-energy roadmap](milestones.md). The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
+> **Development branch:** `terrain-energy-galerkin` now contains the first three milestones of the pressure-free, finite-terrain-energy Galerkin system described in the active [terrain-energy roadmap](milestones.md). The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
+
+Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
+
+## Terrain-energy Galerkin flat oracle
+
+`WVTerrainEnergyGalerkin` is a standalone linear scientific system, not a `WVForcing`. It uses ordinary hydrostatic wave-vortex modes as coordinates, adds one bottom-displacement value per retained horizontal Fourier coefficient, and projects the complete flat nonhydrostatic weak equations into that mixed basis.
+
+```matlab
+problem = WVTerrainEnergyGalerkin.fromTopography(wvt, ...
+    topographicHeight=h, ...
+    verticalModeIndices=wvt.j, ...
+    horizontalOversamplingFactor=2);
+```
+
+The state uses a full-complex Fourier representation internally. Explicit maps connect it to WaveVortexModel's nonredundant real-field layout without forcing arbitrary complex eigenvectors through a symmetric inverse transform. The source transform's `shouldAntialias` convention is inherited and may be either true or false.
+
+For every retained horizontal wavenumber, the implemented flat oracle constructs the pressure-free forms
+
+```math
+E_0\dot{\boldsymbol a}=J_0\boldsymbol a,
+\qquad
+iJ_0\boldsymbol c=\omega E_0\boldsymbol c.
+```
+
+The raw matrices satisfy the required Hermitian identities at roundoff. Constant-stratification frequencies recover the analytic nonhydrostatic dispersion relation, and arbitrary-stratification frequencies and eigenfunctions converge to the directly computed wavenumber-dependent modes as hydrostatic vertical coordinates are added. Nonzero-frequency modes have negligible flat QGPV and bottom displacement. Finite-terrain matrices and modes begin with Milestone 4 and are not yet implemented.
 
 `topographic-forcing` provides a fast, first-order bottom wave generator for WaveVortexModel. The formulation retains the ordinary rigid-lid wave--vortex basis and represents weak topography through the mean-depth bottom condition.
 
