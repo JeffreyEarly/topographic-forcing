@@ -4,24 +4,24 @@
 
 For a prescribed, horizontally uniform barotropic current, the bottom velocity is
 
-\[
+$$
 g_b(\boldsymbol{x},t)
 =
 \boldsymbol{U}_{\mathrm{bt}}(t)\boldsymbol{\cdot}\nabla_H h(\boldsymbol{x}).
-\]
+$$
 
 The wave forcing is obtained directly from the bottom pressure of each complete phase-inclusive mode:
 
-\[
+$$
 \dot A_\alpha
 =
 \frac{1}{A E_\alpha}
 \int_A p_{\alpha,d}^*(\boldsymbol{x},t)g_b(\boldsymbol{x},t)\,dA,
 \qquad
 \alpha\in\{+,-\}.
-\]
+$$
 
-This construction adds only to the wave coefficients \(A_+\) and \(A_-\). It therefore produces no direct linear interior QGPV tendency and leaves the balanced forcing coefficient \(F_0\) unchanged. It requires no finite-terrain pressure solve, modal terrain matrix, or artificial bottom-localized vertical envelope.
+This construction adds only to the wave coefficients $A_+$ and $A_-$. It therefore produces no direct linear interior QGPV tendency and leaves the balanced forcing coefficient $F_0$ unchanged. It requires no finite-terrain pressure solve, modal terrain matrix, or artificial bottom-localized vertical envelope.
 
 The prescribed barotropic current is an external energy reservoir. Wave energy is not conserved by itself; its rate of increase must equal the bottom pressure work supplied by the prescribed current.
 
@@ -37,7 +37,7 @@ wvt.removeAllForcing();
 wvt.addForcing(forcing);
 ```
 
-The velocity amplitude is the complex two-component vector \(\widehat{\boldsymbol U}_{\mathrm{bt}}\) in meters per second. The default frequency is M2; `frequency`, `rampDuration`, `startTime`, and `name` are optional constructor arguments.
+The velocity amplitude is the complex two-component vector $\widehat{\boldsymbol U}_{\mathrm{bt}}$ in meters per second. The default frequency is M2; `frequency`, `rampDuration`, `startTime`, and `name` are optional constructor arguments.
 
 The constructor precomputes the bottom-pressure projection on the transform's native spectral layout. Each subsequent forcing call evaluates the prescribed current, combines two response arrays per wave branch, and applies WaveVortexModel's interaction phases. There is no runtime pressure solve, FFT, spatial projection, or modal coupling matrix. Transforms with either value of `shouldAntialias` are supported.
 
