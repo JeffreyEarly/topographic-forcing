@@ -24,18 +24,18 @@ The completed mean-depth generator and scattering implementation is retained as 
 - `topographicHeight` is a real, finite, stationary, upward-positive, horizontally periodic field on the transform grid.
 - The mapped geometry is
 
-  ```math
-  \gamma=1-\frac{h}{D}>0.
-  ```
+```math
+\gamma=1-\frac{h}{D}>0.
+```
 
 - The prognostic weak state contains $(\hat u,\hat v,\hat w,\hat\eta)$ and one bottom-displacement coefficient per retained horizontal wavenumber. Pressure is recovered only as a post-solve diagnostic.
 - The velocity satisfies mapped continuity and homogeneous normal-flow conditions,
 
-  ```math
-  \nabla_\xi\boldsymbol{\cdot}\hat{\boldsymbol u}=0,
-  \qquad
-  \hat w(-D)=\hat w(0)=0.
-  ```
+```math
+\nabla_\xi\boldsymbol{\cdot}\hat{\boldsymbol u}=0,
+\qquad
+\hat w(-D)=\hat w(0)=0.
+```
 
 - Surface displacement vanishes. The bottom value of $\hat\eta$ is unrestricted and evolves through the displacement equation.
 - Independent surface-buoyancy anomalies are excluded. Independent bottom buoyancy is retained in the zero-frequency balanced state space.
@@ -101,23 +101,23 @@ Milestone 1.
 - Use its ordinary $F$–$G$ modes for the homogeneous interior fields.
 - Add one bottom-displacement coefficient per retained horizontal wavenumber with
 
-  ```math
-  \chi_{\kappa b}(\xi)=
-  \begin{cases}
-  \sinh(-\kappa\xi)/\sinh(\kappa D),&\kappa>0,\\
-  -\xi/D,&\kappa=0.
-  \end{cases}
-  ```
+```math
+\chi_{\kappa b}(\xi)=
+\begin{cases}
+\sinh(-\kappa\xi)/\sinh(\kappa D),&\kappa>0,\\
+-\xi/D,&\kappa=0.
+\end{cases}
+```
 
 - Represent displacement as
 
-  ```math
-  \hat\eta_{\boldsymbol K}(\xi)
-  =
-  \eta_{b,\boldsymbol K}\chi_{\kappa b}(\xi)
-  +
-  \sum_j\eta_{\boldsymbol K}^jG^j(\xi).
-  ```
+```math
+\hat\eta_{\boldsymbol K}(\xi)
+=
+\eta_{b,\boldsymbol K}\chi_{\kappa b}(\xi)
++
+\sum_j\eta_{\boldsymbol K}^jG^j(\xi).
+```
 
 - Implement deterministic packing and unpacking for the interior modal coefficients and bottom coefficients.
 - Implement reconstruction of $(\hat u,\hat v,\hat w,\hat\eta)$, reconstruction of physical $(u,v,w)$, and the exact mapped volume quadrature.
@@ -151,19 +151,19 @@ Milestone 2.
 - Form dense $E_0$, $J_0$, and $Q_0$ by probing every mixed-basis coordinate at low resolution.
 - Solve the generalized Hermitian problem independently at each horizontal wavenumber:
 
-  ```math
-  iJ_0\boldsymbol c=\omega E_0\boldsymbol c.
-  ```
+```math
+iJ_0\boldsymbol c=\omega E_0\boldsymbol c.
+```
 
 - Recover internal-wave, inertial, geostrophic, mean-density-anomaly, and independent bottom-buoyancy subspaces.
 - For constant stratification, compare with
 
-  ```math
-  \omega_{\kappa j}^2
-  =
-  \frac{N^2\kappa^2+f^2m_j^2}
-  {\kappa^2+m_j^2}.
-  ```
+```math
+\omega_{\kappa j}^2
+=
+\frac{N^2\kappa^2+f^2m_j^2}
+{\kappa^2+m_j^2}.
+```
 
 - For arbitrary stationary stratification, compare frequencies, energy-normalized eigenfunctions, polarization, and APV with `WVTransformBoussinesq`.
 - Report convergence with retained hydrostatic vertical modes and the indicator $\kappa/m_j$.
@@ -173,11 +173,11 @@ Milestone 2.
 
 - Raw matrices satisfy
 
-  ```math
-  \frac{\lVert E_0-E_0^*\rVert}{\lVert E_0\rVert}\leq10^{-13},
-  \qquad
-  \frac{\lVert J_0+J_0^*\rVert}{\lVert J_0\rVert}\leq10^{-13}.
-  ```
+```math
+\frac{\lVert E_0-E_0^*\rVert}{\lVert E_0\rVert}\leq10^{-13},
+\qquad
+\frac{\lVert J_0+J_0^*\rVert}{\lVert J_0\rVert}\leq10^{-13}.
+```
 
 - $E_0$ is positive definite on the retained state space.
 - Constant-stratification frequencies agree with the analytic dispersion relation to approximately $10^{-11}$ relative error.
@@ -201,22 +201,22 @@ Milestone 3.
 
 - Evaluate
 
-  ```math
-  \gamma,\qquad
-  \gamma^{-1},\qquad
-  \nabla_H\ln\gamma,\qquad
-  N^2(\gamma\xi)
-  ```
+```math
+\gamma,\qquad
+\gamma^{-1},\qquad
+\nabla_H\ln\gamma,\qquad
+N^2(\gamma\xi)
+```
 
   on a common oversampled grid.
 - Form dense $E_\gamma$, $J_\gamma$, and $Q_\gamma$ by direct quadrature of every mixed-basis pair.
 - Preserve the raw matrices and their structural defects for diagnosis before any roundoff-level restoration.
 - Verify the exact flat limit and random-state identity
 
-  ```math
-  \operatorname{Re}
-  \left(\boldsymbol a^*J_\gamma\boldsymbol a\right)=0.
-  ```
+```math
+\operatorname{Re}
+\left(\boldsymbol a^*J_\gamma\boldsymbol a\right)=0.
+```
 
 - Use constant $\gamma$ as an exact mapped-coordinate oracle and compare against an independent flat transform of physical depth $H=\gamma D$.
 - Separate quadrature, truncation, and eigensolver errors in the diagnostics.
@@ -246,22 +246,22 @@ Milestone 4.
 
 - Solve the complete dense generalized Hermitian problem
 
-  ```math
-  iJ_\gamma\boldsymbol c_n
-  =
-  \Omega_nE_\gamma\boldsymbol c_n.
-  ```
+```math
+iJ_\gamma\boldsymbol c_n
+=
+\Omega_nE_\gamma\boldsymbol c_n.
+```
 
 - Classify nonzero-frequency modes with $Q_\gamma$ and retain the zero-frequency balanced complement, including bottom buoyancy.
 - Normalize modes in the finite-terrain energy and resolve degenerate eigenspaces by $E_\gamma$-orthogonalization.
 - Use sinusoidal terrain to verify leading Fourier selection and terrain-induced modal coupling.
 - Verify the oscillatory bottom relation
 
-  ```math
-  \sigma i\Omega\hat\eta_b
-  =
-  \boldsymbol u_{H,b}\boldsymbol{\cdot}\nabla_Hh.
-  ```
+```math
+\sigma i\Omega\hat\eta_b
+=
+\boldsymbol u_{H,b}\boldsymbol{\cdot}\nabla_Hh.
+```
 
 - Recover a zero-mean pressure after convergence by fitting the strong momentum equations. Treat this as a diagnostic only.
 - Report strong horizontal and vertical momentum, continuity, surface, and physical-bottom residuals separately.
@@ -351,17 +351,17 @@ Milestone 7.
 
 - Evolve resolved terrain modes by exact phase multiplication:
 
-  ```math
-  A_n(t)=A_n(0)e^{-i\Omega_nt}.
-  ```
+```math
+A_n(t)=A_n(0)e^{-i\Omega_nt}.
+```
 
 - Evolve broader mixed states with the midpoint/Cayley step
 
-  ```math
-  \left(E_\gamma-\frac{\Delta t}{2}J_\gamma\right)\boldsymbol a^{n+1}
-  =
-  \left(E_\gamma+\frac{\Delta t}{2}J_\gamma\right)\boldsymbol a^n.
-  ```
+```math
+\left(E_\gamma-\frac{\Delta t}{2}J_\gamma\right)\boldsymbol a^{n+1}
+=
+\left(E_\gamma+\frac{\Delta t}{2}J_\gamma\right)\boldsymbol a^n.
+```
 
 - Use the flat energy and signed-frequency operator as the iterative-solve preconditioner.
 - Convert between Galerkin states and WaveVortexModel field and coefficient conventions at initialization and output.
