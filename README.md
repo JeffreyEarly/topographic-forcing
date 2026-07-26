@@ -1,31 +1,60 @@
-# Exact topographic forcing
+# Mean-depth bottom wave generation
 
-`topographic-forcing` is a research add-on for WaveVortexModel that evaluates the exact flow-linear bottom-topography terms in mapped coordinates. It reuses the rigid-lid modes and the existing spatial-forcing projection of `WVTransformBoussinesq`.
+`topographic-forcing` is being redirected toward a fast, first-order bottom wave generator for WaveVortexModel. The new formulation retains the ordinary rigid-lid wave--vortex basis and represents weak topography through the mean-depth bottom condition rather than through mapped-coordinate volume terms.
 
-The current proof of concept supports stationary periodic terrain, discretely constant stratification, and `shouldAntialias=false`. It is exact in prescribed terrain height and linear in flow amplitude.
+For a prescribed, horizontally uniform barotropic current, the bottom velocity is
+
+\[
+g_b(\boldsymbol{x},t)
+=
+\boldsymbol{U}_{\mathrm{bt}}(t)\boldsymbol{\cdot}\nabla_H h(\boldsymbol{x}).
+\]
+
+The wave forcing is obtained directly from the bottom pressure of each complete phase-inclusive mode:
+
+\[
+\dot A_\alpha
+=
+\frac{1}{A E_\alpha}
+\int_A p_{\alpha,d}^*(\boldsymbol{x},t)g_b(\boldsymbol{x},t)\,dA,
+\qquad
+\alpha\in\{+,-\}.
+\]
+
+This construction adds only to the wave coefficients \(A_+\) and \(A_-\). It therefore produces no direct linear interior QGPV tendency and leaves the balanced forcing coefficient \(F_0\) unchanged. It requires no finite-terrain pressure solve, modal terrain matrix, or artificial bottom-localized vertical envelope.
+
+The prescribed barotropic current is an external energy reservoir. Wave energy is not conserved by itself; its rate of increase must equal the bottom pressure work supplied by the prescribed current.
+
+## Development status
+
+Development of the new formulation will occur on the `mean-depth-wave-generator` branch according to [milestones.md](milestones.md). The existing `WVExactTopographicForcing` source on this branch is the preserved checkpoint of the earlier mapped strong-form attempt. It is not the recommended formulation and will be replaced in Milestone 1.
+
+The initial public API is planned to be
 
 ```matlab
-wvt = WVTransformBoussinesq([20e3 20e3 2e3],[8 4 5], ...
-    N2=@(z) 2e-5*ones(size(z)),latitude=45,shouldAntialias=false);
-x = repmat(reshape(wvt.x,[],1),1,wvt.Ny);
-h = 50*cos(2*pi*x/wvt.Lx);
-
-forcing = WVExactTopographicForcing(wvt,topographicHeight=h);
-wvt.removeAllForcing();
-wvt.addForcing(forcing);
-model = WVModel(wvt);
+forcing = WVBottomWaveGenerationForcing(wvt, ...
+    topographicHeight=h, ...
+    barotropicVelocityAmplitude=Uhat, ...
+    frequency=omega, ...
+    rampDuration=rampDuration, ...
+    startTime=wvt.t, ...
+    name="bottom wave generation");
 ```
 
-The transform coordinate `wvt.z` is interpreted as the mapped coordinate \(\xi\), and `wvt.u`, `v`, `w`, `eta`, and `p` are interpreted as the hatted projection-ready fields.
+Here `Uhat` is a finite complex two-component vector defining a horizontally uniform harmonic barotropic velocity. The first implementation will target `WVTransformBoussinesq`, constant stratification, stationary periodic terrain, and linear wave generation from a prescribed current.
 
-## Tests
+The scientific and computational status of the earlier repositories and branches is summarized in [PRIOR_APPROACHES.md](PRIOR_APPROACHES.md).
 
-Run the suite with WaveVortexModel in the sibling repository:
+## Scientific scope
 
-```matlab
-results = runTests();
-```
+The initial generator is accurate through first order in terrain height. It is intended to establish bottom generation without direct linear PV forcing before adding autonomous wave scattering, arbitrary stratification, persistence, or dynamic barotropic backreaction.
 
-Alternatively, pass `waveVortexModelRoot` explicitly or set `WAVE_VORTEX_MODEL_ROOT`. The test runner restores the original MATLAB path when it exits.
+The following remain outside the initial proof of concept:
 
-See [milestones.md](milestones.md) for the scientific validation roadmap. Uniform-depth and sloping-terrain solution oracles follow in Milestones 5–7.
+- exact finite-amplitude terrain dynamics;
+- nonlinear terrain-aware advection;
+- independent bottom-buoyancy dynamics;
+- backreaction on a dynamically evolving barotropic tide;
+- exact conservation of wave energy when the barotropic energy reservoir is omitted.
+
+WaveVortexModel remains an external dependency and is not modified or vendored by this repository.
