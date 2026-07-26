@@ -20,8 +20,10 @@ classdef WVBottomWaveGenerationForcing < WVForcing
     % ```
     %
     % - Topic: Create the forcing
+    % - Topic: Generate topography
     % - Topic: Inspect the forcing
     % - Topic: Evaluate the forcing
+    % - Topic: Restart persistence
     % - Topic: CAAnnotatedClass requirement
     % - Declaration: classdef WVBottomWaveGenerationForcing < WVForcing
 
@@ -42,6 +44,14 @@ classdef WVBottomWaveGenerationForcing < WVForcing
         %
         % - Topic: Inspect the forcing
         barotropicVelocityAmplitude (2,1) double
+
+        % Coordinate for the barotropic-velocity components.
+        %
+        % Values 1 and 2 identify the zonal and meridional components,
+        % respectively. This coordinate is used for NetCDF persistence.
+        %
+        % - Topic: Restart persistence
+        barotropicVelocityComponent (2,1) double = [1; 2]
 
         % Barotropic angular frequency $$\omega$$ in radians per second.
         %
@@ -98,9 +108,6 @@ classdef WVBottomWaveGenerationForcing < WVForcing
 
             if ~isa(wvt,"WVTransformBoussinesq")
                 error("WVBottomWaveGenerationForcing:UnsupportedTransform", "WVBottomWaveGenerationForcing currently supports only WVTransformBoussinesq.")
-            end
-            if any(wvt.N2 ~= wvt.N2(1))
-                error("WVBottomWaveGenerationForcing:NonconstantStratificationUnsupported", "The initial implementation requires discretely constant N2.")
             end
             if ~isequal(size(options.topographicHeight),[wvt.Nx wvt.Ny])
                 error("WVBottomWaveGenerationForcing:InvalidTopographicHeightSize", "topographicHeight must have size [%d %d], matching the transform horizontal grid.", wvt.Nx, wvt.Ny)
@@ -200,18 +207,67 @@ classdef WVBottomWaveGenerationForcing < WVForcing
             Fm = Fm+Fmt.*wvt.phase;
         end
 
-        function forcing = forcingWithResolutionOfTransform(~,~)
-            % Reject explicit transform-resolution changes until Milestone 8.
+        function forcing = forcingWithResolutionOfTransform(self,wvtX2)
+            % Rebuild the forcing for a transform at another resolution.
             %
-            % Native transforms with either value of `shouldAntialias` are
-            % supported. This method concerns rebuilding for a different
-            % transform resolution.
+            % The terrain is transferred spectrally, preserving common
+            % Fourier coefficients while truncating or zero-padding modes
+            % that are not shared by the two transforms. All modal response
+            % arrays are then rebuilt for `wvtX2`.
             %
             % - Topic: Create the forcing
             % - Declaration: forcing = forcingWithResolutionOfTransform(wvtX2)
-            % - Returns forcing: no value; this method always throws
-            forcing = WVForcing.empty(0,0); %#ok<NASGU>
-            error("WVBottomWaveGenerationForcing:ResolutionChangeUnsupported", "Explicit transform-resolution conversion is deferred to Milestone 8.")
+            % - Parameter wvtX2: compatible `WVTransformBoussinesq` at the target resolution
+            % - Returns forcing: equivalent forcing rebuilt for `wvtX2`
+            arguments (Input)
+                self WVBottomWaveGenerationForcing {mustBeNonempty}
+                wvtX2 WVTransform {mustBeNonempty}
+            end
+            arguments (Output)
+                forcing WVBottomWaveGenerationForcing
+            end
+
+            if ~isa(wvtX2,"WVTransformBoussinesq")
+                error("WVBottomWaveGenerationForcing:UnsupportedTransform", "WVBottomWaveGenerationForcing currently supports only WVTransformBoussinesq.")
+            end
+            if ~isequal([self.wvt.Lx self.wvt.Ly self.wvt.Lz],[wvtX2.Lx wvtX2.Ly wvtX2.Lz])
+                error("WVBottomWaveGenerationForcing:IncompatibleDomain", "Resolution conversion requires transforms with identical domain dimensions.")
+            end
+
+            terrainFourier = self.wvt.transformFromSpatialDomainWithFourier(repmat(self.topographicHeight,1,1,self.wvt.Nz));
+            terrainFourierX2 = self.wvt.spectralVariableWithResolution(wvtX2,terrainFourier);
+            terrainX2 = wvtX2.transformToSpatialDomainWithFourier(repmat(terrainFourierX2(1,:),wvtX2.Nz,1));
+            forcing = WVBottomWaveGenerationForcing(wvtX2,topographicHeight=real(terrainX2(:,:,1)),barotropicVelocityAmplitude=self.barotropicVelocityAmplitude,frequency=self.frequency,rampDuration=self.rampDuration,startTime=self.startTime,name=string(self.name));
+        end
+
+        function writeToGroup(self,group,propertyAnnotations,attributes)
+            % Write the forcing to its transform-owned NetCDF group.
+            %
+            % Transform-derived gradients and response arrays are omitted.
+            % The terrain is written separately because its `x` and `y`
+            % dimensions are owned by the parent transform group.
+            %
+            % - Topic: Restart persistence
+            % - Declaration: writeToGroup(group,propertyAnnotations,attributes)
+            % - Parameter group: transform-owned NetCDF group for this forcing
+            % - Parameter propertyAnnotations: forcing properties to persist
+            % - Parameter attributes: additional NetCDF attributes
+            arguments (Input)
+                self WVBottomWaveGenerationForcing {mustBeNonempty}
+                group NetCDFGroup {mustBeNonempty}
+                propertyAnnotations CAPropertyAnnotation = CAPropertyAnnotation.empty(0,0)
+                attributes = configureDictionary("string","string")
+            end
+
+            isTopographicHeight = string({propertyAnnotations.name}) == "topographicHeight";
+            writeToGroup@CAAnnotatedClass(self,group,propertyAnnotations(~isTopographicHeight),attributes);
+            if any(isTopographicHeight)
+                annotation = propertyAnnotations(find(isTopographicHeight,1));
+                variableAttributes = annotation.attributes;
+                variableAttributes('units') = annotation.units;
+                variableAttributes('long_name') = annotation.description;
+                group.addVariable(annotation.name,annotation.dimensions,self.topographicHeight,isComplex=annotation.isComplex,attributes=variableAttributes);
+            end
         end
     end
 
@@ -248,31 +304,207 @@ classdef WVBottomWaveGenerationForcing < WVForcing
             responseMinusX(maskMinus) = conj(piMinus(maskMinus)).*dHdxFourier(maskMinus)./wvt.Apm_TE_factor(maskMinus);
             responseMinusY(maskMinus) = conj(piMinus(maskMinus)).*dHdyFourier(maskMinus)./wvt.Apm_TE_factor(maskMinus);
         end
+
+        function [radialWavenumber,radialPowerSpectrum,radialTargetPowerSpectrum,radialModeCount] = radialSpectrum(Kh,realizedPowerSpectrum,targetPowerSpectrum,binWidth)
+            maximumWavenumber = max(Kh,[],"all");
+            radialWavenumber = (0:ceil(maximumWavenumber/binWidth)).'*binWidth;
+            radialPowerSpectrum = nan(size(radialWavenumber));
+            radialTargetPowerSpectrum = nan(size(radialWavenumber));
+            radialModeCount = zeros(size(radialWavenumber));
+            for iBin = 1:numel(radialWavenumber)
+                indices = Kh >= max(0,radialWavenumber(iBin)-binWidth/2) & Kh < radialWavenumber(iBin)+binWidth/2;
+                radialModeCount(iBin) = nnz(indices);
+                if radialModeCount(iBin) > 0
+                    radialPowerSpectrum(iBin) = mean(realizedPowerSpectrum(indices));
+                    radialTargetPowerSpectrum(iBin) = mean(targetPowerSpectrum(indices));
+                end
+            end
+        end
     end
 
     methods (Static)
-        function vars = classRequiredPropertyNames()
-            % Return required persisted property names.
+        function requiredPropertyNames = classRequiredPropertyNames()
+            % Return the forcing properties required for restart.
             %
-            % Persistence is deferred until the scientific forcing has
-            % passed its prescribed-generation validation.
+            % Derived gradients and modal responses are intentionally not
+            % persisted; construction against the restored transform
+            % rebuilds them.
             %
-            % - Topic: CAAnnotatedClass requirement
-            % - Declaration: vars = classRequiredPropertyNames()
-            % - Returns vars: empty property-name cell array
-            vars = {};
+            % - Topic: Restart persistence
+            % - Declaration: requiredPropertyNames = classRequiredPropertyNames()
+            % - Returns requiredPropertyNames: property names required to reconstruct the forcing
+            arguments (Output)
+                requiredPropertyNames cell
+            end
+
+            requiredPropertyNames = { ...
+                'topographicHeight', ...
+                'barotropicVelocityAmplitude', ...
+                'frequency', ...
+                'rampDuration', ...
+                'startTime', ...
+                'name'};
         end
 
         function propertyAnnotations = classDefinedPropertyAnnotations()
-            % Return property annotations defined by this class.
+            % Return metadata used to persist the forcing configuration.
             %
-            % - Topic: CAAnnotatedClass requirement
+            % - Topic: Restart persistence
             % - Declaration: propertyAnnotations = classDefinedPropertyAnnotations()
-            % - Returns propertyAnnotations: empty annotation array
+            % - Returns propertyAnnotations: annotated forcing properties and dimensions
             arguments (Output)
                 propertyAnnotations CAPropertyAnnotation
             end
+
             propertyAnnotations = CAPropertyAnnotation.empty(0,0);
+            propertyAnnotations(end+1) = CADimensionProperty('barotropicVelocityComponent','1','barotropic-velocity component; 1 is zonal and 2 is meridional');
+            propertyAnnotations(end+1) = CANumericProperty('topographicHeight',{'x','y'},'m','upward-positive topographic height');
+            propertyAnnotations(end+1) = CANumericProperty('barotropicVelocityAmplitude',{'barotropicVelocityComponent'},'m s^{-1}','complex barotropic-velocity amplitude',isComplex=true);
+            propertyAnnotations(end+1) = CANumericProperty('frequency',{},'rad s^{-1}','barotropic angular frequency');
+            propertyAnnotations(end+1) = CANumericProperty('rampDuration',{},'s','half-cosine startup-ramp duration');
+            propertyAnnotations(end+1) = CANumericProperty('startTime',{},'s','model time at which the forcing begins');
+            propertyAnnotations(end+1) = CAPropertyAnnotation('name','name of the forcing');
+        end
+
+        function forcing = forcingFromGroup(group,wvt)
+            % Reconstruct a forcing from its annotated NetCDF group.
+            %
+            % - Topic: Restart persistence
+            % - Declaration: forcing = forcingFromGroup(group,wvt)
+            % - Parameter group: NetCDF group containing the forcing state
+            % - Parameter wvt: restored transform receiving the forcing
+            % - Returns forcing: reconstructed `WVBottomWaveGenerationForcing`
+            arguments (Input)
+                group NetCDFGroup {mustBeNonempty}
+                wvt WVTransform {mustBeNonempty}
+            end
+            arguments (Output)
+                forcing WVBottomWaveGenerationForcing
+            end
+
+            requiredPropertyNames = WVBottomWaveGenerationForcing.classRequiredPropertyNames();
+            missingPropertyNames = string.empty(1,0);
+            for iProperty = 1:numel(requiredPropertyNames)
+                propertyName = requiredPropertyNames{iProperty};
+                isPresent = group.hasVariableWithName(propertyName) || group.hasGroupWithName(propertyName) || isKey(group.attributes,propertyName);
+                if ~isPresent
+                    missingPropertyNames(end+1) = string(propertyName); %#ok<AGROW>
+                end
+            end
+            if ~isempty(missingPropertyNames)
+                error("WVBottomWaveGenerationForcing:IncompleteRestart", "The restart group is missing required bottom-wave-generation properties: %s.", join(missingPropertyNames,", "))
+            end
+
+            options = CAAnnotatedClass.propertyValuesFromGroup(group,requiredPropertyNames);
+            options.barotropicVelocityAmplitude = reshape(options.barotropicVelocityAmplitude,2,1);
+            options.name = string(options.name);
+            optionArguments = namedargs2cell(options);
+            forcing = WVBottomWaveGenerationForcing(wvt,optionArguments{:});
+        end
+
+        function [virtualDepth,topographicHeight,diagnostics] = goffAbyssalHillTopography(wvt,options)
+            % Generate periodic Goff abyssal-hill topography.
+            %
+            % The isotropic two-dimensional power spectrum is
+            %
+            % $$P_h(K)=\frac{4\pi h_{\mathrm{rms}}^2}{K_c^2}
+            % \left(1+\frac{K^2}{K_c^2}\right)^{-2}.$$
+            %
+            % The returned height is positive upward, zero mean, and
+            % normalized to the requested post-filter RMS. Random phases
+            % use a local stream and do not alter MATLAB's global random
+            % state.
+            %
+            % ```matlab
+            % [H,h,diagnostics] = WVBottomWaveGenerationForcing.goffAbyssalHillTopography(wvt,minimumWavelength=30e3);
+            % ```
+            %
+            % - Topic: Generate topography
+            % - Declaration: [virtualDepth,topographicHeight,diagnostics] = WVBottomWaveGenerationForcing.goffAbyssalHillTopography(wvt,options)
+            % - Parameter wvt: periodic `WVTransform` defining the horizontal grid and mean depth
+            % - Parameter options.rmsHeight: requested post-filter RMS topographic height in meters
+            % - Parameter options.cornerWavenumber: Goff corner wavenumber in radians per meter
+            % - Parameter options.minimumWavelength: shortest retained wavelength in meters
+            % - Parameter options.randomSeed: nonnegative seed for a local Mersenne Twister stream
+            % - Returns virtualDepth: positive water depth of size $$N_x\times N_y$$ in meters
+            % - Returns topographicHeight: upward-positive zero-mean height of size $$N_x\times N_y$$ in meters
+            % - Returns diagnostics: realized statistics and spectral diagnostics
+            arguments (Input)
+                wvt WVTransform {mustBeNonempty}
+                options.rmsHeight (1,1) double {mustBePositive,mustBeFinite} = 100
+                options.cornerWavenumber (1,1) double {mustBePositive,mustBeFinite} = 1e-4
+                options.minimumWavelength (1,1) double {mustBePositive,mustBeFinite} = 15e3
+                options.randomSeed (1,1) double {mustBeInteger,mustBeNonnegative,mustBeFinite} = 2023
+            end
+            arguments (Output)
+                virtualDepth (:,:) double
+                topographicHeight (:,:) double
+                diagnostics (1,1) struct
+            end
+
+            if options.randomSeed > double(intmax("uint32"))
+                error("WVBottomWaveGenerationForcing:InvalidRandomSeed", "randomSeed must not exceed intmax('uint32').")
+            end
+
+            cutoffWavenumber = 2*pi/options.minimumWavelength;
+            retainedAxialWavenumber = pi/wvt.effectiveHorizontalGridResolution();
+            if cutoffWavenumber > retainedAxialWavenumber*(1+10*eps(retainedAxialWavenumber))
+                minimumResolvedWavelength = 2*pi/retainedAxialWavenumber;
+                error("WVBottomWaveGenerationForcing:UnresolvedCutoff", "minimumWavelength must be at least %.6g m for this transform; the requested %.6g m cutoff is unresolved.", minimumResolvedWavelength, options.minimumWavelength)
+            end
+
+            [K,L] = ndgrid(wvt.k_dft,wvt.l_dft);
+            Kh = hypot(K,L);
+            targetPowerSpectrum = 4*pi*options.rmsHeight^2/options.cornerWavenumber^2.*(1+(Kh/options.cornerWavenumber).^2).^(-2);
+            retainedMask = Kh > 0 & Kh <= cutoffWavenumber;
+
+            stream = RandStream("mt19937ar",Seed=options.randomSeed);
+            phaseSource = fft2(randn(stream,wvt.Nx,wvt.Ny));
+            phase = ones(size(phaseSource));
+            nonzeroPhase = abs(phaseSource) > 0;
+            phase(nonzeroPhase) = phaseSource(nonzeroPhase)./abs(phaseSource(nonzeroPhase));
+
+            domainArea = wvt.Lx*wvt.Ly;
+            normalizedFourierCoefficients = zeros(wvt.Nx,wvt.Ny);
+            normalizedFourierCoefficients(retainedMask) = sqrt(targetPowerSpectrum(retainedMask)/domainArea).*phase(retainedMask);
+            topographicHeight = real(ifft2(normalizedFourierCoefficients*wvt.Nx*wvt.Ny));
+            topographicHeight = topographicHeight-mean(topographicHeight,"all");
+            realizedRmsHeight = sqrt(mean(topographicHeight.^2,"all"));
+            if realizedRmsHeight == 0
+                error("WVBottomWaveGenerationForcing:EmptySpectrum", "The requested cutoff retains no nonzero Fourier modes.")
+            end
+            topographicHeight = options.rmsHeight*topographicHeight/realizedRmsHeight;
+
+            virtualDepth = wvt.Lz-topographicHeight;
+            if any(virtualDepth <= 0,"all")
+                error("WVBottomWaveGenerationForcing:NonpositiveVirtualDepth", "The generated topography reaches or exceeds the mean model depth. Reduce rmsHeight or choose another randomSeed.")
+            end
+
+            dHdx = wvt.diffX(topographicHeight);
+            dHdy = wvt.diffY(topographicHeight);
+            slopeMagnitude = hypot(dHdx,dHdy);
+            normalizedFourierCoefficients = fft2(topographicHeight)/(wvt.Nx*wvt.Ny);
+            realizedPowerSpectrum = domainArea*abs(normalizedFourierCoefficients).^2;
+            powerSpectrumScale = median(realizedPowerSpectrum(retainedMask)./targetPowerSpectrum(retainedMask));
+            normalizedTargetPowerSpectrum = powerSpectrumScale*targetPowerSpectrum;
+            [radialWavenumber,radialPowerSpectrum,radialTargetPowerSpectrum,radialModeCount] = WVBottomWaveGenerationForcing.radialSpectrum(Kh,realizedPowerSpectrum,normalizedTargetPowerSpectrum,min(wvt.dk,wvt.dl));
+
+            diagnostics = struct( ...
+                meanHeight=mean(topographicHeight,"all"), ...
+                rmsHeight=sqrt(mean(topographicHeight.^2,"all")), ...
+                rmsSlope=sqrt(mean(slopeMagnitude.^2,"all")), ...
+                maximumSlope=max(slopeMagnitude,[],"all"), ...
+                cutoffWavenumber=cutoffWavenumber, ...
+                cornerWavenumber=options.cornerWavenumber, ...
+                minimumWavelength=options.minimumWavelength, ...
+                randomSeed=options.randomSeed, ...
+                retainedAxialWavenumber=retainedAxialWavenumber, ...
+                powerSpectrumScale=powerSpectrumScale, ...
+                fourierCoefficients=normalizedFourierCoefficients, ...
+                radialWavenumber=radialWavenumber, ...
+                radialPowerSpectrum=radialPowerSpectrum, ...
+                radialTargetPowerSpectrum=radialTargetPowerSpectrum, ...
+                radialModeCount=radialModeCount);
         end
     end
 end

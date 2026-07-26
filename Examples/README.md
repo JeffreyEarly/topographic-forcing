@@ -20,3 +20,33 @@ The first figure shows:
 The second figure shows the terrain, local bottom work density, vertical velocity, and displacement at the time of maximum exact wave energy.
 
 The interactive default uses resolution `[32 4 17]`. Use `resolution=[8 4 5]` for the inexpensive automated-reference case, `shouldMakeFigures=false` to skip graphics, or set `relativeTolerances` to choose the adaptive integrations. The example creates no output files.
+
+## Goff abyssal-hill wave generation
+
+Run the broadband variable-stratification example with:
+
+```matlab
+result = GoffAbyssalHillWaveGenerationExample;
+```
+
+The example uses a deterministic two-dimensional Goff terrain realization with $100$ m RMS height, an exponential $N^2(z)$ profile, and a prescribed $5$ cm/s M2 current. Its four panels show the terrain, realized and target terrain spectra, wave energy and cumulative bottom work, and the final energy distribution across horizontal wavenumber and vertical mode.
+
+The default resolution is `[64 64 17]`, and the shortest terrain wavelength is $40$ km so that it is resolved with the default antialias layout. Set `resolution`, `minimumWavelength`, `numberOfOutputTimes`, `relativeTolerance`, or `shouldMakeFigures` to configure the run. No output files are created.
+
+Generate the same terrain independently with:
+
+```matlab
+[virtualDepth,h,diagnostics] = ...
+    WVBottomWaveGenerationForcing.goffAbyssalHillTopography( ...
+        wvt,rmsHeight=100,minimumWavelength=40e3,randomSeed=2023);
+```
+
+## Performance benchmark
+
+Profile construction and ordinary forcing calls with:
+
+```matlab
+benchmark = BottomWaveGenerationPerformanceBenchmark;
+```
+
+The returned table reports construction time, application time, active wave coefficients, and estimated stored response bytes at three resolutions. Timings are intended for comparisons on the same machine and are not fixed acceptance thresholds.

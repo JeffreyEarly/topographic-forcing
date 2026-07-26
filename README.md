@@ -27,7 +27,7 @@ The prescribed barotropic current is an external energy reservoir. Wave energy i
 
 ## Quick start
 
-Construct a constant-stratification `WVTransformBoussinesq`, prescribe the terrain and complex barotropic velocity amplitude, and register the spectral forcing:
+Construct a `WVTransformBoussinesq`, prescribe the terrain and complex barotropic velocity amplitude, and register the spectral forcing:
 
 ```matlab
 forcing = WVBottomWaveGenerationForcing(wvt, ...
@@ -39,9 +39,11 @@ wvt.addForcing(forcing);
 
 The velocity amplitude is the complex two-component vector $\widehat{\boldsymbol U}_{\mathrm{bt}}$ in meters per second. The default frequency is M2; `frequency`, `rampDuration`, `startTime`, and `name` are optional constructor arguments.
 
-The constructor precomputes the bottom-pressure projection on the transform's native spectral layout. Each subsequent forcing call evaluates the prescribed current, combines two response arrays per wave branch, and applies WaveVortexModel's interaction phases. There is no runtime pressure solve, FFT, spatial projection, or modal coupling matrix. Transforms with either value of `shouldAntialias` are supported.
+The constructor precomputes the bottom-pressure projection on the transform's native spectral layout. It supports any stationary stratification represented by `WVTransformBoussinesq`. Each subsequent forcing call evaluates the prescribed current, combines two response arrays per wave branch, and applies WaveVortexModel's interaction phases. There is no runtime pressure solve, FFT, spatial projection, or modal coupling matrix. Transforms with either value of `shouldAntialias` are supported.
 
-Milestones 1--6 of the development [roadmap](milestones.md) are implemented on the `mean-depth-wave-generator` branch. Explicit conversion to a different transform resolution remains deferred.
+`forcingWithResolutionOfTransform` spectrally transfers the terrain and rebuilds all modal responses for the new transform. The physical forcing configuration is also included when its parent transform or model is written to NetCDF; transform-derived response arrays are rebuilt after restoration.
+
+Milestones 1--6 and 8 of the development [roadmap](milestones.md) are implemented on the `mean-depth-wave-generator` branch. The optional comparison in Milestone 7 was intentionally skipped.
 
 The scientific and computational status of the earlier repositories and branches is summarized in [PRIOR_APPROACHES.md](PRIOR_APPROACHES.md).
 
@@ -57,9 +59,29 @@ The example uses a uniform M2 current over one sinusoidal terrain component. It 
 
 At the automated reference resolution, the coefficient errors for tolerances $10^{-6}$, $10^{-8}$, and $10^{-10}$ are approximately $6.4\times10^{-8}$, $5.6\times10^{-10}$, and $5.8\times10^{-12}$. The tight-run energy/work error is approximately $2.5\times10^{-12}$. The balanced tendency is exactly zero, while an independent physical-space calculation confirms the linear-QGPV source vanishes to the accuracy of the discrete derivative transforms.
 
+## Goff abyssal-hill example
+
+Generate deterministic periodic Goff topography with:
+
+```matlab
+[virtualDepth,h,diagnostics] = ...
+    WVBottomWaveGenerationForcing.goffAbyssalHillTopography( ...
+        wvt,minimumWavelength=40e3);
+```
+
+The generator uses a local random stream, returns upward-positive zero-mean terrain with the requested post-filter RMS, and reports realized slope and radial-spectrum diagnostics. It does not change MATLAB's global random state.
+
+Run the variable-stratification broadband example with:
+
+```matlab
+result = GoffAbyssalHillWaveGenerationExample;
+```
+
+The example drives a seed-2023, $100$ m RMS Goff field with a uniform M2 current and shows the terrain spectrum, wave-energy distribution, and bottom-work budget. Use `BottomWaveGenerationPerformanceBenchmark` to report construction, storage, and forcing-application costs at several resolutions.
+
 ## Scientific scope
 
-The initial generator is accurate through first order in terrain height. It is intended to establish bottom generation without direct linear PV forcing before adding autonomous wave scattering, arbitrary stratification, persistence, or dynamic barotropic backreaction.
+The generator is accurate through first order in terrain height. It supports prescribed bottom generation over broadband terrain with arbitrary stationary stratification, transform-resolution rebuilding, and restart persistence.
 
 The following remain outside the initial proof of concept:
 

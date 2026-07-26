@@ -47,7 +47,8 @@ classdef TestWVBottomWaveGenerationForcing < matlab.unittest.TestCase
             hydrostatic = WVTransformHydrostatic([wvt.Lx wvt.Ly wvt.Lz],[wvt.Nx wvt.Ny wvt.Nz],N2=@(z)2e-5*ones(size(z)),latitude=45,shouldAntialias=false);
             testCase.verifyError(@()WVBottomWaveGenerationForcing(hydrostatic,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0]),"WVBottomWaveGenerationForcing:UnsupportedTransform")
             variableN2 = WVTransformBoussinesq([wvt.Lx wvt.Ly wvt.Lz],[wvt.Nx wvt.Ny wvt.Nz],N2=@(z)2e-5*exp(z/4000),latitude=45,shouldAntialias=false);
-            testCase.verifyError(@()WVBottomWaveGenerationForcing(variableN2,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0]),"WVBottomWaveGenerationForcing:NonconstantStratificationUnsupported")
+            variableForcing = WVBottomWaveGenerationForcing(variableN2,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0]);
+            testCase.verifyClass(variableForcing,"WVBottomWaveGenerationForcing")
         end
 
         function prescribedVelocityAndRampAreCorrect(testCase)
@@ -182,7 +183,8 @@ classdef TestWVBottomWaveGenerationForcing < matlab.unittest.TestCase
 
             otherTransform = TestWVBottomWaveGenerationForcing.createTransform(false);
             testCase.verifyError(@()forcing.addSpectralForcing(otherTransform,baseFp,baseFm,baseF0),"WVBottomWaveGenerationForcing:TransformMismatch")
-            testCase.verifyError(@()forcing.forcingWithResolutionOfTransform(otherTransform),"WVBottomWaveGenerationForcing:ResolutionChangeUnsupported")
+            convertedForcing = forcing.forcingWithResolutionOfTransform(otherTransform);
+            testCase.verifyClass(convertedForcing,"WVBottomWaveGenerationForcing")
         end
 
         function noPVAndEnergyWorkIdentities(testCase)

@@ -38,7 +38,7 @@ Only $F_+$ and $F_-$ are modified. The forcing leaves the incoming $F_0$ unchang
 - `topographicHeight` is a real, finite, stationary, upward-positive field sampled on the transform's periodic $N_x\times N_y$ horizontal grid.
 - `barotropicVelocityAmplitude` is a finite complex two-component vector $\widehat{\boldsymbol U}_{\mathrm{bt}}$ with units of velocity.
 - `frequency` is a finite positive angular frequency, `rampDuration` is finite and nonnegative, and `startTime` is finite.
-- The initial transform target is `WVTransformBoussinesq` with discretely constant $N^2$.
+- The transform target is `WVTransformBoussinesq` with arbitrary stationary $N^2(z)$ supported by the transform.
 - The forcing uses the transform's native retained wavenumbers and is agnostic to `shouldAntialias`.
 - The initial barotropic current is prescribed and horizontally uniform. It is an external energy reservoir rather than a prognostic part of the model state.
 - Complete wave modes include their spatial and temporal phases. WaveVortexModel's stored interaction coefficients therefore receive the phase conversion required by the conjugated output-mode pressure.
@@ -166,7 +166,7 @@ Milestones 1 through 3.
 - Preserve contributions from every previously registered forcing.
 - Run a model from rest after removing nonlinear advection and registering only the bottom generator.
 - Use WaveVortexModel's default adaptive `ode78` integrator.
-- Return a structured unsupported-operation error from resolution conversion until Milestone 8.
+- During this milestone, return a structured unsupported-operation error from resolution conversion; Milestone 8 replaces this temporary gate with spectral rebuilding.
 
 ### Automated acceptance
 
@@ -255,33 +255,17 @@ h(x)=50\ {\rm m}\cos(2\pi x/L_x),
 
 ## Milestone 7: Comparison with Pseudo-topography
 
-- [ ] Complete
+- [x] Skipped by decision
 
-### Purpose
+### Status
 
-Quantify the scientific and computational differences between pressure-weighted boundary generation and the existing displacement-source approximation.
+This optional comparison was intentionally skipped after the prescribed generator passed its direct scientific gates. It is not a dependency of the production implementation.
 
-### Dependencies
-
-Milestone 6.
-
-### Deliverables
-
-- Add a comparison example that accepts an explicit path to the external `Pseudo-topography` checkout without making it a package dependency.
-- Run the same constant $N$, sinusoidal-terrain, prescribed-tide case through both forcings.
-- Compare direct $F_0$, linear QGPV, modal wave spectrum, vertical structure, source power, integrated energy input, and runtime per RHS evaluation.
-- Return a result structure and textual report; do not commit generated numerical or figure output.
-
-### Automated acceptance
-
-- The new generator reproduces the Milestone 5 zero-PV and bottom-work identities in the comparison harness.
-- The comparison reports the pseudo-topography balanced and QGPV contributions rather than filtering or hiding them.
-- The test is skipped with a clear diagnostic when the external repository is unavailable.
-- No source file in `Pseudo-topography` is modified.
+No comparison code or dependency on `Pseudo-topography` is added.
 
 ## Milestone 8: Generalization and production behavior
 
-- [ ] Complete
+- [x] Complete
 
 ### Purpose
 
@@ -289,14 +273,16 @@ Extend the validated generator to practical terrain, stratification, resolution,
 
 ### Dependencies
 
-Milestones 6 and 7.
+Milestone 6.
 
 ### Deliverables
 
 - Support broadband periodic terrain and arbitrary stationary $N^2(z)$ available to `WVTransformBoussinesq`.
+- Add a deterministic periodic Goff abyssal-hill generator by adapting the validated implementation from `Pseudo-topography` without introducing a repository dependency.
 - Implement `forcingWithResolutionOfTransform` by resampling the authoritative terrain and rebuilding all modal projection factors for the new transform.
 - Verify explicit rebuilding for WaveVortexModel transforms created at alternate antialias resolutions.
 - Add restart persistence for the terrain, barotropic amplitude, frequency, ramp duration, start time, and forcing name; rebuild transform-derived response arrays after restoration.
+- Add a variable-stratification Goff-terrain model example showing the terrain spectrum, generated wave-energy distribution, and bottom-work budget.
 - Profile construction, storage, and runtime application at three resolutions.
 - Retain the pressure-free and matrix-free runtime path.
 
@@ -305,6 +291,8 @@ Milestones 6 and 7.
 - The optimized response agrees with the direct-quadrature oracle within $10^{-10}$ at reference resolution for constant and variable stratification.
 - Resolution conversion preserves forcing phase, conjugacy, and the zero-PV identity.
 - Restart round trips reproduce forcing tendencies within $10^{-12}$.
+- Adaptive continuation after restart agrees with an uninterrupted control within $10^{-10}$ in the stored wave coefficients.
+- The Goff generator reproduces its requested statistics and cutoff, is deterministic without changing the global random state, and its example renders finite diagnostics without generated files.
 - Runtime application contains only scalar current evaluation, componentwise phase factors, and additions of precomputed wave arrays.
 
 ## Milestone 9: Optional autonomous wave scattering
@@ -347,11 +335,11 @@ h\,\partial_zw_d.
 
 - Plan and implement Milestones 1--4 together as the first executable vertical slice.
 - Plan Milestones 5--6 together after the forcing callback passes its algebraic tests. Milestone 5 is a blocking scientific gate.
-- Plan Milestones 7--8 together after the known-solution benchmark passes.
+- Proceed directly from Milestone 6 to Milestone 8; Milestone 7 is intentionally skipped.
 - Treat Milestone 9 as a separate extension; it is not required to establish the prescribed bottom wave generator.
 
 ## Definition of done
 
 The initial proof of concept is complete when Milestones 1--6 pass: the spectral forcing agrees with the Green-identity oracle, directly forces no balanced coefficient or linear QGPV, reproduces bottom pressure work, and converges to the analytic sinusoidal-terrain response under adaptive integration.
 
-The prescribed generator is production-ready for research use when Milestone 8 also passes. Promotion into WaveVortexModel, an MPM release, dynamic barotropic backreaction, independent bottom buoyancy, nonlinear terrain dynamics, and exact finite-amplitude topography remain outside this roadmap.
+The prescribed generator is production-ready for research use when Milestone 8 passes. Promotion into WaveVortexModel, an MPM release, dynamic barotropic backreaction, independent bottom buoyancy, nonlinear terrain dynamics, and exact finite-amplitude topography remain outside this roadmap.
