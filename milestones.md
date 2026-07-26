@@ -98,7 +98,7 @@ Milestone 1.
 ### Deliverables
 
 - Construct a matched `WVTransformHydrostatic` using the target domain, grid, stratification, Coriolis parameter, density, gravity, and antialias convention.
-- Use its ordinary $F$–$G$ modes for the homogeneous interior fields.
+- Use its ordinary $F$ and $G$ modes for the homogeneous interior fields.
 - Add one bottom-displacement coefficient per retained horizontal wavenumber with
 
 ```math
@@ -191,7 +191,7 @@ iJ_0\boldsymbol c=\omega E_0\boldsymbol c.
 
 ### Purpose
 
-Establish the exact-in-resolved-$h$ finite-terrain weak system as a low-resolution dense scientific oracle.
+Establish the finite-terrain weak system, exact in the resolved terrain height $h$, as a low-resolution dense scientific oracle.
 
 ### Dependencies
 
@@ -214,7 +214,7 @@ N^2(\gamma\xi)
 - Verify the exact flat limit and random-state identity
 
 ```math
-\operatorname{Re}
+\mathrm{Re}
 \left(\boldsymbol a^*J_\gamma\boldsymbol a\right)=0.
 ```
 
@@ -227,7 +227,7 @@ N^2(\gamma\xi)
 - $E_\gamma$ is positive definite and remains well conditioned at the documented reference terrains.
 - Random-state finite-terrain energy tendencies close to roundoff.
 - For $h=0$, all finite-terrain matrices reproduce the Milestone-3 flat matrices within $10^{-12}$.
-- Uniform-depth frequencies, mapped eigenfunctions, and energy normalization converge to the independent depth-$H$ solution within $10^{-9}$.
+- Uniform-depth frequencies, mapped eigenfunctions, and energy normalization converge to the independent solution of physical depth $H$ within $10^{-9}$.
 - Repeated dense construction is deterministic to $10^{-13}$.
 
 ## Milestone 5: Terrain modes and wave–balanced separation
@@ -365,14 +365,14 @@ A_n(t)=A_n(0)e^{-i\Omega_nt}.
 
 - Use the flat energy and signed-frequency operator as the iterative-solve preconditioner.
 - Convert between Galerkin states and WaveVortexModel field and coefficient conventions at initialization and output.
-- Add uniform-depth, sinusoidal-terrain, and Gaussian-ridge examples showing modal scattering, physical $x$–$z$ fields, bottom displacement, APV, and finite-terrain energy.
+- Add uniform-depth, sinusoidal-terrain, and Gaussian-ridge examples showing modal scattering, physical vertical sections, bottom displacement, APV, and finite-terrain energy.
 - Report operator, eigensolver, and time-integration errors separately.
 
 ### Automated acceptance
 
 - Terrain-mode phase evolution agrees with direct matrix exponentiation at low resolution.
 - Cayley evolution conserves $\boldsymbol a^*E_\gamma\boldsymbol a/2$ to the linear-solver tolerance.
-- The uniform-depth evolution agrees with the independent exact depth-$H$ solution.
+- The uniform-depth evolution agrees with the independent exact solution at depth $H$.
 - Sinusoidal and Gaussian examples converge with time step, horizontal resolution, vertical modes, and dressing iterations.
 - Nonzero-frequency evolution remains in the discrete zero-APV wave space.
 - Ordinary time stepping performs no diagnostic pressure solve.
