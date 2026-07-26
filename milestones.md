@@ -28,7 +28,7 @@ The completed mean-depth generator and scattering implementation is retained as 
   \gamma=1-\frac{h}{D}>0.
   ```
 
-- The prognostic weak state contains \((\hat u,\hat v,\hat w,\hat\eta)\) and one bottom-displacement coefficient per retained horizontal wavenumber. Pressure is recovered only as a post-solve diagnostic.
+- The prognostic weak state contains $(\hat u,\hat v,\hat w,\hat\eta)$ and one bottom-displacement coefficient per retained horizontal wavenumber. Pressure is recovered only as a post-solve diagnostic.
 - The velocity satisfies mapped continuity and homogeneous normal-flow conditions,
 
   ```math
@@ -37,12 +37,12 @@ The completed mean-depth generator and scattering implementation is retained as 
   \hat w(-D)=\hat w(0)=0.
   ```
 
-- Surface displacement vanishes. The bottom value of \(\hat\eta\) is unrestricted and evolves through the displacement equation.
+- Surface displacement vanishes. The bottom value of $\hat\eta$ is unrestricted and evolves through the displacement equation.
 - Independent surface-buoyancy anomalies are excluded. Independent bottom buoyancy is retained in the zero-frequency balanced state space.
 - Hydrostatic modes are coordinates only. The projected equations, recovered flat modes, finite-terrain modes, and evolution remain nonhydrostatic.
 - Galerkin states use complex horizontal Fourier coefficients with explicit conjugacy maps for real physical fields.
 - Terrain products use a common oversampled quadrature and adjoint-consistent reconstruction and projection.
-- The formulation is not an additive `WVForcing`; ordinary evolution acts through \(E_\gamma^{-1}J_\gamma\), terrain-mode phases, or an energy-preserving implicit step.
+- The formulation is not an additive `WVForcing`; ordinary evolution acts through $E_\gamma^{-1}J_\gamma$, terrain-mode phases, or an energy-preserving implicit step.
 
 ## Milestone 1: Repository and scientific contract
 
@@ -69,7 +69,7 @@ None.
   ```
 
 - Support only `WVTransformBoussinesq` initially.
-- Validate terrain size, reality, finiteness, periodic layout, and \(\gamma>0\) with structured class-specific errors.
+- Validate terrain size, reality, finiteness, periodic layout, and $\gamma>0$ with structured class-specific errors.
 - Treat `verticalModeIndices` as the retained hydrostatic reference coordinates and require a positive integer `horizontalOversamplingFactor`.
 - Store authoritative geometry, terrain, basis settings, originating transform metadata, and construction diagnostics as read-only scientific state.
 - Document units, coefficient ordering, bottom-displacement coordinates, real-field conjugacy, energy normalization, and the distinction between the Galerkin system and `WVForcing`.
@@ -78,7 +78,7 @@ None.
 ### Automated acceptance
 
 - Constructor tests accept flat, uniform-offset, sinusoidal, and broadband terrain.
-- Constructor tests reject unsupported transforms, bad terrain dimensions, complex or nonfinite terrain, \(\gamma\leq0\), invalid mode indices, and invalid oversampling factors.
+- Constructor tests reject unsupported transforms, bad terrain dimensions, complex or nonfinite terrain, $\gamma\leq0$, invalid mode indices, and invalid oversampling factors.
 - The originating transform and authoritative terrain are not modified during construction.
 - Existing mean-depth generation and scattering tests remain green.
 - No Galerkin class subclasses `WVForcing` or registers an additive terrain forcing.
@@ -98,7 +98,7 @@ Milestone 1.
 ### Deliverables
 
 - Construct a matched `WVTransformHydrostatic` using the target domain, grid, stratification, Coriolis parameter, density, gravity, and antialias convention.
-- Use its ordinary \(F\)–\(G\) modes for the homogeneous interior fields.
+- Use its ordinary $F$–$G$ modes for the homogeneous interior fields.
 - Add one bottom-displacement coefficient per retained horizontal wavenumber with
 
   ```math
@@ -120,19 +120,19 @@ Milestone 1.
   ```
 
 - Implement deterministic packing and unpacking for the interior modal coefficients and bottom coefficients.
-- Implement reconstruction of \((\hat u,\hat v,\hat w,\hat\eta)\), reconstruction of physical \((u,v,w)\), and the exact mapped volume quadrature.
+- Implement reconstruction of $(\hat u,\hat v,\hat w,\hat\eta)$, reconstruction of physical $(u,v,w)$, and the exact mapped volume quadrature.
 - Implement the adjoints of every reconstruction map using the same vertical weights and horizontal normalization.
 - Implement real-field conjugacy and the discrete finite-terrain APV map.
-- Verify directly that writing the linear displacement equation using \(\eta_i=(1-\gamma)\xi+\hat\eta\) produces the same interior and bottom evolution as the \(\hat\eta\) formulation.
+- Verify directly that writing the linear displacement equation using $\eta_i=(1-\gamma)\xi+\hat\eta$ produces the same interior and bottom evolution as the $\hat\eta$ formulation.
 
 ### Automated acceptance
 
-- Pack/unpack and reconstruction/projection round trips close within \(10^{-12}\) relative error.
+- Pack/unpack and reconstruction/projection round trips close within $10^{-12}$ relative error.
 - The bottom function has the requested endpoint values to roundoff and introduces exactly one bottom value per horizontal coefficient.
-- Reconstructed velocity satisfies mapped continuity and homogeneous \(\hat w\) boundary values to \(10^{-12}\).
-- Real coefficient sets reconstruct real fields and return with conjugacy defects below \(10^{-12}\).
-- Numerical reconstruction and projection satisfy their weighted adjoint identity within \(10^{-12}\).
-- The \(\eta_i\) and \(\hat\eta\) tendencies agree at every grid point and at the bottom within \(10^{-12}\).
+- Reconstructed velocity satisfies mapped continuity and homogeneous $\hat w$ boundary values to $10^{-12}$.
+- Real coefficient sets reconstruct real fields and return with conjugacy defects below $10^{-12}$.
+- Numerical reconstruction and projection satisfy their weighted adjoint identity within $10^{-12}$.
+- The $\eta_i$ and $\hat\eta$ tendencies agree at every grid point and at the bottom within $10^{-12}$.
 
 ## Milestone 3: Flat nonhydrostatic dense oracle
 
@@ -148,7 +148,7 @@ Milestone 2.
 
 ### Deliverables
 
-- Form dense \(E_0\), \(J_0\), and \(Q_0\) by probing every mixed-basis coordinate at low resolution.
+- Form dense $E_0$, $J_0$, and $Q_0$ by probing every mixed-basis coordinate at low resolution.
 - Solve the generalized Hermitian problem independently at each horizontal wavenumber:
 
   ```math
@@ -166,7 +166,7 @@ Milestone 2.
   ```
 
 - For arbitrary stationary stratification, compare frequencies, energy-normalized eigenfunctions, polarization, and APV with `WVTransformBoussinesq`.
-- Report convergence with retained hydrostatic vertical modes and the indicator \(\kappa/m_j\).
+- Report convergence with retained hydrostatic vertical modes and the indicator $\kappa/m_j$.
 - Record raw structural residuals before any explicit symmetrization.
 
 ### Automated acceptance
@@ -179,8 +179,8 @@ Milestone 2.
   \frac{\lVert J_0+J_0^*\rVert}{\lVert J_0\rVert}\leq10^{-13}.
   ```
 
-- \(E_0\) is positive definite on the retained state space.
-- Constant-stratification frequencies agree with the analytic dispersion relation to approximately \(10^{-11}\) relative error.
+- $E_0$ is positive definite on the retained state space.
+- Constant-stratification frequencies agree with the analytic dispersion relation to approximately $10^{-11}$ relative error.
 - Variable-stratification frequencies and eigenfunctions converge to the directly computed nonhydrostatic modes as vertical coordinates are added.
 - Nonzero-frequency modes have negligible discrete APV and the zero-frequency dimension matches the expected balanced, MDA, and bottom-buoyancy coordinates.
 - Failure to recover the flat problem or acceptable conditioning blocks Milestone 4.
@@ -191,7 +191,7 @@ Milestone 2.
 
 ### Purpose
 
-Establish the exact-in-resolved-\(h\) finite-terrain weak system as a low-resolution dense scientific oracle.
+Establish the exact-in-resolved-$h$ finite-terrain weak system as a low-resolution dense scientific oracle.
 
 ### Dependencies
 
@@ -209,7 +209,7 @@ Milestone 3.
   ```
 
   on a common oversampled grid.
-- Form dense \(E_\gamma\), \(J_\gamma\), and \(Q_\gamma\) by direct quadrature of every mixed-basis pair.
+- Form dense $E_\gamma$, $J_\gamma$, and $Q_\gamma$ by direct quadrature of every mixed-basis pair.
 - Preserve the raw matrices and their structural defects for diagnosis before any roundoff-level restoration.
 - Verify the exact flat limit and random-state identity
 
@@ -218,17 +218,17 @@ Milestone 3.
   \left(\boldsymbol a^*J_\gamma\boldsymbol a\right)=0.
   ```
 
-- Use constant \(\gamma\) as an exact mapped-coordinate oracle and compare against an independent flat transform of physical depth \(H=\gamma D\).
+- Use constant $\gamma$ as an exact mapped-coordinate oracle and compare against an independent flat transform of physical depth $H=\gamma D$.
 - Separate quadrature, truncation, and eigensolver errors in the diagnostics.
 
 ### Automated acceptance
 
-- Raw finite-terrain structural residuals are below \(10^{-12}\).
-- \(E_\gamma\) is positive definite and remains well conditioned at the documented reference terrains.
+- Raw finite-terrain structural residuals are below $10^{-12}$.
+- $E_\gamma$ is positive definite and remains well conditioned at the documented reference terrains.
 - Random-state finite-terrain energy tendencies close to roundoff.
-- For \(h=0\), all finite-terrain matrices reproduce the Milestone-3 flat matrices within \(10^{-12}\).
-- Uniform-depth frequencies, mapped eigenfunctions, and energy normalization converge to the independent depth-\(H\) solution within \(10^{-9}\).
-- Repeated dense construction is deterministic to \(10^{-13}\).
+- For $h=0$, all finite-terrain matrices reproduce the Milestone-3 flat matrices within $10^{-12}$.
+- Uniform-depth frequencies, mapped eigenfunctions, and energy normalization converge to the independent depth-$H$ solution within $10^{-9}$.
+- Repeated dense construction is deterministic to $10^{-13}$.
 
 ## Milestone 5: Terrain modes and wave–balanced separation
 
@@ -252,8 +252,8 @@ Milestone 4.
   \Omega_nE_\gamma\boldsymbol c_n.
   ```
 
-- Classify nonzero-frequency modes with \(Q_\gamma\) and retain the zero-frequency balanced complement, including bottom buoyancy.
-- Normalize modes in the finite-terrain energy and resolve degenerate eigenspaces by \(E_\gamma\)-orthogonalization.
+- Classify nonzero-frequency modes with $Q_\gamma$ and retain the zero-frequency balanced complement, including bottom buoyancy.
+- Normalize modes in the finite-terrain energy and resolve degenerate eigenspaces by $E_\gamma$-orthogonalization.
 - Use sinusoidal terrain to verify leading Fourier selection and terrain-induced modal coupling.
 - Verify the oscillatory bottom relation
 
@@ -268,8 +268,8 @@ Milestone 4.
 
 ### Automated acceptance
 
-- Terrain frequencies are real to \(10^{-10}\) relative accuracy.
-- Distinct-frequency modes are \(E_\gamma\)-orthogonal to \(10^{-10}\).
+- Terrain frequencies are real to $10^{-10}$ relative accuracy.
+- Distinct-frequency modes are $E_\gamma$-orthogonal to $10^{-10}$.
 - Nonzero-frequency modes have negligible APV at the spatial-discretization tolerance.
 - The balanced dimension and bottom-buoyancy freedom agree with the discrete state count.
 - Sinusoidal terrain produces the predicted Fourier couplings.
@@ -295,15 +295,15 @@ Milestone 5.
 - Apply block residual corrections preconditioned by the flat signed-frequency operator.
 - Remove the complete degenerate or near-resonant flat eigenspace before applying the complementary inverse.
 - Include the bottom coefficient in the same correction, energy orthogonalization, and reduced Ritz solve.
-- Rediagonalize the exact reduced \((iJ_\gamma,E_\gamma)\) pair after every enrichment step.
+- Rediagonalize the exact reduced $(iJ_\gamma,E_\gamma)$ pair after every enrichment step.
 - Compare selective dressed modes with the complete dense terrain oracle.
 
 ### Automated acceptance
 
-- For weak nonresonant terrain, one correction reduces an \(O(h)\) seed residual to \(O(h^2)\), with observed terrain-amplitude order at least 1.8.
+- For weak nonresonant terrain, one correction reduces an $O(h)$ seed residual to $O(h^2)$, with observed terrain-amplitude order at least 1.8.
 - Degenerate tests converge only after the complete coupled block is included.
 - Residual norms decrease monotonically after accepted enrichment steps.
-- Repeated enrichment reproduces targeted dense eigenvalues and energy-normalized eigenspaces within \(10^{-9}\).
+- Repeated enrichment reproduces targeted dense eigenvalues and energy-normalized eigenspaces within $10^{-9}$.
 - Dressed nonzero-frequency modes retain negligible APV and satisfy the bottom relation at the dense-oracle tolerance.
 
 ## Milestone 7: Matrix-free operator actions
@@ -320,7 +320,7 @@ Milestone 6.
 
 ### Deliverables
 
-- Implement matrix-free applications of \(E_\gamma\), \(J_\gamma\), and \(Q_\gamma\).
+- Implement matrix-free applications of $E_\gamma$, $J_\gamma$, and $Q_\gamma$.
 - Unpack interior and bottom coordinates, reconstruct the mapped and physical fields, multiply by terrain and stratification weights on an oversampled grid, and project with the exact adjoints.
 - Use a default horizontal oversampling factor of two and permit larger factors for convergence studies.
 - Implement flat signed-frequency preconditioning and block iterative eigensolves.
@@ -329,8 +329,8 @@ Milestone 6.
 
 ### Automated acceptance
 
-- Matrix-free actions agree with the dense oracle within \(10^{-10}\) at reference resolution.
-- Matrix-free energy and exchange actions satisfy their adjoint identities within \(10^{-12}\).
+- Matrix-free actions agree with the dense oracle within $10^{-10}$ at reference resolution.
+- Matrix-free energy and exchange actions satisfy their adjoint identities within $10^{-12}$.
 - Matrix-free Ritz values, eigenspaces, APV, and residual histories reproduce the dense results.
 - Results converge independently with Fourier resolution, vertical modes, oversampling factor, and dressing iterations.
 - Runtime operator applications allocate no global dense terrain matrix and perform no pressure solve.
@@ -365,14 +365,14 @@ Milestone 7.
 
 - Use the flat energy and signed-frequency operator as the iterative-solve preconditioner.
 - Convert between Galerkin states and WaveVortexModel field and coefficient conventions at initialization and output.
-- Add uniform-depth, sinusoidal-terrain, and Gaussian-ridge examples showing modal scattering, physical \(x\)–\(z\) fields, bottom displacement, APV, and finite-terrain energy.
+- Add uniform-depth, sinusoidal-terrain, and Gaussian-ridge examples showing modal scattering, physical $x$–$z$ fields, bottom displacement, APV, and finite-terrain energy.
 - Report operator, eigensolver, and time-integration errors separately.
 
 ### Automated acceptance
 
 - Terrain-mode phase evolution agrees with direct matrix exponentiation at low resolution.
-- Cayley evolution conserves \(\boldsymbol a^*E_\gamma\boldsymbol a/2\) to the linear-solver tolerance.
-- The uniform-depth evolution agrees with the independent exact depth-\(H\) solution.
+- Cayley evolution conserves $\boldsymbol a^*E_\gamma\boldsymbol a/2$ to the linear-solver tolerance.
+- The uniform-depth evolution agrees with the independent exact depth-$H$ solution.
 - Sinusoidal and Gaussian examples converge with time step, horizontal resolution, vertical modes, and dressing iterations.
 - Nonzero-frequency evolution remains in the discrete zero-APV wave space.
 - Ordinary time stepping performs no diagnostic pressure solve.
@@ -402,11 +402,11 @@ Milestone 8.
 ### Automated acceptance
 
 - Repeated construction is deterministic and resolution rebuilding preserves conjugacy, energy normalization, and APV classification.
-- Restart continuation matches uninterrupted evolution to \(10^{-10}\) in energy-normalized coefficients.
+- Restart continuation matches uninterrupted evolution to $10^{-10}$ in energy-normalized coefficients.
 - Broadband and variable-stratification calculations retain the structural, energy, APV, and strong-residual gates.
 - Benchmarks report construction time, peak stored state, operator-application time, iteration counts, and reconstruction time.
 - Selective terrain-mode evolution reduces to phase multiplication and reconstruction.
-- Broad-state evolution reduces to matrix-free \(E_\gamma\) and \(J_\gamma\) actions plus preconditioned Cayley solves.
+- Broad-state evolution reduces to matrix-free $E_\gamma$ and $J_\gamma$ actions plus preconditioned Cayley solves.
 
 ## Planning and implementation cadence
 
