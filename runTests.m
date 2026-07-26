@@ -19,7 +19,7 @@ if strlength(waveVortexModelRoot) == 0
 end
 
 if ~isfolder(waveVortexModelRoot) || ~isfile(fullfile(waveVortexModelRoot,"WVForcing.m"))
-    error("ExactTopographicForcing:WaveVortexModelNotFound", ...
+    error("BottomWaveGenerationForcing:WaveVortexModelNotFound", ...
         "WaveVortexModel was not found at '%s'. Pass waveVortexModelRoot or set WAVE_VORTEX_MODEL_ROOT.", waveVortexModelRoot)
 end
 
@@ -33,6 +33,6 @@ suite = matlab.unittest.TestSuite.fromFolder(fullfile(repositoryRoot,"UnitTests"
 runner = matlab.unittest.TestRunner.withTextOutput;
 results = runner.run(suite);
 if any([results.Failed])
-    error("ExactTopographicForcing:TestsFailed", "%d of %d tests failed.", nnz([results.Failed]), numel(results))
+    error("BottomWaveGenerationForcing:TestsFailed", "%d of %d tests failed.", nnz([results.Failed]), numel(results))
 end
 end

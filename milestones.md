@@ -39,6 +39,7 @@ Only \(F_+\) and \(F_-\) are modified. The forcing leaves the incoming \(F_0\) u
 - `barotropicVelocityAmplitude` is a finite complex two-component vector \(\widehat{\boldsymbol U}_{\mathrm{bt}}\) with units of velocity.
 - `frequency` is a finite positive angular frequency, `rampDuration` is finite and nonnegative, and `startTime` is finite.
 - The initial transform target is `WVTransformBoussinesq` with discretely constant \(N^2\).
+- The forcing uses the transform's native retained wavenumbers and is agnostic to `shouldAntialias`.
 - The initial barotropic current is prescribed and horizontally uniform. It is an external energy reservoir rather than a prognostic part of the model state.
 - Complete wave modes include their spatial and temporal phases. WaveVortexModel's stored interaction coefficients therefore receive the phase conversion required by the conjugated output-mode pressure.
 - The initial generator applies the additive term \(g_b=\boldsymbol U_{\mathrm{bt}}\boldsymbol{\cdot}\nabla_Hh\). Autonomous wave scattering is deferred to Milestone 9.
@@ -46,7 +47,7 @@ Only \(F_+\) and \(F_-\) are modified. The forcing leaves the incoming \(F_0\) u
 
 ## Milestone 1: Repository and scientific contract
 
-- [ ] Complete
+- [x] Complete
 
 ### Purpose
 
@@ -85,7 +86,7 @@ None.
 
 ## Milestone 2: Boundary-projection oracle
 
-- [ ] Complete
+- [x] Complete
 
 ### Purpose
 
@@ -112,7 +113,7 @@ Milestone 1.
 
 ## Milestone 3: Fast prescribed-generation kernel
 
-- [ ] Complete
+- [x] Complete
 
 ### Purpose
 
@@ -148,7 +149,7 @@ Milestone 2.
 
 ## Milestone 4: WaveVortexModel forcing integration
 
-- [ ] Complete
+- [x] Complete
 
 ### Purpose
 
@@ -289,7 +290,7 @@ Milestones 6 and 7.
 
 - Support broadband periodic terrain and arbitrary stationary \(N^2(z)\) available to `WVTransformBoussinesq`.
 - Implement `forcingWithResolutionOfTransform` by resampling the authoritative terrain and rebuilding all modal projection factors for the new transform.
-- Verify compatibility with WaveVortexModel's antialias transforms.
+- Verify explicit rebuilding for WaveVortexModel transforms created at alternate antialias resolutions.
 - Add restart persistence for the terrain, barotropic amplitude, frequency, ramp duration, start time, and forcing name; rebuild transform-derived response arrays after restoration.
 - Profile construction, storage, and runtime application at three resolutions.
 - Retain the pressure-free and matrix-free runtime path.

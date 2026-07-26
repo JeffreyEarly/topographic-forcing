@@ -1,6 +1,6 @@
 # Mean-depth bottom wave generation
 
-`topographic-forcing` is being redirected toward a fast, first-order bottom wave generator for WaveVortexModel. The new formulation retains the ordinary rigid-lid wave--vortex basis and represents weak topography through the mean-depth bottom condition rather than through mapped-coordinate volume terms.
+`topographic-forcing` provides a fast, first-order bottom wave generator for WaveVortexModel. The formulation retains the ordinary rigid-lid wave--vortex basis and represents weak topography through the mean-depth bottom condition.
 
 For a prescribed, horizontally uniform barotropic current, the bottom velocity is
 
@@ -25,23 +25,23 @@ This construction adds only to the wave coefficients \(A_+\) and \(A_-\). It the
 
 The prescribed barotropic current is an external energy reservoir. Wave energy is not conserved by itself; its rate of increase must equal the bottom pressure work supplied by the prescribed current.
 
-## Development status
+## Quick start
 
-Development of the new formulation will occur on the `mean-depth-wave-generator` branch according to [milestones.md](milestones.md). The existing `WVExactTopographicForcing` source on this branch is the preserved checkpoint of the earlier mapped strong-form attempt. It is not the recommended formulation and will be replaced in Milestone 1.
-
-The initial public API is planned to be
+Construct a constant-stratification `WVTransformBoussinesq`, prescribe the terrain and complex barotropic velocity amplitude, and register the spectral forcing:
 
 ```matlab
 forcing = WVBottomWaveGenerationForcing(wvt, ...
     topographicHeight=h, ...
-    barotropicVelocityAmplitude=Uhat, ...
-    frequency=omega, ...
-    rampDuration=rampDuration, ...
-    startTime=wvt.t, ...
-    name="bottom wave generation");
+    barotropicVelocityAmplitude=[0.05; 0]);
+wvt.removeAllForcing();
+wvt.addForcing(forcing);
 ```
 
-Here `Uhat` is a finite complex two-component vector defining a horizontally uniform harmonic barotropic velocity. The first implementation will target `WVTransformBoussinesq`, constant stratification, stationary periodic terrain, and linear wave generation from a prescribed current.
+The velocity amplitude is the complex two-component vector \(\widehat{\boldsymbol U}_{\mathrm{bt}}\) in meters per second. The default frequency is M2; `frequency`, `rampDuration`, `startTime`, and `name` are optional constructor arguments.
+
+The constructor precomputes the bottom-pressure projection on the transform's native spectral layout. Each subsequent forcing call evaluates the prescribed current, combines two response arrays per wave branch, and applies WaveVortexModel's interaction phases. There is no runtime pressure solve, FFT, spatial projection, or modal coupling matrix. Transforms with either value of `shouldAntialias` are supported.
+
+Milestones 1--4 of the development [roadmap](milestones.md) are implemented on the `mean-depth-wave-generator` branch. Explicit conversion to a different transform resolution remains deferred.
 
 The scientific and computational status of the earlier repositories and branches is summarized in [PRIOR_APPROACHES.md](PRIOR_APPROACHES.md).
 
@@ -57,4 +57,10 @@ The following remain outside the initial proof of concept:
 - backreaction on a dynamically evolving barotropic tide;
 - exact conservation of wave energy when the barotropic energy reservoir is omitted.
 
-WaveVortexModel remains an external dependency and is not modified or vendored by this repository.
+WaveVortexModel remains an external dependency and is not modified or vendored by this repository. Run the automated suite with:
+
+```matlab
+results = runTests;
+```
+
+The runner resolves WaveVortexModel from an explicit `waveVortexModelRoot` option, `WAVE_VORTEX_MODEL_ROOT`, or the sibling `wave-vortex-model` repository.
