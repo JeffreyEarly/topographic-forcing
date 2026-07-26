@@ -4,22 +4,22 @@
 
 For a prescribed, horizontally uniform barotropic current, the bottom velocity is
 
-$$
+```math
 g_b(\boldsymbol{x},t)
 =
 \boldsymbol{U}_{\mathrm{bt}}(t)\boldsymbol{\cdot}\nabla_H h(\boldsymbol{x}).
-$$
+```
 
 The wave forcing is obtained directly from the bottom pressure of each complete phase-inclusive mode:
 
-$$
+```math
 \dot A_\alpha
 =
 \frac{1}{A E_\alpha}
 \int_A p_{\alpha,d}^*(\boldsymbol{x},t)g_b(\boldsymbol{x},t)\,dA,
 \qquad
 \alpha\in\{+,-\}.
-$$
+```
 
 This construction adds only to the wave coefficients $A_+$ and $A_-$. It therefore produces no direct linear interior QGPV tendency and leaves the balanced forcing coefficient $F_0$ unchanged. It requires no finite-terrain pressure solve, modal terrain matrix, or artificial bottom-localized vertical envelope.
 
