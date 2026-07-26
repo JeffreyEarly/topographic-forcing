@@ -187,7 +187,7 @@ iJ_0\boldsymbol c=\omega E_0\boldsymbol c.
 
 ## Milestone 4: Exact finite-terrain dense forms
 
-- [ ] Complete
+- [x] Complete
 
 ### Purpose
 

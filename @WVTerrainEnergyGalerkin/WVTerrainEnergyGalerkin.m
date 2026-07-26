@@ -6,6 +6,8 @@ classdef WVTerrainEnergyGalerkin < handle
     % additional displacement coordinate per horizontal wavenumber carries
     % the bottom value. The class is a standalone linear scientific system;
     % it is not a `WVForcing` and does not modify its originating transform.
+    % The finite-terrain energy, exchange, and APV forms are evaluated by
+    % common oversampled quadrature.
     %
     % ```matlab
     % problem = WVTerrainEnergyGalerkin.fromTopography(wvt, ...
@@ -16,6 +18,7 @@ classdef WVTerrainEnergyGalerkin < handle
     % - Topic: Inspect the mixed basis
     % - Topic: Transform Galerkin states
     % - Topic: Inspect flat modes
+    % - Topic: Inspect terrain forms
     % - Declaration: classdef WVTerrainEnergyGalerkin < handle
 
     properties (SetAccess=private)
@@ -46,8 +49,8 @@ classdef WVTerrainEnergyGalerkin < handle
 
         % Requested horizontal oversampling factor for terrain products.
         %
-        % Batch A stores this setting. Oversampled terrain products begin
-        % with the finite-terrain forms in Milestone 4.
+        % The finite-terrain forms use this factor in both horizontal
+        % directions for their common quadrature grid.
         %
         % - Topic: Inspect the mixed basis
         horizontalOversamplingFactor
@@ -79,6 +82,17 @@ classdef WVTerrainEnergyGalerkin < handle
         %
         % - Topic: Inspect flat modes
         flatModeBlocks
+
+        % Dense finite-terrain energy, exchange, and APV forms.
+        %
+        % `finiteTerrainForms.energyMatrix` is the positive Hermitian
+        % representation of the finite-terrain energy inner product,
+        % `exchangeMatrix` is the skew-Hermitian Coriolis--buoyancy form,
+        % and `apvMatrix` maps mixed coefficients to quadrature-weighted
+        % finite-terrain APV samples.
+        %
+        % - Topic: Inspect terrain forms
+        finiteTerrainForms
 
         % Construction and scientific-gate diagnostics.
         %
@@ -400,6 +414,8 @@ classdef WVTerrainEnergyGalerkin < handle
             self.basisBlocks = self.constructBasisBlocks;
             self.conjugateCoordinateIndex = self.constructConjugateCoordinateMap;
             [self.flatModeBlocks,self.constructionDiagnostics] = self.constructFlatOracle;
+            [self.finiteTerrainForms,finiteTerrainDiagnostics] = buildFiniteTerrainForms(self);
+            self.constructionDiagnostics.finiteTerrain = finiteTerrainDiagnostics;
         end
 
         function hydro = constructMatchedHydrostaticTransform(self)

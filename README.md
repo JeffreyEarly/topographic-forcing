@@ -1,6 +1,6 @@
 # Mean-depth bottom wave generation
 
-> **Development branch:** `terrain-energy-galerkin` now contains the first three milestones of the pressure-free, finite-terrain-energy Galerkin system described in the active [terrain-energy roadmap](milestones.md). The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
+> **Development branch:** `terrain-energy-galerkin` now contains the first four milestones of the pressure-free, finite-terrain-energy Galerkin system described in the active [terrain-energy roadmap](milestones.md). The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -17,7 +17,7 @@ problem = WVTerrainEnergyGalerkin.fromTopography(wvt, ...
 
 The state uses a full-complex Fourier representation internally. Explicit maps connect it to WaveVortexModel's nonredundant real-field layout without forcing arbitrary complex eigenvectors through a symmetric inverse transform. The source transform's `shouldAntialias` convention is inherited and may be either true or false.
 
-For every retained horizontal wavenumber, the implemented flat oracle constructs the pressure-free forms
+For every retained horizontal wavenumber, the flat oracle constructs the pressure-free forms
 
 ```math
 E_0\dot{\boldsymbol a}=J_0\boldsymbol a,
@@ -25,7 +25,15 @@ E_0\dot{\boldsymbol a}=J_0\boldsymbol a,
 iJ_0\boldsymbol c=\omega E_0\boldsymbol c.
 ```
 
-The raw matrices satisfy the required Hermitian identities at roundoff. Constant-stratification frequencies recover the analytic nonhydrostatic dispersion relation, and arbitrary-stratification frequencies and eigenfunctions converge to the directly computed wavenumber-dependent modes as hydrostatic vertical coordinates are added. Nonzero-frequency modes have negligible flat QGPV and bottom displacement. Finite-terrain matrices and modes begin with Milestone 4 and are not yet implemented.
+The raw matrices satisfy the required Hermitian identities at roundoff. Constant-stratification frequencies recover the analytic nonhydrostatic dispersion relation, and arbitrary-stratification frequencies and eigenfunctions converge to the directly computed wavenumber-dependent modes as hydrostatic vertical coordinates are added. Nonzero-frequency modes have negligible flat QGPV and bottom displacement.
+
+The dense finite-terrain oracle evaluates the mapped geometry and stratification on a common horizontally oversampled grid and stores
+
+```math
+E_\gamma,\qquad J_\gamma,\qquad Q_\gamma.
+```
+
+The raw energy and exchange forms retain their Hermitian and skew-Hermitian structure before roundoff cleanup. Their flat limit reproduces the per-wavenumber oracle, and the constant-\(\gamma\) problem agrees with an independent flat transform of physical depth \(H=\gamma D\). Terrain-dependent modes begin with Milestone 5.
 
 `topographic-forcing` provides a fast, first-order bottom wave generator for WaveVortexModel. The formulation retains the ordinary rigid-lid wave--vortex basis and represents weak topography through the mean-depth bottom condition.
 
