@@ -9,7 +9,7 @@ For stationary topography $h(\boldsymbol{x})$ and a prescribed barotropic curren
 ```math
 \boldsymbol{U}_{\mathrm{bt}}(t)
 =
-R(t)\operatorname{Re}
+R(t)\mathrm{Re}
 \left\{
 \widehat{\boldsymbol{U}}_{\mathrm{bt}}
 e^{-i\omega(t-t_0)}
@@ -128,13 +128,13 @@ Milestone 2.
 - Precompute the spectral terrain gradients and the unit-$x$-current and unit-$y$-current projections onto every active wave mode.
 - Verify the equivalent complex-amplitude identity
 
-  ```math
-  \widehat g_b(\boldsymbol K)
-  =
-  i\boldsymbol K\boldsymbol{\cdot}
-  \widehat{\boldsymbol U}_{\mathrm{bt}}\,
-  \widehat h(\boldsymbol K).
-  ```
+```math
+\widehat g_b(\boldsymbol K)
+=
+i\boldsymbol K\boldsymbol{\cdot}
+\widehat{\boldsymbol U}_{\mathrm{bt}}\,
+\widehat h(\boldsymbol K).
+```
 
 - At runtime evaluate the real ramped current, combine the two precomputed responses, apply the output-mode interaction phases componentwise, and return $F_+$ and $F_-$.
 - Preserve exact zeros at inactive and excluded coefficient locations.
@@ -193,12 +193,12 @@ Milestone 4.
 - Reconstruct the physical wave tendencies and evaluate their linear QGPV source with the transform's native derivative operators.
 - Compare the modal wave-energy tendency with
 
-  ```math
-  P_b
-  =
-  \frac1A
-  \int_Ap_{w,d}g_b\,dA,
-  ```
+```math
+P_b
+=
+\frac1A
+\int_Ap_{w,d}g_b\,dA,
+```
 
   where $p_{w,d}$ is the bottom pressure reconstructed from the evolving wave state.
 - Test deterministic random wave states, states reached during forced evolution, and both wave branches.
@@ -227,13 +227,13 @@ Milestone 5.
 
 - Use
 
-  ```math
-  [L_x,L_y,D]=[20,20,2]\ {\rm km},
-  \qquad
-  N^2=2\times10^{-5}\ {\rm s}^{-2},
-  \qquad
-  h(x)=50\ {\rm m}\cos(2\pi x/L_x),
-  ```
+```math
+[L_x,L_y,D]=[20,20,2]\ {\rm km},
+\qquad
+N^2=2\times10^{-5}\ {\rm s}^{-2},
+\qquad
+h(x)=50\ {\rm m}\cos(2\pi x/L_x),
+```
 
   at latitude $45^\circ$, with a $5\ {\rm cm\,s^{-1}}$ $x$-directed M2 barotropic velocity and no startup ramp.
 - Initialize from rest, remove nonlinear advection, and register only `WVBottomWaveGenerationForcing`.
@@ -318,13 +318,13 @@ Milestone 8.
 
 - Reconstruct the instantaneous bottom fields of the wave state and evaluate
 
-  ```math
-  g_b
-  =
-  \boldsymbol u_{H,d}\boldsymbol{\cdot}\nabla_Hh
-  -
-  h\,\partial_zw_d.
-  ```
+```math
+g_b
+=
+\boldsymbol u_{H,d}\boldsymbol{\cdot}\nabla_Hh
+-
+h\,\partial_zw_d.
+```
 
 - Apply the same pressure-weighted projection only to $A_+$ and $A_-$.
 - Advance the separate bottom displacement diagnostic with $\partial_t\eta_d=g_b$.
