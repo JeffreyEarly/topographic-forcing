@@ -125,7 +125,7 @@ Milestone 2.
 
 ### Deliverables
 
-- Precompute the spectral terrain gradients and the unit-$x$-current and unit-$y$-current projections onto every active wave mode.
+- Precompute the spectral terrain gradients and the projections of unit currents in the $x$ and $y$ directions onto every active wave mode.
 - Verify the equivalent complex-amplitude identity
 
 ```math
@@ -263,7 +263,7 @@ Milestone 6.
 ### Deliverables
 
 - Add a comparison example that accepts an explicit path to the external `Pseudo-topography` checkout without making it a package dependency.
-- Run the same constant-$N$, sinusoidal-terrain, prescribed-tide case through both forcings.
+- Run the same constant $N$, sinusoidal-terrain, prescribed-tide case through both forcings.
 - Compare direct $F_0$, linear QGPV, modal wave spectrum, vertical structure, source power, integrated energy input, and runtime per RHS evaluation.
 - Return a result structure and textual report; do not commit generated numerical or figure output.
 
