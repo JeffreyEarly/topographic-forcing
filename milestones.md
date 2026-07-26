@@ -18,6 +18,8 @@ The mathematical specification is `terrain-energy-galerkin.tex` at commit `72c96
 
 The completed mean-depth generator and scattering implementation is retained as reusable engineering infrastructure. Its scientific roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md). Neither existing forcing is used as the terrain-energy evolution operator.
 
+The dense finite-terrain forms are the unmodified Galerkin oracle. Milestone 4.5 separately tests whether a minimum-change constrained closure can preserve discrete APV and strong bottom evolution in addition to energy. If adopted, that closure is a conservative discrete surrogate for the raw finite-dimensional Galerkin operator; its correction magnitude and convergence must remain explicit diagnostics.
+
 ## Fixed conventions and boundaries
 
 - The public target is `WVTransformBoussinesq`; WaveVortexModel remains an external dependency and is not modified.
@@ -42,7 +44,7 @@ The completed mean-depth generator and scattering implementation is retained as 
 - Hydrostatic modes are coordinates only. The projected equations, recovered flat modes, finite-terrain modes, and evolution remain nonhydrostatic.
 - Galerkin states use complex horizontal Fourier coefficients with explicit conjugacy maps for real physical fields.
 - Terrain products use a common oversampled quadrature and adjoint-consistent reconstruction and projection.
-- The formulation is not an additive `WVForcing`; ordinary evolution acts through $E_\gamma^{-1}J_\gamma$, terrain-mode phases, or an energy-preserving implicit step.
+- The formulation is not an additive `WVForcing`; ordinary evolution acts through the approved finite-terrain generator, terrain-mode phases, or an energy-preserving implicit step.
 
 ## Milestone 1: Repository and scientific contract
 
@@ -230,6 +232,127 @@ N^2(\gamma\xi)
 - Uniform-depth frequencies, mapped eigenfunctions, and energy normalization converge to the independent solution of physical depth $H$ within $10^{-9}$.
 - Repeated dense construction is deterministic to $10^{-13}$.
 
+## Milestone 4.5: Constrained conservative closure audit
+
+- [ ] Complete — blocking scientific side quest
+
+### Purpose
+
+Determine whether the current complete mixed state space admits an energy-preserving evolution that also conserves discrete finite-terrain APV and enforces the strong bottom-displacement evolution exactly. Do not assume that these constraints are jointly feasible.
+
+Milestone 4 guarantees the raw energy identity but does not imply
+
+```math
+Q_\gamma E_\gamma^{-1}J_\gamma=0
+```
+
+or
+
+```math
+B E_\gamma^{-1}J_\gamma=R_h,
+```
+
+where $Q_\gamma$ maps state coefficients to resolved APV, $B$ extracts the bottom value of $\hat\eta$, and $R_h$ maps the state to $\boldsymbol u_{H,b}\boldsymbol{\cdot}\nabla_Hh$. The failure of either identity prevents the raw finite-dimensional system from passing Milestone 5 even though it conserves energy.
+
+### Dependencies
+
+Milestone 4.
+
+### Deliverables
+
+- Preserve the raw Milestone-4 matrices and diagnostics unchanged.
+- Factor the finite-terrain energy as
+
+  ```math
+  E_\gamma=S^*S
+  ```
+
+  and introduce energy coordinates $\boldsymbol b=S\boldsymbol a$ with raw generator
+
+  ```math
+  K_0=S^{-*}J_\gamma S^{-1},
+  \qquad
+  K_0=-K_0^*.
+  ```
+
+- Form the transformed constraint maps
+
+  ```math
+  \overline Q=Q_\gamma S^{-1},
+  \qquad
+  \overline B=BS^{-1},
+  \qquad
+  \overline R=R_hS^{-1}.
+  ```
+
+- Use rank-revealing dense linear algebra to determine whether there exists a complete-state operator $K_c$ satisfying
+
+  ```math
+  K_c=-K_c^*,
+  \qquad
+  \overline QK_c=0,
+  \qquad
+  \overline BK_c=\overline R.
+  ```
+
+- Diagnose compatibility before constructing a correction. Let $P_Q$ be the orthogonal projector onto $\ker\overline Q$. Because skew-Hermiticity and $\overline QK_c=0$ imply $K_c=P_QK_cP_Q$, report the defects in the necessary APV–bottom compatibility conditions, including
+
+  ```math
+  \overline R(I-P_Q)=0
+  ```
+
+  and skew-Hermiticity of $\overline R\,\overline B^*$.
+- If the constraints are feasible, compute the unique minimum-change closure
+
+  ```math
+  \underset{K_c}{\operatorname{minimize}}
+  \quad
+  \lVert K_c-K_0\rVert_F
+  ```
+
+  subject to the three exact constraints. Implement this first as a low-resolution dense oracle with explicit real and imaginary linear constraints.
+- Transform a feasible closure back to the original coordinates,
+
+  ```math
+  J_\gamma^c=S^*K_cS,
+  \qquad
+  E_\gamma\dot{\boldsymbol a}=J_\gamma^c\boldsymbol a,
+  ```
+
+  while retaining $J_\gamma$ as the unmodified Galerkin reference.
+- Report the relative correction $\lVert K_c-K_0\rVert_F/\lVert K_0\rVert_F$, constraint residuals, ranks and nullities, balanced dimension, and dependence on terrain amplitude and horizontal and vertical resolution.
+- Test the constraints on the complete state space, including the APV-bearing balanced and bottom-buoyancy coordinates. Do not obtain feasibility by silently deleting balanced columns or restricting the audit to a selected wave subspace.
+
+### Automated acceptance and exits
+
+- The audit uses flat, uniform-depth, and sinusoidal-terrain cases and is deterministic under repeated construction.
+- For $h=0$, the raw generator is already feasible and the minimum-change closure satisfies $K_c=K_0$ to $10^{-12}$ relative accuracy.
+- A feasible closure must satisfy
+
+  ```math
+  \frac{\lVert K_c+K_c^*\rVert}
+  {\max(1,\lVert K_c\rVert)}
+  \leq10^{-13},
+  ```
+
+  ```math
+  \frac{\lVert\overline QK_c\rVert}
+  {\max(1,\lVert K_c\rVert)}
+  \leq10^{-12},
+  \qquad
+  \frac{\lVert\overline BK_c-\overline R\rVert}
+  {\max(1,\lVert\overline R\rVert)}
+  \leq10^{-12}.
+  ```
+
+- Random-state tests verify zero finite-terrain energy tendency, constant discrete APV, and exact discrete bottom evolution.
+- Every nonzero-frequency eigenvector of a feasible $K_c$ has negligible APV, its frequencies are real to the eigensolver tolerance, and the dimension of its zero-frequency space is reported against the expected balanced count.
+- The correction norm and each raw compatibility defect are reported over terrain-amplitude and resolution sweeps. No acceptance threshold is imposed on the correction norm until its convergence behavior is known.
+- The side quest has two scientifically valid exits:
+  - **Feasible:** the exact constraints close at the stated tolerances, the correction is reproducible, and Milestone 5 proceeds using $J_\gamma^c$ while retaining the raw operator as a diagnostic reference.
+  - **Incompatible:** the rank-revealing solve establishes a nonzero minimum constraint residual, identifies the failed compatibility condition and implicated state subspace, and Milestone 5 remains blocked pending a revised state or constraint formulation.
+- Approximate feasibility obtained by relaxed tolerances, empirical correction factors, or removal of physical state coordinates does not pass this gate.
+
 ## Milestone 5: Terrain modes and wave–balanced separation
 
 - [ ] Complete — blocking scientific gate
@@ -240,18 +363,19 @@ Demonstrate that the finite-terrain weak system produces physically admissible o
 
 ### Dependencies
 
-Milestone 4.
+Milestone 4.5 with its feasible exit.
 
 ### Deliverables
 
-- Solve the complete dense generalized Hermitian problem
+- Solve the complete constrained dense generalized Hermitian problem
 
 ```math
-iJ_\gamma\boldsymbol c_n
+iJ_\gamma^c\boldsymbol c_n
 =
 \Omega_nE_\gamma\boldsymbol c_n.
 ```
 
+- Retain the raw $J_\gamma$ eigensystem and correction norm as diagnostic comparisons; do not describe $J_\gamma^c$ as the unmodified Galerkin operator.
 - Classify nonzero-frequency modes with $Q_\gamma$ and retain the zero-frequency balanced complement, including bottom buoyancy.
 - Normalize modes in the finite-terrain energy and resolve degenerate eigenspaces by $E_\gamma$-orthogonalization.
 - Use sinusoidal terrain to verify leading Fourier selection and terrain-induced modal coupling.
@@ -291,12 +415,12 @@ Milestone 5.
 ### Deliverables
 
 - Use the Milestone-3 flat nonhydrostatic Ritz modes as initial vectors.
-- Evaluate each seed's residual in the exact finite-terrain generalized eigenproblem.
+- Evaluate each seed's residual in the constrained finite-terrain generalized eigenproblem approved by Milestone 4.5.
 - Apply block residual corrections preconditioned by the flat signed-frequency operator.
 - Remove the complete degenerate or near-resonant flat eigenspace before applying the complementary inverse.
 - Include the bottom coefficient in the same correction, energy orthogonalization, and reduced Ritz solve.
-- Rediagonalize the exact reduced $(iJ_\gamma,E_\gamma)$ pair after every enrichment step.
-- Compare selective dressed modes with the complete dense terrain oracle.
+- Rediagonalize the exact reduced $(iJ_\gamma^c,E_\gamma)$ pair after every enrichment step.
+- Compare selective dressed modes with the constrained dense terrain oracle while retaining raw-operator residuals as diagnostics.
 
 ### Automated acceptance
 
@@ -320,7 +444,7 @@ Milestone 6.
 
 ### Deliverables
 
-- Implement matrix-free applications of $E_\gamma$, $J_\gamma$, and $Q_\gamma$.
+- Implement matrix-free applications of $E_\gamma$, raw $J_\gamma$, $Q_\gamma$, and the feasible constrained closure selected in Milestone 4.5.
 - Unpack interior and bottom coordinates, reconstruct the mapped and physical fields, multiply by terrain and stratification weights on an oversampled grid, and project with the exact adjoints.
 - Use a default horizontal oversampling factor of two and permit larger factors for convergence studies.
 - Implement flat signed-frequency preconditioning and block iterative eigensolves.
@@ -329,7 +453,7 @@ Milestone 6.
 
 ### Automated acceptance
 
-- Matrix-free actions agree with the dense oracle within $10^{-10}$ at reference resolution.
+- Matrix-free raw and constrained actions agree with their dense oracles within $10^{-10}$ at reference resolution.
 - Matrix-free energy and exchange actions satisfy their adjoint identities within $10^{-12}$.
 - Matrix-free Ritz values, eigenspaces, APV, and residual histories reproduce the dense results.
 - Results converge independently with Fourier resolution, vertical modes, oversampling factor, and dressing iterations.
@@ -358,9 +482,9 @@ A_n(t)=A_n(0)e^{-i\Omega_nt}.
 - Evolve broader mixed states with the midpoint/Cayley step
 
 ```math
-\left(E_\gamma-\frac{\Delta t}{2}J_\gamma\right)\boldsymbol a^{n+1}
+\left(E_\gamma-\frac{\Delta t}{2}J_\gamma^c\right)\boldsymbol a^{n+1}
 =
-\left(E_\gamma+\frac{\Delta t}{2}J_\gamma\right)\boldsymbol a^n.
+\left(E_\gamma+\frac{\Delta t}{2}J_\gamma^c\right)\boldsymbol a^n.
 ```
 
 - Use the flat energy and signed-frequency operator as the iterative-solve preconditioner.
@@ -406,19 +530,19 @@ Milestone 8.
 - Broadband and variable-stratification calculations retain the structural, energy, APV, and strong-residual gates.
 - Benchmarks report construction time, peak stored state, operator-application time, iteration counts, and reconstruction time.
 - Selective terrain-mode evolution reduces to phase multiplication and reconstruction.
-- Broad-state evolution reduces to matrix-free $E_\gamma$ and $J_\gamma$ actions plus preconditioned Cayley solves.
+- Broad-state evolution reduces to matrix-free $E_\gamma$ and constrained $J_\gamma^c$ actions plus preconditioned Cayley solves.
 
 ## Planning and implementation cadence
 
 - **Batch A — Milestones 1–3.** Plan these milestones together and implement them sequentially. Milestone 3 is a blocking scientific gate: stop if the mixed hydrostatic basis does not accurately and stably recover the flat nonhydrostatic transform.
-- **Batch B — Milestones 4–6.** Plan only after the flat gate passes. Establish the complete dense finite-terrain oracle before implementing selective residual dressing. Milestone 5 is the second blocking gate.
+- **Batch B — Milestones 4–6.** Plan only after the flat gate passes. Establish the complete dense finite-terrain oracle, then perform the Milestone-4.5 constrained-closure audit before solving terrain modes or implementing selective residual dressing. An incompatible Milestone-4.5 exit stops the batch and requires a new formulation plan. With a feasible exit, Milestone 5 is the second blocking modal gate.
 - **Batch C — Milestones 7–9.** Plan only after the dense terrain modes and residual-enrichment tests pass. Implement matrix-free actions before online evolution, resolution rebuilding, or persistence.
 - Use one focused commit per completed milestone and retain the acceptance evidence in the automated tests and examples.
 - Do not bypass a blocking gate by symmetrizing a scientifically incorrect operator or by introducing empirical correction factors.
 
 ## Definition of done
 
-The scientific proof of concept is established when Milestones 1–6 pass: the mixed basis recovers the flat nonhydrostatic modes, the dense finite-terrain forms have the correct energy structure, oscillatory modes have negligible APV and satisfy the physical bottom condition, and residual dressing converges to the dense oracle.
+The scientific proof of concept is established when Milestones 1–6 pass: the mixed basis recovers the flat nonhydrostatic modes, the dense finite-terrain forms have the correct energy structure, the constrained closure has passed its compatibility audit, oscillatory modes have negligible APV and satisfy the physical bottom condition, and residual dressing converges to the constrained dense oracle.
 
 The research implementation is complete when Milestones 7–9 pass: matrix-free actions reproduce the oracle, linear evolution preserves finite-terrain energy, the uniform-depth and scattering examples converge, and restartable broadband calculations require no diagnostic pressure solve during ordinary evolution.
 
