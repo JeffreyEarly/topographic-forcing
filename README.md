@@ -41,9 +41,21 @@ The velocity amplitude is the complex two-component vector $\widehat{\boldsymbol
 
 The constructor precomputes the bottom-pressure projection on the transform's native spectral layout. Each subsequent forcing call evaluates the prescribed current, combines two response arrays per wave branch, and applies WaveVortexModel's interaction phases. There is no runtime pressure solve, FFT, spatial projection, or modal coupling matrix. Transforms with either value of `shouldAntialias` are supported.
 
-Milestones 1--4 of the development [roadmap](milestones.md) are implemented on the `mean-depth-wave-generator` branch. Explicit conversion to a different transform resolution remains deferred.
+Milestones 1--6 of the development [roadmap](milestones.md) are implemented on the `mean-depth-wave-generator` branch. Explicit conversion to a different transform resolution remains deferred.
 
 The scientific and computational status of the earlier repositories and branches is summarized in [PRIOR_APPROACHES.md](PRIOR_APPROACHES.md).
+
+## Exact sinusoidal-ridge example
+
+Run the known-solution benchmark and create its two diagnostic figures with:
+
+```matlab
+benchmark = SinusoidalRidgeWaveGenerationBenchmark;
+```
+
+The example uses a uniform M2 current over one sinusoidal terrain component. It compares three adaptive `ode78` integrations with the analytically integrated interaction coefficients, verifies that wave-energy growth equals the work done by bottom pressure, and shows the generated vertical velocity and displacement fields. Pass `shouldMakeFigures=false` for diagnostics without graphics or set `resolution` and `relativeTolerances` explicitly.
+
+At the automated reference resolution, the coefficient errors for tolerances $10^{-6}$, $10^{-8}$, and $10^{-10}$ are approximately $6.4\times10^{-8}$, $5.6\times10^{-10}$, and $5.8\times10^{-12}$. The tight-run energy/work error is approximately $2.5\times10^{-12}$. The balanced tendency is exactly zero, while an independent physical-space calculation confirms the linear-QGPV source vanishes to the accuracy of the discrete derivative transforms.
 
 ## Scientific scope
 

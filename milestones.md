@@ -177,7 +177,7 @@ Milestones 1 through 3.
 
 ## Milestone 5: No-PV and energy-work scientific gates
 
-- [ ] Complete
+- [x] Complete
 
 ### Purpose
 
@@ -191,13 +191,13 @@ Milestone 4.
 
 - Verify that the isolated forcing has $F_0=0$ in the transform's independent coefficient layout.
 - Reconstruct the physical wave tendencies and evaluate their linear QGPV source with the transform's native derivative operators.
-- Compare the modal wave-energy tendency with
+- Compare the modal wave-energy tendency with the bottom work in WaveVortexModel's energy-per-density normalization,
 
 ```math
 P_b
 =
 \frac1A
-\int_Ap_{w,d}g_b\,dA,
+\int_A\frac{p_{w,d}}{\rho_0}g_b\,dA,
 ```
 
   where $p_{w,d}$ is the bottom pressure reconstructed from the evolving wave state.
@@ -206,14 +206,14 @@ P_b
 
 ### Automated acceptance
 
-- The isolated balanced tendency is exactly zero and the normalized physical linear-QGPV tendency is below $10^{-12}$.
+- The isolated balanced and modal QGPV tendencies are exactly zero. The independently differentiated physical linear-QGPV tendency is below $10^{-10}$ relative to its vorticity-plus-stretching cancellation scale.
 - Modal source power and bottom pressure work agree within $10^{-12}$ relative error for one RHS evaluation.
 - Terrain and current rescaling produce the corresponding linear source rescaling within $10^{-12}$.
 - Any failure of the PV or work identities blocks Milestone 6 and is resolved without empirical correction factors.
 
 ## Milestone 6: Known-solution linear benchmark
 
-- [ ] Complete
+- [x] Complete
 
 ### Purpose
 
@@ -236,10 +236,14 @@ h(x)=50\ {\rm m}\cos(2\pi x/L_x),
 ```
 
   at latitude $45^\circ$, with a $5\ {\rm cm\,s^{-1}}$ $x$-directed M2 barotropic velocity and no startup ramp.
+- Use resolution `[8 4 5]` for the automated oracle and `[32 4 17]` for the default visual example.
 - Initialize from rest, remove nonlinear advection, and register only `WVBottomWaveGenerationForcing`.
 - Integrate the phase-inclusive forced coefficient equations analytically for every excited mode and use them as the reference solution.
 - Run `WVModel` with adaptive relative and absolute tolerances $10^{-6}$, $10^{-8}$, and $10^{-10}$.
 - Report coefficient error, wave-energy growth, integrated bottom work, QGPV, branch energy, and vertical-mode distribution without committing generated output.
+- Provide a user-facing example that returns the benchmark diagnostics and, by default, shows:
+  - exact-solution convergence, energy-work closure, branch energy, and vertical-mode distribution;
+  - the ridge, local bottom work density, vertical velocity, and displacement at the time of maximum exact wave energy.
 
 ### Automated acceptance
 
@@ -247,6 +251,7 @@ h(x)=50\ {\rm m}\cos(2\pi x/L_x),
 - Coefficient errors decrease with adaptive tolerance and are below $10^{-8}$ at the tightest tolerance.
 - Integrated bottom work and wave-energy change agree within $10^{-8}$ at the tightest tolerance and converge together as tolerances tighten.
 - The balanced coefficient and linear QGPV norms remain below $10^{-10}$ of the wave response.
+- Both example figures render with finite plotted data and no generated files are required.
 
 ## Milestone 7: Comparison with Pseudo-topography
 

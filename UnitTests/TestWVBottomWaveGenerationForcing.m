@@ -185,6 +185,105 @@ classdef TestWVBottomWaveGenerationForcing < matlab.unittest.TestCase
             testCase.verifyError(@()forcing.forcingWithResolutionOfTransform(otherTransform),"WVBottomWaveGenerationForcing:ResolutionChangeUnsupported")
         end
 
+        function noPVAndEnergyWorkIdentities(testCase)
+            previousRandomState = rng;
+            randomStateCleanup = onCleanup(@()rng(previousRandomState));
+            rng(67291,"twister")
+            for shouldAntialias = [false true]
+                wvt = TestWVBottomWaveGenerationForcing.createTransform(shouldAntialias);
+                terrain = TestWVBottomWaveGenerationForcing.sinusoidalTopography(wvt,50);
+                amplitude = [0.05+0.01i; -0.02+0.015i];
+                forcing = WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=amplitude,frequency=1.405e-4);
+                wvt.t = 813;
+                [forcingFp,forcingFm] = forcing.addSpectralForcing(wvt,zeros(size(wvt.Ap)),zeros(size(wvt.Am)),zeros(size(wvt.A0)));
+                randomAp = (randn(size(wvt.Ap))+1i*randn(size(wvt.Ap))).*wvt.waveComponent.maskAp;
+                randomAm = (randn(size(wvt.Am))+1i*randn(size(wvt.Am))).*wvt.waveComponent.maskAm;
+                states = {
+                    1e4*forcingFp,zeros(size(wvt.Am))
+                    zeros(size(wvt.Ap)),1e4*forcingFm
+                    1e-3*randomAp+1e4*forcingFp,1e-3*randomAm+1e4*forcingFm
+                    };
+                for iState = 1:size(states,1)
+                    wvt.Ap = states{iState,1};
+                    wvt.Am = states{iState,2};
+                    wvt.A0(:) = 0;
+                    diagnostics = TestWVBottomWaveGenerationForcing.sourceDiagnostics(wvt,forcing);
+                    testCase.verifyEqual(diagnostics.F0,zeros(size(wvt.A0)))
+                    testCase.verifyEqual(diagnostics.modalQGPVSource,zeros(size(wvt.A0)))
+                    testCase.verifyLessThanOrEqual(diagnostics.normalizedQGPV,1e-10)
+                    testCase.verifyLessThanOrEqual(diagnostics.powerError,5e-12)
+                end
+
+                wvt.Ap = states{3,1};
+                wvt.Am = states{3,2};
+                baseDiagnostics = TestWVBottomWaveGenerationForcing.sourceDiagnostics(wvt,forcing);
+                doubledTerrain = WVBottomWaveGenerationForcing(wvt,topographicHeight=2*terrain,barotropicVelocityAmplitude=amplitude,frequency=forcing.frequency,startTime=forcing.startTime);
+                doubledCurrent = WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=2*amplitude,frequency=forcing.frequency,startTime=forcing.startTime);
+                terrainDiagnostics = TestWVBottomWaveGenerationForcing.sourceDiagnostics(wvt,doubledTerrain);
+                currentDiagnostics = TestWVBottomWaveGenerationForcing.sourceDiagnostics(wvt,doubledCurrent);
+                testCase.verifyEqual(terrainDiagnostics.modalPower,2*baseDiagnostics.modalPower,RelTol=1e-12,AbsTol=1e-15)
+                testCase.verifyEqual(terrainDiagnostics.bottomPower,2*baseDiagnostics.bottomPower,RelTol=1e-12,AbsTol=1e-15)
+                testCase.verifyEqual(currentDiagnostics.modalPower,2*baseDiagnostics.modalPower,RelTol=1e-12,AbsTol=1e-15)
+                testCase.verifyEqual(currentDiagnostics.bottomPower,2*baseDiagnostics.bottomPower,RelTol=1e-12,AbsTol=1e-15)
+
+                flat = WVBottomWaveGenerationForcing(wvt,topographicHeight=zeros(wvt.Nx,wvt.Ny),barotropicVelocityAmplitude=amplitude,frequency=forcing.frequency,startTime=forcing.startTime);
+                zeroCurrent = WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=zeros(2,1),frequency=forcing.frequency,startTime=forcing.startTime);
+                TestWVBottomWaveGenerationForcing.verifyZeroDiagnostics(testCase,wvt,flat)
+                TestWVBottomWaveGenerationForcing.verifyZeroDiagnostics(testCase,wvt,zeroCurrent)
+            end
+            clear randomStateCleanup
+
+            wvt = TestWVBottomWaveGenerationForcing.createTransform(true);
+            terrain = TestWVBottomWaveGenerationForcing.sinusoidalTopography(wvt,50);
+            forcing = WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0]);
+            wvt.removeAllForcing();
+            wvt.addForcing(forcing);
+            warningState = warning;
+            warningCleanup = onCleanup(@()warning(warningState));
+            warning("off","all")
+            model = WVModel(wvt);
+            model.setupIntegrator(integratorType="adaptive",absTolerance=1e-10,relTolerance=1e-8);
+            model.integrateToTime(600,shouldShowIntegrationDiagnostics=false,callback=@(~)[]);
+            evolvedDiagnostics = TestWVBottomWaveGenerationForcing.sourceDiagnostics(wvt,forcing);
+            testCase.verifyEqual(evolvedDiagnostics.F0,zeros(size(wvt.A0)))
+            testCase.verifyEqual(evolvedDiagnostics.modalQGPVSource,zeros(size(wvt.A0)))
+            testCase.verifyLessThanOrEqual(evolvedDiagnostics.normalizedQGPV,1e-10)
+            testCase.verifyLessThanOrEqual(evolvedDiagnostics.powerError,5e-12)
+            clear warningCleanup
+        end
+
+        function exactSinusoidalRidgeBenchmarkAndFigures(testCase)
+            originalVisibility = get(groot,"defaultFigureVisible");
+            visibilityCleanup = onCleanup(@()set(groot,"defaultFigureVisible",originalVisibility));
+            set(groot,"defaultFigureVisible","off")
+            benchmark = SinusoidalRidgeWaveGenerationBenchmark(resolution=[8 4 5],shouldAntialias=true,shouldMakeFigures=true);
+            figureCleanup = onCleanup(@()close(benchmark.figureHandles(isgraphics(benchmark.figureHandles))));
+
+            testCase.verifyTrue(all(diff(benchmark.coefficientError) < 0))
+            testCase.verifyLessThan(benchmark.coefficientError(end),1e-8)
+            testCase.verifyLessThanOrEqual(benchmark.referenceEnergyWorkError,1e-12)
+            testCase.verifyTrue(all(diff(benchmark.energyWorkError) < 0))
+            testCase.verifyLessThan(benchmark.energyWorkError(end),1e-8)
+            testCase.verifyLessThanOrEqual(max(benchmark.balancedEnergyFraction),1e-20)
+            testCase.verifyLessThanOrEqual(benchmark.normalizedQGPV,1e-10)
+            testCase.verifyLessThanOrEqual(benchmark.sourceSupportError,1e-12)
+            testCase.verifyEqual(sum(benchmark.plusEnergyByMode)+sum(benchmark.minusEnergyByMode),benchmark.referenceEnergy(end),RelTol=1e-12)
+            testCase.verifyNumElements(benchmark.figureHandles,2)
+            testCase.verifyTrue(all(isgraphics(benchmark.figureHandles,"figure")))
+            for figureHandle = benchmark.figureHandles
+                testCase.verifyGreaterThanOrEqual(numel(findall(figureHandle,Type="axes")),4)
+                lineHandles = findall(figureHandle,Type="line");
+                for lineHandle = reshape(lineHandles,1,[])
+                    testCase.verifyTrue(all(isfinite([lineHandle.XData(:); lineHandle.YData(:)])))
+                end
+                imageHandles = findall(figureHandle,Type="image");
+                for imageHandle = reshape(imageHandles,1,[])
+                    testCase.verifyTrue(all(isfinite(imageHandle.CData),"all"))
+                end
+            end
+            clear figureCleanup visibilityCleanup
+        end
+
         function adaptiveModelSmoke(testCase)
             wvt = TestWVBottomWaveGenerationForcing.createTransform(true);
             terrain = TestWVBottomWaveGenerationForcing.sinusoidalTopography(wvt,50);
@@ -244,6 +343,34 @@ classdef TestWVBottomWaveGenerationForcing < matlab.unittest.TestCase
             testCase.verifyEqual(Fp,zeros(size(wvt.Ap)))
             testCase.verifyEqual(Fm,zeros(size(wvt.Am)))
             testCase.verifyEqual(F0,zeros(size(wvt.A0)))
+        end
+
+        function diagnostics = sourceDiagnostics(wvt,forcing)
+            [Fp,Fm,F0] = forcing.addSpectralForcing(wvt,zeros(size(wvt.Ap)),zeros(size(wvt.Am)),zeros(size(wvt.A0)));
+            [Fu,Fv,~,Feta] = wvt.transformWaveVortexToUVWEta(Fp,Fm,F0,wvt.t);
+            vorticityX = wvt.diffX(Fv);
+            vorticityY = wvt.diffY(Fu);
+            stretching = wvt.f*wvt.diffZG(Feta);
+            qgpvSource = vorticityX-vorticityY-stretching;
+            qgpvScale = norm(vorticityX(:))+norm(vorticityY(:))+norm(stretching(:));
+            normalizedQGPV = norm(qgpvSource(:))/max(qgpvScale,eps);
+            modalPower = 2*sum(wvt.Apm_TE_factor(:).*real(Fp(:).*conj(wvt.Ap(:))+Fm(:).*conj(wvt.Am(:))));
+            [~,iBottom] = min(wvt.z);
+            bottomPower = mean((wvt.p(:,:,iBottom)/wvt.rho0).*forcing.bottomVelocityAtTime(wvt.t),"all");
+            powerError = abs(modalPower-bottomPower)/max([abs(modalPower) abs(bottomPower) eps]);
+            modalQGPVSource = wvt.A0_QGPV_factor.*F0;
+            diagnostics = struct(Fp=Fp,Fm=Fm,F0=F0,modalQGPVSource=modalQGPVSource,qgpvSource=qgpvSource,normalizedQGPV=normalizedQGPV,modalPower=modalPower,bottomPower=bottomPower,powerError=powerError);
+        end
+
+        function verifyZeroDiagnostics(testCase,wvt,forcing)
+            diagnostics = TestWVBottomWaveGenerationForcing.sourceDiagnostics(wvt,forcing);
+            testCase.verifyEqual(diagnostics.Fp,zeros(size(wvt.Ap)))
+            testCase.verifyEqual(diagnostics.Fm,zeros(size(wvt.Am)))
+            testCase.verifyEqual(diagnostics.F0,zeros(size(wvt.A0)))
+            testCase.verifyEqual(diagnostics.modalQGPVSource,zeros(size(wvt.A0)))
+            testCase.verifyEqual(diagnostics.qgpvSource,zeros(size(diagnostics.qgpvSource)))
+            testCase.verifyEqual(diagnostics.modalPower,0)
+            testCase.verifyEqual(diagnostics.bottomPower,0)
         end
     end
 end
