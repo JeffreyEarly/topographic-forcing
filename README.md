@@ -117,9 +117,26 @@ Two examples exercise the autonomous formulation:
 ```matlab
 uniform = UniformDepthWaveScatteringBenchmark;
 ridge = SinusoidalRidgeWaveScatteringExample;
+gaussian = GaussianRidgeWaveScatteringExample;
 ```
 
 The uniform-depth benchmark verifies the first-order frequency correction against the exact depth-$D-h_0$ dispersion relation. The sinusoidal-ridge example writes standard output, displays the scattered sidebands and energy exchange, and reconstructs the bottom displacement from that file.
+
+The Gaussian-ridge example follows a localized rightward mode-one M2 wave packet as it crosses a gentle subcritical ridge. Its default terrain has $h_0/D=0.05$ and $\max|h_x|/\mu=0.05$, keeping the calculation in the controlled first-order regime. It uses adaptive `ode78`, returns the sampled `Ap`, `Am`, and `A0` trajectory and diagnostics in memory, and creates no output file unless one is requested:
+
+```matlab
+result = GaussianRidgeWaveScatteringExample( ...
+    outputPath="gaussian-ridge.nc");
+```
+
+The output is standard restartable WaveVortexModel NetCDF. A separate renderer reads only that saved file and creates an $x$--$z$ movie and PNG poster:
+
+```matlab
+movie = GaussianRidgeWaveScatteringMovie( ...
+    "gaussian-ridge.nc",field="u");
+```
+
+The movie masks the reconstructed field beneath the physical bottom, uses wet points only for its fixed color scale, and shows the first-order depth-integrated wave-energy profile alongside the evolving rightward, reflected, and higher-mode energy. Its default section uses a labelled 20-times vertical exaggeration, configurable with `verticalExaggeration`. The renderer also supports `field="w"` and `field="eta"`, a subset of saved records through `iTime`, and explicit `videoPath` and `posterPath` values. Existing files are never replaced unless `shouldOverwriteExisting=true`.
 
 ## Scientific scope
 

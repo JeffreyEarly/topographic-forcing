@@ -74,3 +74,42 @@ result = SinusoidalRidgeWaveScatteringExample;
 The example initializes one $+$-branch internal wave, scatters it from a sinusoidal ridge, and shows the incident mode, the $k\pm k_h$ sidebands, and the flat and first-order physical energy histories. A second figure shows the final bottom velocity and bottom displacement.
 
 The model uses the adaptive integrator and standard WaveVortexModel NetCDF output. After the run, `WVBottomWaveScatteringForcing.bottomDisplacementFromFile` reconstructs the bottom displacement from the saved `wave-vortex` coefficients; no extra prognostic displacement is added to the model. Temporary output is deleted automatically. Pass `outputPath` to retain the file, or use `resolution`, `numberOfWavePeriods`, `numberOfOutputTimes`, `relativeTolerance`, `shouldAntialias`, and `shouldMakeFigures` to configure the run.
+
+## Gaussian-ridge wave scattering and movie
+
+Run a localized wave-packet calculation with:
+
+```matlab
+result = GaussianRidgeWaveScatteringExample;
+```
+
+The example retains the constant-$N$, mode-one M2 configuration and six-wavelength domain of the earlier Gaussian-ridge benchmark, but uses a gentle first-order ridge with default height and criticality
+
+```math
+h_0/D=0.05,
+\qquad
+\max |h_x|/\mu=0.05.
+```
+
+It initializes a rightward mode-one packet, removes nonlinear advection, registers only `WVBottomWaveScatteringForcing`, and advances the model with adaptive `ode78`. The returned result contains every sampled `Ap`, `Am`, and `A0`, modal and energy diagnostics, and selected $x$--$z$ snapshots. The two figures show the ridge and packet evolution, reflected and higher-mode energy, and the flat versus first-order physical energy histories.
+
+No file is written by default. To retain standard restartable WaveVortexModel output at the same cadence, supply a path:
+
+```matlab
+result = GaussianRidgeWaveScatteringExample( ...
+    outputPath="gaussian-ridge.nc", ...
+    shouldOverwriteExisting=false);
+```
+
+Render the saved records independently with:
+
+```matlab
+movie = GaussianRidgeWaveScatteringMovie( ...
+    "gaussian-ridge.nc", ...
+    field="u", ...
+    frameRate=15);
+```
+
+The renderer reconstructs `"u"`, `"w"`, or `"eta"` from the saved wave--vortex coefficients. It masks values beneath the physical bottom and determines its fixed symmetric color scale from wet points only. The large $x$--$z$ section uses a labelled 20-times vertical exaggeration by default; set `verticalExaggeration` to another positive value when needed. The companion panels show the first-order depth-integrated wave-energy profile, including its bottom correction, and the modal energy histories. The MPEG-4 and PNG poster names are derived from the NetCDF path unless `videoPath` or `posterPath` is supplied. Use `iTime` for a strictly increasing subset of records and `forcingName` when the file contains multiple scattering forcings.
+
+The poster is selected at the saved time with maximum reflected-plus-higher-mode energy. The returned movie metadata includes all output paths, selected time indices, frame count and dimensions, duration, field limits, dominant period, first-mode wavelength, packet group velocity, and poster index.
