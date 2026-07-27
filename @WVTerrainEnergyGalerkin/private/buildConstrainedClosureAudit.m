@@ -19,6 +19,8 @@ apvNullBasis = apvRightVectors(:,apvRank+1:end);
 apvNullity = size(apvNullBasis,2);
 apvProjector = apvNullBasis*apvNullBasis';
 expectedWaveDimension = flatWaveDimension(problem);
+expectedBottomInversionDimension = nnz(hypot(problem.horizontalLayout.k,problem.horizontalLayout.l) > 0);
+expectedZeroAPVDimension = expectedWaveDimension+expectedBottomInversionDimension;
 waveSpaceIsComplete = apvNullity >= expectedWaveDimension;
 
 [bottomValueMatrix,bottomTendencyMatrix,bottomDiagnostics] = buildBottomConstraintMaps(problem);
@@ -116,6 +118,8 @@ diagnostics.apvRankTolerance = apvRankTolerance;
 diagnostics.apvRank = apvRank;
 diagnostics.apvNullity = apvNullity;
 diagnostics.expectedWaveDimension = expectedWaveDimension;
+diagnostics.expectedBottomInversionDimension = expectedBottomInversionDimension;
+diagnostics.expectedZeroAPVDimension = expectedZeroAPVDimension;
 diagnostics.rightCompatibilityDefect = rightCompatibilityDefect;
 diagnostics.skewCompatibilityDefect = skewCompatibilityDefect;
 diagnostics.minimumConstraintResidual = minimumConstraintResidual;

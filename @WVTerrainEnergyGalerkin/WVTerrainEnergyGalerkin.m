@@ -3,8 +3,9 @@ classdef WVTerrainEnergyGalerkin < handle
     %
     % `WVTerrainEnergyGalerkin` uses hydrostatic wave-vortex modes as
     % coordinates for the complete nonhydrostatic weak equations. One
-    % additional displacement coordinate per horizontal wavenumber carries
-    % the bottom value. The class is a standalone linear scientific system;
+    % additional balanced bottom-inversion coordinate per horizontal
+    % wavenumber carries the bottom displacement value. The class is a
+    % standalone linear scientific system;
     % it is not a `WVForcing` and does not modify its originating transform.
     % The finite-terrain energy, exchange, and APV forms are evaluated by
     % common oversampled quadrature.
@@ -79,6 +80,15 @@ classdef WVTerrainEnergyGalerkin < handle
         % - Topic: Inspect the mixed basis
         basisBlocks
 
+        % Complete balanced bottom-inversion profiles.
+        %
+        % For nonzero horizontal wavenumber these profiles contain the
+        % zero-APV streamfunction, displacement, and their vertical
+        % derivatives, normalized to unit bottom displacement.
+        %
+        % - Topic: Inspect the mixed basis
+        bottomInversionProfiles
+
         % Per-wavenumber flat nonhydrostatic oracle results.
         %
         % - Topic: Inspect flat modes
@@ -131,6 +141,14 @@ classdef WVTerrainEnergyGalerkin < handle
             if ~isa(wvt,"WVTransformBoussinesq")
                 error("WVTerrainEnergyGalerkin:UnsupportedTransform", ...
                     "The originating transform must be a WVTransformBoussinesq.")
+            end
+            if wvt.f == 0
+                error("WVTerrainEnergyGalerkin:ZeroCoriolis", ...
+                    "The balanced bottom-inversion basis requires a nonzero Coriolis parameter.")
+            end
+            if exist("IMSurfaceGeostrophicModes","class") ~= 8 || exist("IMSolverSpectral","class") ~= 8
+                error("WVTerrainEnergyGalerkin:InternalModesEVPNotFound", ...
+                    "Milestone 4.7 requires IMSurfaceGeostrophicModes and IMSolverSpectral from the InternalModesEVP branch.")
             end
 
             h = options.topographicHeight;
@@ -453,9 +471,11 @@ classdef WVTerrainEnergyGalerkin < handle
             self.horizontalOversamplingFactor = oversampling;
             self.hydrostaticTransform = self.constructMatchedHydrostaticTransform;
             [self.horizontalLayout,self.stateLayout,self.horizontalConjugateIndex] = self.constructLayouts;
+            [self.bottomInversionProfiles,bottomInversionDiagnostics] = buildBottomInversionProfiles(self);
             self.basisBlocks = self.constructBasisBlocks;
             self.conjugateCoordinateIndex = self.constructConjugateCoordinateMap;
             [self.flatModeBlocks,self.constructionDiagnostics] = self.constructFlatOracle;
+            self.constructionDiagnostics.bottomInversion = bottomInversionDiagnostics;
             [self.finiteTerrainForms,finiteTerrainDiagnostics] = buildFiniteTerrainForms(self);
             self.constructionDiagnostics.finiteTerrain = finiteTerrainDiagnostics;
         end
@@ -555,9 +575,13 @@ classdef WVTerrainEnergyGalerkin < handle
                     component = self.stateLayout.component(row);
                     jLabel = self.stateLayout.j(row);
                     if component == "etaB"
-                        [chi,chiXi] = self.bottomFunction(kappa);
-                        block.etaHat(:,i) = chi;
-                        block.etaHatXi(:,i) = chiXi;
+                        profile = self.bottomInversionProfiles{iK};
+                        block.uHat(:,i) = -1i*l*profile.psi;
+                        block.vHat(:,i) = 1i*k*profile.psi;
+                        block.etaHat(:,i) = profile.eta;
+                        block.uHatXi(:,i) = -1i*l*profile.psiXi;
+                        block.vHatXi(:,i) = 1i*k*profile.psiXi;
+                        block.etaHatXi(:,i) = profile.etaXi;
                         continue
                     end
                     ij = find(wvt.j == jLabel,1);
@@ -688,6 +712,27 @@ classdef WVTerrainEnergyGalerkin < handle
                 k = self.horizontalLayout.k(iK);
                 l = self.horizontalLayout.l(iK);
                 Q = 1i*k*V-1i*l*U-wvt.f*basis.etaHatXi;
+                bottomQuadratureRelativeError = NaN;
+                if hypot(k,l) > 0
+                    components = self.stateLayout.component(self.stateLayout.horizontalIndex == iK);
+                    iBottom = find(components == "etaB",1);
+                    iBalanced = find(components == "A0");
+                    nativeBottomEnergy = E(iBottom,iBottom);
+                    nativeBottomCross = E(iBalanced,iBottom);
+                    psiBalancedBottom = (1i*l*U(1,iBalanced)-1i*k*V(1,iBalanced))/(k^2+l^2);
+                    psiBottom = self.bottomInversionProfiles{iK}.psi(1);
+                    E(:,iBottom) = 0;
+                    E(iBottom,:) = 0;
+                    E(iBalanced,iBottom) = wvt.rho0*wvt.f*conj(psiBalancedBottom).';
+                    E(iBottom,iBalanced) = conj(E(iBalanced,iBottom)).';
+                    E(iBottom,iBottom) = real(wvt.rho0*wvt.f*psiBottom);
+                    J(:,iBottom) = 0;
+                    J(iBottom,:) = 0;
+                    Q(:,iBottom) = 0;
+                    exactBoundaryEntries = [E(iBottom,iBottom);E(iBalanced,iBottom)];
+                    nativeBoundaryEntries = [nativeBottomEnergy;nativeBottomCross];
+                    bottomQuadratureRelativeError = norm(nativeBoundaryEntries-exactBoundaryEntries)/max(norm(exactBoundaryEntries),realmin);
+                end
                 hermitianDefect(iK) = norm(E-E',"fro")/max(norm(E,"fro"),realmin);
                 skewDefect(iK) = norm(J+J',"fro")/max(norm(J,"fro"),realmin);
 
@@ -707,7 +752,8 @@ classdef WVTerrainEnergyGalerkin < handle
                 Es = (Es+Es')/2;
                 Js = (Js-Js')/2;
                 chol(Es,"lower");
-                [C,frequency] = eig(1i*J,E,"vector");
+                [C,frequency] = eig(1i*Js,Es,"vector");
+                C = D*C;
                 [frequency,order] = sort(real(frequency));
                 C = C(:,order);
                 for iMode = 1:size(C,2)
@@ -727,13 +773,15 @@ classdef WVTerrainEnergyGalerkin < handle
                 residual = zeros(numel(frequency),1);
                 qgpvNorm = zeros(numel(frequency),1);
                 for iMode = 1:numel(frequency)
-                    residual(iMode) = norm(1i*J*C(:,iMode)-frequency(iMode)*E*C(:,iMode))/(max(norm(E*C(:,iMode))*max(abs(frequency(iMode)),abs(wvt.f)),realmin));
+                    scaledMode = D\C(:,iMode);
+                    residual(iMode) = norm(1i*Js*scaledMode-frequency(iMode)*Es*scaledMode)/(max(norm(Es*scaledMode)*max(abs(frequency(iMode)),abs(wvt.f)),realmin));
                     qgpvNorm(iMode) = sqrt(real((Q*C(:,iMode))'*(zWeight.*(Q*C(:,iMode)))));
                 end
                 maximumResidual(iK) = max(residual);
                 blocks{iK} = struct("E",E,"J",J,"Q",Q,"coordinateScale",scale,"scaledE",Es,"scaledJ",Js, ...
                     "frequency",frequency,"eigenvectors",C,"residual",residual,"qgpvNorm",qgpvNorm, ...
-                    "horizontalIndex",iK,"kMode",self.horizontalLayout.kMode(iK),"lMode",self.horizontalLayout.lMode(iK));
+                    "horizontalIndex",iK,"kMode",self.horizontalLayout.kMode(iK),"lMode",self.horizontalLayout.lMode(iK), ...
+                    "bottomQuadratureRelativeError",bottomQuadratureRelativeError);
             end
             diagnostics = struct("maximumHermitianDefect",max(hermitianDefect),"maximumSkewHermitianDefect",max(skewDefect), ...
                 "minimumScaledEnergyRcond",min(scaledRcond),"maximumEigenResidual",max(maximumResidual), ...
@@ -749,7 +797,7 @@ classdef WVTerrainEnergyGalerkin < handle
             diagnostics.nonhydrostaticIndicator = horizontalWavenumber./effectiveVerticalWavenumber;
         end
 
-        function [chi,chiXi] = bottomFunction(self,kappa)
+        function [chi,chiXi] = displacementOnlyBottomFunction(self,kappa)
             xi = self.originatingTransform.z(:);
             D = self.originatingTransform.Lz;
             if kappa == 0

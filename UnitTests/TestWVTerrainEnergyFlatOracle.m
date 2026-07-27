@@ -91,6 +91,30 @@ classdef TestWVTerrainEnergyFlatOracle < matlab.unittest.TestCase
             scale = max(wvt.f*max(abs(fields.etaHatXi),[],"all"),hypot(problem.horizontalLayout.k(iK),problem.horizontalLayout.l(iK))*max(hypot(fields.uHat,fields.vHat),[],"all"));
             testCase.verifyLessThanOrEqual(max(abs(q),[],"all")/max(scale,realmin),2e-10)
         end
+
+        function boundaryAwareFlatEnergyRows(testCase)
+            wvt = TestWVTerrainEnergyFlatOracle.createTransform(@(z)2e-5+0*z,false,7);
+            problem = WVTerrainEnergyGalerkin.fromTopography(wvt,topographicHeight=zeros(wvt.Nx,wvt.Ny));
+            iK = find(problem.horizontalLayout.kMode == 1 & problem.horizontalLayout.lMode == 0,1);
+            rows = find(problem.stateLayout.horizontalIndex == iK);
+            components = problem.stateLayout.component(rows);
+            iBottom = find(components == "etaB",1);
+            iBalanced = find(components == "A0");
+            iWave = find(components == "Ap" | components == "Am");
+            block = problem.flatModeBlocks{iK};
+            basis = problem.basisBlocks{iK};
+            k = problem.horizontalLayout.k(iK);
+            l = problem.horizontalLayout.l(iK);
+            psiBalancedBottom = (1i*l*basis.uHat(1,iBalanced)-1i*k*basis.vHat(1,iBalanced))/(k^2+l^2);
+            expectedCross = wvt.rho0*wvt.f*conj(psiBalancedBottom).';
+            expectedSelf = wvt.rho0*wvt.f*problem.bottomInversionProfiles{iK}.psi(1);
+
+            testCase.verifyEqual(block.E(iBalanced,iBottom),expectedCross,"RelTol",2e-13,"AbsTol",2e-13)
+            testCase.verifyEqual(block.E(iBottom,iBalanced),conj(expectedCross).',"RelTol",2e-13,"AbsTol",2e-13)
+            testCase.verifyEqual(block.E(iWave,iBottom),zeros(numel(iWave),1),"AbsTol",0)
+            testCase.verifyEqual(block.E(iBottom,iBottom),expectedSelf,"RelTol",2e-13)
+            testCase.verifyGreaterThan(block.bottomQuadratureRelativeError,1e-6)
+        end
     end
 
     methods (Static)

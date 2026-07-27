@@ -227,10 +227,18 @@ The following remain outside the initial proof of concept:
 - backreaction on a dynamically evolving barotropic tide;
 - exact finite-amplitude energy conservation under autonomous first-order scattering.
 
-WaveVortexModel remains an external dependency and is not modified or vendored by this repository. Run the automated suite with:
+WaveVortexModel and InternalModes remain external dependencies and are not modified or vendored by this repository. The terrain-energy Galerkin branch additionally uses the boundary-mode solver from `InternalModesEVP`, currently pinned to commit `df86687e91faa31bf65941299062d125a96904b1` in an isolated sibling checkout named `internal-modes-evp`. This keeps WaveVortexModel on the main InternalModes implementation while exposing the uniquely named `IMSurfaceGeostrophicModes` and `IMSolverSpectral` classes.
+
+Create the isolated checkout without changing the main InternalModes working tree:
+
+```bash
+git -C ../internal-modes worktree add --detach ../internal-modes-evp df86687e91faa31bf65941299062d125a96904b1
+```
+
+Run the automated suite with:
 
 ```matlab
 results = runTests;
 ```
 
-The runner resolves WaveVortexModel from an explicit `waveVortexModelRoot` option, `WAVE_VORTEX_MODEL_ROOT`, or the sibling `wave-vortex-model` repository.
+The runner resolves WaveVortexModel, main InternalModes, and InternalModesEVP from explicit `waveVortexModelRoot`, `internalModesRoot`, and `internalModesEVPRoot` options; the corresponding environment variables; or the sibling repositories.

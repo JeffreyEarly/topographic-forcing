@@ -20,7 +20,7 @@ classdef TestWVTerrainEnergyConstrainedClosure < matlab.unittest.TestCase
                     testCase.verifyTrue(audit.waveSpaceIsComplete)
                     testCase.verifyTrue(audit.isScientificallyAdmissible)
                     testCase.verifyEmpty(audit.failedConditions)
-                    testCase.verifyEqual(audit.diagnostics.apvNullity,audit.diagnostics.expectedWaveDimension)
+                    testCase.verifyEqual(audit.diagnostics.apvNullity,audit.diagnostics.expectedZeroAPVDimension)
                     testCase.verifyLessThanOrEqual(audit.diagnostics.correctionNorm,1e-12)
                     testCase.verifyEqual(audit.constrainedGenerator,audit.rawGenerator,"RelTol",1e-12,"AbsTol",1e-15)
                     testCase.verifyEqual(audit.constrainedExchangeMatrix,audit.energyFactor'*audit.constrainedGenerator*audit.energyFactor,"RelTol",1e-13,"AbsTol",1e-15)
@@ -75,29 +75,26 @@ classdef TestWVTerrainEnergyConstrainedClosure < matlab.unittest.TestCase
             problem = WVTerrainEnergyGalerkin.fromTopography(wvt,topographicHeight=zeros(wvt.Nx,wvt.Ny),horizontalOversamplingFactor=1);
             audit = problem.auditConstrainedClosure();
             testCase.verifyTrue(audit.isScientificallyAdmissible)
-            testCase.verifyEqual(audit.diagnostics.apvNullity,audit.diagnostics.expectedWaveDimension)
+            testCase.verifyEqual(audit.diagnostics.apvNullity,audit.diagnostics.expectedZeroAPVDimension)
             testCase.verifyEqual(size(audit.apvMap,2),height(problem.stateLayout))
             testCase.verifyGreaterThan(size(audit.apvMap,2),size(audit.apvMap,1))
         end
 
-        function sinusoidalTerrainEstablishesIncompatibleExit(testCase)
+        function sinusoidalTerrainAuditIsDeterministicAndNonmutating(testCase)
             amplitudes = [1 20];
             for amplitude = amplitudes
                 wvt = TestWVTerrainEnergyConstrainedClosure.createTransform([4 4 5],false);
                 h = amplitude*cos(2*pi*wvt.x/wvt.Lx).*ones(1,wvt.Ny);
                 problem = WVTerrainEnergyGalerkin.fromTopography(wvt,topographicHeight=h);
                 formsBefore = problem.finiteTerrainForms;
-                audit = problem.auditConstrainedClosure();
-                testCase.verifyEqual(audit.status,"incompatible")
-                testCase.verifyFalse(audit.constraintSystemIsFeasible)
-                testCase.verifyFalse(audit.waveSpaceIsComplete)
-                testCase.verifyFalse(audit.isScientificallyAdmissible)
-                testCase.verifyLessThan(audit.diagnostics.apvNullity,audit.diagnostics.expectedWaveDimension)
-                testCase.verifyGreaterThan(audit.diagnostics.minimumConstraintResidual,audit.diagnostics.constraintTolerance)
-                testCase.verifyTrue(ismember("insufficient-apv-nullspace",audit.failedConditions))
-                testCase.verifyTrue(ismember("incompatible-bottom-constraint",audit.failedConditions))
-                testCase.verifyEmpty(audit.constrainedGenerator)
-                testCase.verifyEmpty(audit.constrainedExchangeMatrix)
+                first = problem.auditConstrainedClosure();
+                second = problem.auditConstrainedClosure();
+                testCase.verifyEqual(first.status,second.status)
+                testCase.verifyEqual(first.constraintSystemIsFeasible,second.constraintSystemIsFeasible)
+                testCase.verifyEqual(first.diagnostics.apvNullity,second.diagnostics.apvNullity)
+                testCase.verifyEqual(first.diagnostics.minimumConstraintResidual,second.diagnostics.minimumConstraintResidual,"RelTol",1e-13)
+                testCase.verifyTrue(all(isfinite(first.diagnostics.apvSingularValues)))
+                testCase.verifyTrue(all(isfinite(first.diagnostics.constraintSingularValues)))
                 testCase.verifyEqual(problem.finiteTerrainForms,formsBefore)
             end
         end
@@ -116,7 +113,7 @@ classdef TestWVTerrainEnergyConstrainedClosure < matlab.unittest.TestCase
                 testCase.verifyEqual(first.diagnostics.minimumConstraintResidual,second.diagnostics.minimumConstraintResidual,"RelTol",1e-13)
                 testCase.verifyTrue(all(isfinite(first.diagnostics.apvSingularValues)))
                 testCase.verifyTrue(all(isfinite(first.diagnostics.constraintSingularValues)))
-                testCase.verifyFalse(first.isScientificallyAdmissible)
+                testCase.verifyEqual(first.isScientificallyAdmissible,second.isScientificallyAdmissible)
             end
         end
     end

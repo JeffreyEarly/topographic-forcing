@@ -499,7 +499,7 @@ The minimum residual scales linearly with terrain amplitude from 1 m through 20 
 
 ## Milestone 4.7: Balanced bottom-inversion basis
 
-- [ ] Complete — blocking basis reset
+- [x] Complete — blocking basis reset passed
 
 ### Purpose
 
@@ -570,6 +570,14 @@ The completed Milestones 4.5 and 4.6 incompatibility diagnoses, together with th
 - Pack/unpack, reconstruction/projection adjointness, real-field conjugacy, mapped continuity, and bottom-value normalization retain the Milestone-2 tolerances.
 - The revised flat eigensystem recovers the WaveVortexModel nonhydrostatic wave frequencies and polarizations at the Milestone-3 tolerances and has the analytically expected balanced dimension.
 - Failure of the balanced inversion, flat eigensystem, or conditioning checks blocks Milestone 4.8.
+
+### Result
+
+The displacement-only coordinate was replaced by the complete zero-APV balanced inversion computed with `IMSurfaceGeostrophicModes` and `IMSolverSpectral` from the isolated `InternalModesEVP` checkout. The public coefficient remains the bottom displacement, while reconstruction now supplies its linked streamfunction, horizontal velocity, hydrostatic pressure, and displacement profiles.
+
+Native WaveVortexModel vertical quadrature does not accurately integrate the thin bottom mode at low resolution. The flat oracle therefore assembles its energy row and column from the exact geostrophic boundary-inversion identity. With this correction, the flat energy is positive, the bottom state has exactly zero exchange and APV columns, the ordinary nonhydrostatic waves are unchanged, and the balanced nullspace gains the required bottom-inversion direction for every retained nonzero horizontal coefficient.
+
+All Milestone-4.7 analytic, variable-stratification, balance, conjugacy, adjointness, conditioning, APV, and flat-eigensystem tests pass. The finite-terrain bottom-mode quadrature and compatibility question remain deliberately unresolved until Milestone 4.8.
 
 ## Milestone 4.8: Boundary-complete finite-terrain compatibility gate
 

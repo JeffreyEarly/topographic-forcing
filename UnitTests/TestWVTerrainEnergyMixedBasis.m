@@ -90,9 +90,10 @@ classdef TestWVTerrainEnergyMixedBasis < matlab.unittest.TestCase
             testCase.verifyEqual(lhs,rhs,"RelTol",2e-12,"AbsTol",2e-12)
         end
 
-        function flatEnergyMatchesDirectQuadrature(testCase)
+        function interiorFlatEnergyMatchesDirectQuadrature(testCase)
             [Ap,Am,A0,etaB] = TestWVTerrainEnergyMixedBasis.randomNativeState(testCase.problem);
             a = testCase.problem.packState(Ap=Ap,Am=Am,A0=A0,bottomDisplacement=etaB);
+            a(testCase.problem.stateLayout.component == "etaB") = 0;
             fields = testCase.problem.reconstructState(a,outputDomain="spatial");
             N2 = shiftdim(testCase.wvt.N2,-2);
             energyDensity = abs(fields.uHat).^2+abs(fields.vHat).^2+abs(fields.wHat).^2+N2.*abs(fields.etaHat).^2;

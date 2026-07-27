@@ -64,6 +64,9 @@ rawExchangeMatrix = wvt.rho0*(exchange-exchange');
 if max(gamma,[],"all")-min(gamma,[],"all") <= 10*eps(max(abs(gamma),[],"all"))
     [rawEnergyMatrix,rawExchangeMatrix] = constantGammaForms(problem,gamma(1),N2(1:nXY:end));
 end
+if max(abs(problem.topographicHeight),[],"all") == 0
+    [rawEnergyMatrix,rawExchangeMatrix] = globalFlatForms(problem);
+end
 
 uY = uHat.*(1i*l.')-gradLnGammaYGrid.*uHat;
 vX = vHat.*(1i*k.')-gradLnGammaXGrid.*vHat;
