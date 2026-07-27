@@ -15,6 +15,9 @@ classdef TestWVTerrainEnergyFlatOracle < matlab.unittest.TestCase
                 problem = WVTerrainEnergyGalerkin.fromTopography(wvt,topographicHeight=zeros(wvt.Nx,wvt.Ny));
                 testCase.verifyLessThanOrEqual(problem.constructionDiagnostics.maximumHermitianDefect,1e-13)
                 testCase.verifyLessThanOrEqual(problem.constructionDiagnostics.maximumSkewHermitianDefect,1e-13)
+                testCase.verifyLessThanOrEqual(problem.constructionDiagnostics.maximumPotentialEnstrophyHermitianDefect,1e-13)
+                testCase.verifyLessThanOrEqual(problem.constructionDiagnostics.maximumStationaryEnstrophyOffDiagonalDefect,1e-12)
+                testCase.verifyLessThanOrEqual(problem.constructionDiagnostics.maximumBottomProjectorIdempotenceDefect,1e-12)
                 testCase.verifyGreaterThan(problem.constructionDiagnostics.minimumScaledEnergyRcond,1e-12)
                 testCase.verifyLessThanOrEqual(problem.constructionDiagnostics.maximumEigenResidual,1e-12)
                 for iK = 1:numel(problem.flatModeBlocks)
@@ -49,6 +52,8 @@ classdef TestWVTerrainEnergyFlatOracle < matlab.unittest.TestCase
             testCase.verifyEqual(nnz(abs(block.frequency) <= tolerance),wvt.Nj)
             testCase.verifyEqual(block.frequency(1:wvt.Nj),-wvt.f*ones(wvt.Nj,1),"RelTol",1e-12)
             testCase.verifyEqual(block.frequency(end-wvt.Nj+1:end),wvt.f*ones(wvt.Nj,1),"RelTol",1e-12)
+            testCase.verifyEmpty(block.zeroAPVStationaryIndices)
+            testCase.verifyEmpty(block.bottomInversionProjector)
         end
 
         function variableStratificationMatchesBoussinesqTransform(testCase)
@@ -115,6 +120,17 @@ classdef TestWVTerrainEnergyFlatOracle < matlab.unittest.TestCase
             testCase.verifyEqual(block.E(iBottom,iBottom),expectedSelf,"RelTol",2e-13)
             testCase.verifyGreaterThan(block.bottomQuadratureRelativeError,1e-6)
         end
+
+        function variableStratificationCommonBasisSupportsBothAntialiasSettings(testCase)
+            N0 = 5e-3;
+            N2 = @(z)N0^2*exp(2*z/1300);
+            for shouldAntialias = [false true]
+                wvt = TestWVTerrainEnergyFlatOracle.createTransform(N2,shouldAntialias,9);
+                problem = WVTerrainEnergyGalerkin.fromTopography(wvt,topographicHeight=zeros(wvt.Nx,wvt.Ny));
+                iK = find(problem.horizontalLayout.kMode == 1 & problem.horizontalLayout.lMode == 0,1);
+                TestWVTerrainEnergyFlatOracle.verifyWaveAndNullSpaces(testCase,problem,iK)
+            end
+        end
     end
 
     methods (Static)
@@ -129,6 +145,19 @@ classdef TestWVTerrainEnergyFlatOracle < matlab.unittest.TestCase
             testCase.verifyEqual(nnz(block.frequency < -tolerance),Nj-1)
             testCase.verifyEqual(nnz(block.frequency > tolerance),Nj-1)
             testCase.verifyEqual(nnz(abs(block.frequency) <= tolerance),Nj+1)
+            testCase.verifyEqual(block.waveIndices,find(abs(block.frequency) > tolerance))
+            testCase.verifyEqual(block.stationaryIndices,find(abs(block.frequency) <= tolerance))
+
+            zScale = max(norm(block.Z,"fro"),realmin);
+            testCase.verifyLessThanOrEqual(norm(block.Z-block.Z',"fro")/zScale,1e-13)
+            testCase.verifyGreaterThanOrEqual(min(real(eig((block.Z+block.Z')/2))),-1e-12*max(norm(block.Z,2),realmin))
+            testCase.verifyLessThanOrEqual(norm(block.eigenvectors'*block.E*block.eigenvectors-eye(size(block.E)),"fro"),1e-11)
+            stationaryEnstrophy = block.eigenvectors(:,block.stationaryIndices)'*block.Z*block.eigenvectors(:,block.stationaryIndices);
+            offDiagonal = stationaryEnstrophy-diag(diag(stationaryEnstrophy));
+            testCase.verifyLessThanOrEqual(norm(offDiagonal,"fro")/max(norm(stationaryEnstrophy,"fro"),realmin),1e-12)
+            testCase.verifyEqual(numel(block.zeroAPVStationaryIndices),1)
+            testCase.verifyEqual(numel(block.apvBearingStationaryIndices),Nj)
+            testCase.verifyGreaterThan(min(block.enstrophyEigenvalue(block.apvBearingStationaryIndices)),0)
 
             rows = problem.stateLayout.horizontalIndex == iK;
             bottomLocal = problem.stateLayout.component(rows) == "etaB";
@@ -142,6 +171,19 @@ classdef TestWVTerrainEnergyFlatOracle < matlab.unittest.TestCase
                 eta = basis.etaHat*c;
                 testCase.verifyLessThanOrEqual(abs(c(bottomLocal))/max(norm(eta),realmin),2e-10)
             end
+
+            bottomMode = block.eigenvectors(:,block.zeroAPVStationaryIndices);
+            bottomCoordinate = double(bottomLocal);
+            overlap = abs(bottomMode'*block.E*bottomCoordinate)/sqrt(real((bottomMode'*block.E*bottomMode)*(bottomCoordinate'*block.E*bottomCoordinate)));
+            testCase.verifyEqual(overlap,1,"AbsTol",2e-10)
+            testCase.verifyLessThanOrEqual(norm(block.Q*bottomMode)/max(norm(bottomMode),realmin),2e-11)
+
+            projector = block.bottomInversionProjector;
+            testCase.verifyLessThanOrEqual(norm(projector^2-projector,"fro")/max(norm(projector,"fro"),realmin),1e-12)
+            testCase.verifyLessThanOrEqual(norm(projector'*block.E-block.E*projector,"fro")/max(norm(block.E*projector,"fro"),realmin),1e-12)
+            testCase.verifyLessThanOrEqual(norm(projector*bottomMode-bottomMode)/norm(bottomMode),1e-12)
+            apvBearingModes = block.eigenvectors(:,block.apvBearingStationaryIndices);
+            testCase.verifyLessThanOrEqual(norm(projector*apvBearingModes,"fro")/max(norm(apvBearingModes,"fro"),realmin),1e-11)
         end
 
         function error = waveEigenfunctionErrors(problem,wvt,kMode,lMode)

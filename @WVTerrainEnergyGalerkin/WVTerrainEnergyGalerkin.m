@@ -91,6 +91,12 @@ classdef WVTerrainEnergyGalerkin < handle
 
         % Per-wavenumber flat nonhydrostatic oracle results.
         %
+        % Each block contains the physical energy, exchange, APV, and
+        % potential-enstrophy forms; the common dynamical and stationary
+        % energy--enstrophy modes; their classification indices; and the
+        % physical-energy projector onto the bottom inversion when the
+        % horizontal wavenumber is nonzero.
+        %
         % - Topic: Inspect flat modes
         flatModeBlocks
 
@@ -698,8 +704,11 @@ classdef WVTerrainEnergyGalerkin < handle
             blocks = cell(nK,1);
             hermitianDefect = zeros(nK,1);
             skewDefect = zeros(nK,1);
+            enstrophyHermitianDefect = zeros(nK,1);
             scaledRcond = zeros(nK,1);
             maximumResidual = zeros(nK,1);
+            stationaryEnstrophyOffDiagonalDefect = zeros(nK,1);
+            bottomProjectorIdempotenceDefect = NaN(nK,1);
             for iK = 1:nK
                 basis = self.basisBlocks{iK};
                 U = basis.uHat;
@@ -733,8 +742,10 @@ classdef WVTerrainEnergyGalerkin < handle
                     nativeBoundaryEntries = [nativeBottomEnergy;nativeBottomCross];
                     bottomQuadratureRelativeError = norm(nativeBoundaryEntries-exactBoundaryEntries)/max(norm(exactBoundaryEntries),realmin);
                 end
+                Z = Q'*(zWeight.*Q);
                 hermitianDefect(iK) = norm(E-E',"fro")/max(norm(E,"fro"),realmin);
                 skewDefect(iK) = norm(J+J',"fro")/max(norm(J,"fro"),realmin);
+                enstrophyHermitianDefect(iK) = norm(Z-Z',"fro")/max(norm(Z,"fro"),realmin);
 
                 scale = 1./sqrt(real(diag(E)));
                 D = diag(scale);
@@ -744,6 +755,10 @@ classdef WVTerrainEnergyGalerkin < handle
                 if hermitianDefect(iK) > 1e-13 || skewDefect(iK) > 1e-13
                     error("WVTerrainEnergyGalerkin:FlatStructureFailure", ...
                         "Raw flat forms failed their structural gate at horizontal mode (%d,%d): E %.3g, J %.3g.",self.horizontalLayout.kMode(iK),self.horizontalLayout.lMode(iK),hermitianDefect(iK),skewDefect(iK))
+                end
+                if enstrophyHermitianDefect(iK) > 1e-13
+                    error("WVTerrainEnergyGalerkin:FlatEnstrophyStructureFailure", ...
+                        "The raw flat potential-enstrophy form failed its Hermitian gate at horizontal mode (%d,%d): Z %.3g.",self.horizontalLayout.kMode(iK),self.horizontalLayout.lMode(iK),enstrophyHermitianDefect(iK))
                 end
                 if scaledRcond(iK) <= 1e-12
                     error("WVTerrainEnergyGalerkin:IllConditionedFlatEnergy", ...
@@ -770,6 +785,48 @@ classdef WVTerrainEnergyGalerkin < handle
                     C(:,group) = C(:,group)/R;
                     iFirst = iLast+1;
                 end
+                stationaryIndices = find(abs(frequency) <= frequencyGroupTolerance);
+                waveIndices = find(abs(frequency) > frequencyGroupTolerance);
+                stationaryE = C(:,stationaryIndices)'*E*C(:,stationaryIndices);
+                stationaryZ = C(:,stationaryIndices)'*Z*C(:,stationaryIndices);
+                stationaryE = (stationaryE+stationaryE')/2;
+                stationaryZ = (stationaryZ+stationaryZ')/2;
+                [stationaryRotation,enstrophyEigenvalueStationary] = eig(stationaryZ,stationaryE,"vector");
+                enstrophyEigenvalueStationary = real(enstrophyEigenvalueStationary);
+                enstrophyTolerance = 100*eps*size(E,1)*max(max(abs(enstrophyEigenvalueStationary)),realmin);
+                enstrophyEigenvalueStationary(abs(enstrophyEigenvalueStationary) <= enstrophyTolerance) = 0;
+                if any(enstrophyEigenvalueStationary < -enstrophyTolerance)
+                    error("WVTerrainEnergyGalerkin:NegativeFlatPotentialEnstrophy", ...
+                        "The stationary flat potential-enstrophy problem has a negative eigenvalue at horizontal mode (%d,%d).",self.horizontalLayout.kMode(iK),self.horizontalLayout.lMode(iK))
+                end
+                [enstrophyEigenvalueStationary,order] = sort(enstrophyEigenvalueStationary);
+                stationaryRotation = stationaryRotation(:,order);
+                C(:,stationaryIndices) = C(:,stationaryIndices)*stationaryRotation;
+                enstrophyGroupTolerance = 100*eps*size(E,1)*max(max(abs(enstrophyEigenvalueStationary)),realmin);
+                iFirst = 1;
+                while iFirst <= numel(stationaryIndices)
+                    iLast = find(abs(enstrophyEigenvalueStationary-enstrophyEigenvalueStationary(iFirst)) <= enstrophyGroupTolerance,1,"last");
+                    group = stationaryIndices(iFirst:iLast);
+                    gram = C(:,group)'*E*C(:,group);
+                    gram = (gram+gram')/2;
+                    R = chol(gram);
+                    C(:,group) = C(:,group)/R;
+                    iFirst = iLast+1;
+                end
+                zeroAPVStationaryIndices = stationaryIndices(enstrophyEigenvalueStationary == 0);
+                apvBearingStationaryIndices = setdiff(stationaryIndices,zeroAPVStationaryIndices,"stable");
+                bottomInversionProjector = [];
+                if hypot(k,l) > 0
+                    if numel(zeroAPVStationaryIndices) ~= 1
+                        error("WVTerrainEnergyGalerkin:FlatBottomModeCount", ...
+                            "Expected one stationary zero-APV bottom mode at horizontal mode (%d,%d), but found %d.",self.horizontalLayout.kMode(iK),self.horizontalLayout.lMode(iK),numel(zeroAPVStationaryIndices))
+                    end
+                    bottomMode = C(:,zeroAPVStationaryIndices);
+                    bottomInversionProjector = bottomMode*(bottomMode'*E);
+                    bottomProjectorIdempotenceDefect(iK) = norm(bottomInversionProjector^2-bottomInversionProjector,"fro")/max(norm(bottomInversionProjector,"fro"),realmin);
+                end
+                stationaryEnstrophyGram = C(:,stationaryIndices)'*Z*C(:,stationaryIndices);
+                stationaryEnstrophyOffDiagonalDefect(iK) = norm(stationaryEnstrophyGram-diag(diag(stationaryEnstrophyGram)),"fro")/max(norm(stationaryEnstrophyGram,"fro"),realmin);
                 residual = zeros(numel(frequency),1);
                 qgpvNorm = zeros(numel(frequency),1);
                 for iMode = 1:numel(frequency)
@@ -777,15 +834,26 @@ classdef WVTerrainEnergyGalerkin < handle
                     residual(iMode) = norm(1i*Js*scaledMode-frequency(iMode)*Es*scaledMode)/(max(norm(Es*scaledMode)*max(abs(frequency(iMode)),abs(wvt.f)),realmin));
                     qgpvNorm(iMode) = sqrt(real((Q*C(:,iMode))'*(zWeight.*(Q*C(:,iMode)))));
                 end
+                enstrophyEigenvalue = real(diag(C'*Z*C));
+                enstrophyEigenvalue(zeroAPVStationaryIndices) = 0;
                 maximumResidual(iK) = max(residual);
-                blocks{iK} = struct("E",E,"J",J,"Q",Q,"coordinateScale",scale,"scaledE",Es,"scaledJ",Js, ...
-                    "frequency",frequency,"eigenvectors",C,"residual",residual,"qgpvNorm",qgpvNorm, ...
+                blocks{iK} = struct("E",E,"J",J,"Q",Q,"Z",Z,"coordinateScale",scale,"scaledE",Es,"scaledJ",Js, ...
+                    "frequency",frequency,"eigenvectors",C,"residual",residual,"qgpvNorm",qgpvNorm,"enstrophyEigenvalue",enstrophyEigenvalue, ...
+                    "waveIndices",waveIndices,"stationaryIndices",stationaryIndices,"zeroAPVStationaryIndices",zeroAPVStationaryIndices, ...
+                    "apvBearingStationaryIndices",apvBearingStationaryIndices,"bottomInversionProjector",bottomInversionProjector, ...
+                    "stationaryEnstrophyOffDiagonalDefect",stationaryEnstrophyOffDiagonalDefect(iK), ...
                     "horizontalIndex",iK,"kMode",self.horizontalLayout.kMode(iK),"lMode",self.horizontalLayout.lMode(iK), ...
                     "bottomQuadratureRelativeError",bottomQuadratureRelativeError);
             end
             diagnostics = struct("maximumHermitianDefect",max(hermitianDefect),"maximumSkewHermitianDefect",max(skewDefect), ...
+                "maximumPotentialEnstrophyHermitianDefect",max(enstrophyHermitianDefect), ...
                 "minimumScaledEnergyRcond",min(scaledRcond),"maximumEigenResidual",max(maximumResidual), ...
-                "hermitianDefect",hermitianDefect,"skewHermitianDefect",skewDefect,"scaledEnergyRcond",scaledRcond);
+                "maximumStationaryEnstrophyOffDiagonalDefect",max(stationaryEnstrophyOffDiagonalDefect), ...
+                "maximumBottomProjectorIdempotenceDefect",max(bottomProjectorIdempotenceDefect,[],"omitmissing"), ...
+                "hermitianDefect",hermitianDefect,"skewHermitianDefect",skewDefect, ...
+                "potentialEnstrophyHermitianDefect",enstrophyHermitianDefect,"scaledEnergyRcond",scaledRcond, ...
+                "stationaryEnstrophyOffDiagonalDefect",stationaryEnstrophyOffDiagonalDefect, ...
+                "bottomProjectorIdempotenceDefect",bottomProjectorIdempotenceDefect);
             internal = find(self.verticalModeIndices > 0);
             verticalColumns = arrayfun(@(j)find(wvt.j == j,1),self.verticalModeIndices(internal));
             G = self.hydrostaticTransform.GinvMatrix(:,verticalColumns);

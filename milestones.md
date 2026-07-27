@@ -579,6 +579,78 @@ Native WaveVortexModel vertical quadrature does not accurately integrate the thi
 
 All Milestone-4.7 analytic, variable-stratification, balance, conjugacy, adjointness, conditioning, APV, and flat-eigensystem tests pass. The finite-terrain bottom-mode quadrature and compatibility question remain deliberately unresolved until Milestone 4.8.
 
+## Milestone 4.7.1: Common flat energy–enstrophy–dynamical basis
+
+- [x] Complete — common physical basis passed
+
+### Purpose
+
+Resolve the degeneracy of the flat zero-frequency eigenspace without changing the physical state or its invariants. The dynamical eigensolve separates waves from stationary states, while physical potential enstrophy separates the APV-bearing geostrophic modes from the zero-APV bottom inversion.
+
+### Dependencies
+
+Milestone 4.7 and the common-mode analysis in `terrain-energy-galerkin.tex`.
+
+### Deliverables
+
+- Form the physical flat potential-enstrophy matrix from the existing APV map and vertical quadrature:
+
+  ```math
+  Z_0=Q_0^*W_\xi Q_0.
+  ```
+
+- Retain the flat dynamical eigensolve
+
+  ```math
+  iJ_0\boldsymbol c=\omega E_0\boldsymbol c
+  ```
+
+  and identify its stationary subspace with the existing scale-aware frequency tolerance.
+- Within that subspace, solve
+
+  ```math
+  C_0^*Z_0C_0\boldsymbol d
+  =
+  \lambda C_0^*E_0C_0\boldsymbol d.
+  ```
+
+- Rotate only the stationary vectors. Preserve the nonzero-frequency wave frequencies and vectors, apart from immaterial phase or degenerate-subspace choices.
+- For every retained $\kappa>0$, identify one stationary zero-APV bottom inversion and the APV-bearing stationary complement.
+- Construct the physical-energy projector
+
+  ```math
+  P_B=\boldsymbol c_B(\boldsymbol c_B^*E_0).
+  ```
+
+- Treat $\kappa=0$ as the separately constrained MDA sector and do not create an independent bottom projector there.
+- Preserve the public constructor, state ordering, packing, unpacking, and coefficient normalization. Add only diagnostic flat-block fields for $Z_0$, the enstrophy eigenvalues, mode indices, structural residuals, and the bottom projector.
+- Use the physical energy and physical volume potential enstrophy. Do not introduce a generalized bottom energy or a separately conserved boundary invariant.
+
+### Automated acceptance
+
+- $Z_0$ is Hermitian positive semidefinite to roundoff, and the complete flat vectors remain $E_0$-orthonormal.
+- The stationary block of the transformed potential-enstrophy matrix is diagonal to $10^{-12}$ relative error.
+- Every $\kappa>0$ block contains exactly one stationary zero-APV mode. It agrees with the complete bottom inversion up to phase and normalization.
+- All other stationary modes have positive potential enstrophy and are $E_0$-orthogonal to the bottom inversion.
+- The projector satisfies
+
+  ```math
+  P_B^2=P_B,
+  \qquad
+  P_B^*E_0=E_0P_B,
+  ```
+
+  retains the bottom mode, and annihilates the APV-bearing stationary modes to $10^{-11}$.
+- Constant and variable stratification pass with antialiasing enabled and disabled.
+- Analytic wave dispersion, wave polarization, zero wave APV, and zero wave bottom coefficient retain the Milestone-3 and Milestone-4.7 tolerances.
+- Failure of this common flat basis blocks Milestone 4.8.
+
+### Result
+
+The flat oracle now forms $Z_0$ from the existing APV map and vertical quadrature, then diagonalizes it only inside the energy-orthonormal zero-frequency block. Every retained nonzero horizontal coefficient has exactly one stationary zero-APV vector, which agrees with the complete bottom-inversion coordinate up to phase and normalization; the remaining stationary vectors have positive potential enstrophy.
+
+Each flat block stores the common classification and the physical-energy projector onto the bottom inversion. The projector is idempotent and energy self-adjoint at roundoff, retains the bottom mode, and annihilates the APV-bearing stationary complement. The $\kappa=0$ block retains its separately constrained MDA classification and has no artificial bottom projector. Constant and variable stratification, both antialias settings, the analytic wave oracle, the complete repository suite, and static analysis all pass.
+
 ## Milestone 4.8: Boundary-complete finite-terrain compatibility gate
 
 - [ ] Complete — blocking scientific gate
@@ -589,7 +661,7 @@ Determine whether the unmodified finite-terrain weak forms become mutually compa
 
 ### Dependencies
 
-Milestone 4.7.
+Milestone 4.7.1.
 
 ### Deliverables
 
@@ -849,7 +921,7 @@ Milestone 8.
 ## Planning and implementation cadence
 
 - **Batch A — Milestones 1–4.6.** These completed milestones established the software foundation, the initial dense forms, and the two incompatible closure audits. Milestones 2–4 are retained as historical prototypes because their displacement-only bottom coordinate is superseded.
-- **Batch B1 — Milestone 4.7.** Implement and validate the balanced bottom-inversion basis as a focused state-space reset. Stop if it does not recover the complete flat nonhydrostatic and balanced problem with acceptable conditioning.
+- **Batch B1 — Milestones 4.7–4.7.1.** Implement the balanced bottom-inversion basis, then resolve its flat stationary degeneracy with the common physical energy–enstrophy basis. Stop if either step fails to recover the complete flat nonhydrostatic and balanced problem with acceptable conditioning.
 - **Batch B2 — Milestones 4.8–5.** Rebuild the raw finite-terrain forms in the revised basis and test their mutual compatibility before solving terrain modes. Milestone 4.8 is the principal blocking gate: only a compatible-and-convergent raw system proceeds to the modal classification and balanced energy–enstrophy diagonalization in Milestone 5.
 - **Batch B3 — Milestone 6.** Implement residual enrichment only after the boundary-complete dense terrain eigensystem passes. Compare every selective result with the raw dense oracle.
 - **Batch C — Milestones 7–9.** Plan only after the dense terrain modes and residual-enrichment tests pass. Implement matrix-free actions before online evolution, resolution rebuilding, or persistence.

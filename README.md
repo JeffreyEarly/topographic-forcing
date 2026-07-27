@@ -1,12 +1,12 @@
-# Mean-depth bottom wave generation
+# Topographic forcing research implementations
 
-> **Development branch:** `terrain-energy-galerkin` now contains the first four milestones and the completed Milestone-4.5 and Milestone-4.6 closure audits of the pressure-free, finite-terrain-energy Galerkin system described in the active [terrain-energy roadmap](milestones.md). Both audits establish incompatible exits for sinusoidal terrain, so terrain-mode construction remains blocked. The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
+> **Development branch:** `terrain-energy-galerkin` contains the pressure-free finite-terrain-energy Galerkin prototypes, the completed closure audits, and the boundary-complete flat basis developed through Milestone 4.7.1 of the active [terrain-energy roadmap](milestones.md). Finite-terrain compatibility remains the blocking Milestone-4.8 question. The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
 ## Terrain-energy Galerkin flat oracle
 
-`WVTerrainEnergyGalerkin` is a standalone linear scientific system, not a `WVForcing`. It uses ordinary hydrostatic wave-vortex modes as coordinates, adds one bottom-displacement value per retained horizontal Fourier coefficient, and projects the complete flat nonhydrostatic weak equations into that mixed basis.
+`WVTerrainEnergyGalerkin` is a standalone linear scientific system, not a `WVForcing`. It uses ordinary hydrostatic wave-vortex modes as coordinates, adds one complete balanced bottom-inversion state per retained nonzero horizontal Fourier coefficient, and projects the complete flat nonhydrostatic weak equations into that mixed basis. The public bottom coefficient remains the bottom displacement.
 
 ```matlab
 problem = WVTerrainEnergyGalerkin.fromTopography(wvt, ...
@@ -26,6 +26,14 @@ iJ_0\boldsymbol c=\omega E_0\boldsymbol c.
 ```
 
 The raw matrices satisfy the required Hermitian identities at roundoff. Constant-stratification frequencies recover the analytic nonhydrostatic dispersion relation, and arbitrary-stratification frequencies and eigenfunctions converge to the directly computed wavenumber-dependent modes as hydrostatic vertical coordinates are added. Nonzero-frequency modes have negligible flat QGPV and bottom displacement.
+
+The dynamical solve does not uniquely select vectors inside its degenerate stationary subspace. The flat oracle therefore also forms
+
+```math
+Z_0=Q_0^*W_\xi Q_0
+```
+
+and diagonalizes physical potential enstrophy within that subspace. The resulting common basis separates APV-bearing geostrophic modes from one stationary zero-APV bottom inversion for every nonzero horizontal wavenumber. Each flat block exposes the physical-energy projector onto that bottom state. No generalized bottom energy or additional boundary invariant is introduced.
 
 The dense finite-terrain oracle evaluates the mapped geometry and stratification on a common horizontally oversampled grid and stores
 
@@ -71,7 +79,7 @@ This audit uses independent real physical coordinates and seeks a skew-symmetric
 G_\gamma=S^{-*}Q_\gamma^*Q_\gamma S^{-1}.
 ```
 
-The commutator conserves total discrete quadratic potential enstrophy without requiring every APV sample to remain fixed. Flat and uniform-depth problems again return the raw generator with zero correction. The sinusoidal reference remains incompatible: at 20 m amplitude its minimum bottom residual is $2.46\times10^{-5}$, or $88.5\%$ of the bottom target, and 23 of 44 resolved enstrophy eigenspaces fail the bottom constraint. The residual scales linearly with terrain amplitude and remains between approximately $81\%$ and $89\%$ under the tested horizontal, vertical, and oversampling refinements. Milestone 5 therefore remains blocked pending a revised boundary form or state coordinates.
+The commutator conserves total discrete quadratic potential enstrophy without requiring every APV sample to remain fixed. Flat and uniform-depth problems again return the raw generator with zero correction. The sinusoidal reference remains incompatible: at 20 m amplitude its minimum bottom residual is $2.46\times10^{-5}$, or $88.5\%$ of the bottom target, and 23 of 44 resolved enstrophy eigenspaces fail the bottom constraint. The residual scales linearly with terrain amplitude and remains between approximately $81\%$ and $89\%$ under the tested horizontal, vertical, and oversampling refinements. These results describe the superseded displacement-only state. The complete balanced bottom inversion and common flat basis now provide the input to the separate Milestone-4.8 compatibility gate.
 
 `topographic-forcing` provides a fast, first-order bottom wave generator for WaveVortexModel. The formulation retains the ordinary rigid-lid wave--vortex basis and represents weak topography through the mean-depth bottom condition.
 
