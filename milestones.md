@@ -2,25 +2,28 @@
 
 ## Objective
 
-Develop `WVTerrainEnergyGalerkin`, a pressure-free Galerkin system for the linear rotating Boussinesq equations over stationary bottom topography. The formulation is linear in flow amplitude and exact in the resolved terrain. The goal is to discretize a boundary-complete state for which the unmodified finite-terrain weak forms conserve discrete energy and quadratic potential enstrophy while enforcing the resolved bottom evolution.
+Develop `WVTerrainEnergyGalerkin`, a boundary-dynamical Galerkin system for the linear rotating Boussinesq equations over stationary bottom topography. The formulation is linear in flow amplitude and exact in the resolved terrain. The immediate goal is to determine whether a mixed volume–bottom descriptor can conserve physical energy and quadratic potential enstrophy, preserve pointwise APV, and enforce the resolved bottom evolution simultaneously. Pressure remains a Lagrange multiplier during construction and is removed only from the validated reduced evolution.
 
-The semidiscrete evolution is
+The augmented state begins with
 
 ```math
-E_\gamma\dot{\boldsymbol a}=J_\gamma\boldsymbol a,
+\boldsymbol x
+=
+\begin{pmatrix}
+\boldsymbol a\\
+\boldsymbol b
+\end{pmatrix},
 \qquad
-E_\gamma=E_\gamma^*>0,
-\qquad
-J_\gamma=-J_\gamma^*.
+B\dot{\boldsymbol x}=R_h\boldsymbol x,
 ```
 
-The mathematical specification begins with `terrain-energy-galerkin.tex` at commit `72c967c` in the `ape-apv-bottom-topography` literature repository. The boundary-energy and potential-enstrophy analysis in `boundary-energy-enstrophy.tex` at commit `716c216` supplies the subsequent correction to the numerical state: a nonzero bottom displacement cannot be represented as an isolated scalar lift if its dynamically associated balanced velocity, pressure, and APV structure are omitted.
+where $\boldsymbol a$ contains the existing volume coordinates and $\boldsymbol b$ contains independent bottom coordinates. The mathematical specification begins with `terrain-energy-galerkin.tex` at commit `72c967c` in the `ape-apv-bottom-topography` literature repository. The boundary-energy and potential-enstrophy analysis in `boundary-energy-enstrophy.tex` at commit `716c216` supplies the subsequent correction to the numerical state: a nonzero bottom displacement cannot be represented as an isolated scalar lift if its dynamically associated balanced velocity, pressure, and APV structure are omitted.
 
-The implementation will use ordinary hydrostatic modes as economical vertical coordinates. For every nonzero horizontal wavenumber, the bottom coefficient will multiply a complete zero-APV balanced bottom-inversion state, normalized by its bottom displacement. The flat weak diagonalization will then recover the complete nonhydrostatic waves and balanced nullspace in these coordinates. Finite-terrain modes will be constructed from the unmodified finite-terrain energy and exchange forms by generalized Hermitian diagonalization and residual-based enrichment.
+The implementation will use ordinary hydrostatic modes as economical vertical coordinates. The public coefficient ordering remains fixed, and the complete zero-APV balanced bottom inversion remains available for field reconstruction. The augmented descriptor will nevertheless keep the bottom coefficient independent until the volume equations, pressure constraint, and strong bottom row have been assembled together. The boundary Green identity will then determine whether the reduced problem uses a positive generalized metric, a signed metric, or physical energy alone.
 
 The completed mean-depth generator and scattering implementation is retained as reusable engineering infrastructure. Its scientific roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md). Neither existing forcing is used as the terrain-energy evolution operator.
 
-The dense finite-terrain forms remain the scientific oracle. Milestones 4.5 and 4.6 are retained as completed negative results: neither pointwise-APV nor quadratic-enstrophy minimum-change closure can reconcile the strong bottom equation with the displacement-only bottom coordinate. Those audits diagnose an incomplete boundary state rather than motivate a modified evolution operator. Milestones 4.7 and 4.8 therefore replace that coordinate with a complete balanced bottom-inversion state and test the raw Galerkin generator directly. No constrained surrogate advances beyond those historical audits.
+The completed dense finite-terrain forms remain a volume-only diagnostic oracle. Milestones 4.5 and 4.6 are retained as completed negative results: neither pointwise-APV nor quadratic-enstrophy minimum-change closure can reconcile the strong bottom equation with the displacement-only bottom coordinate. Milestones 4.7 and 4.8 replace that coordinate with a complete balanced bottom-inversion reconstruction but show that the projected volume generator is still incompatible with the strong bottom evolution and pointwise APV. The next scientific oracle is therefore the augmented descriptor assembled before pressure or constraints are eliminated. No constrained surrogate advances beyond the historical closure audits.
 
 ## Fixed conventions and boundaries
 
@@ -33,7 +36,7 @@ The dense finite-terrain forms remain the scientific oracle. Milestones 4.5 and 
 \gamma=1-\frac{h}{D}>0.
 ```
 
-- The prognostic weak state contains $(\hat u,\hat v,\hat w,\hat\eta)$. For each retained nonzero horizontal wavenumber, one additional balanced bottom-inversion coordinate supplies a linked velocity, pressure, displacement, and APV structure and is normalized so that its coefficient equals the bottom value of $\hat\eta$. Pressure is recovered only as a post-solve diagnostic.
+- The prognostic state contains volume coordinates for $(\hat u,\hat v,\hat w,\hat\eta)$ and one independent bottom-displacement coordinate for each retained horizontal Fourier coefficient. The complete balanced bottom inversion supplies linked fields for reconstruction without replacing that independent boundary coordinate. Pressure remains a Lagrange multiplier while the augmented constrained system is assembled and is absent from ordinary validated reduced evolution.
 - The velocity satisfies mapped continuity and homogeneous normal-flow conditions,
 
 ```math
@@ -757,70 +760,59 @@ Oversampling factors two and three give the same incompatible residuals. Across 
 
 Milestone 4.8 therefore takes its incompatible exit. Milestone 5 must not proceed from these raw forms. No corrected closure, empirical symmetrization, or relaxed invariant has been introduced.
 
-## Milestone 5: Terrain modes and wave–balanced separation
+## Milestone 5: Explicit boundary-dynamical descriptor system
 
-- [ ] Complete — blocking scientific gate
+- [ ] Complete — blocking gate
 
 ### Purpose
 
-Demonstrate that the finite-terrain weak system produces physically admissible oscillatory and balanced modes before production optimization.
+Test whether the Milestone-4.8 incompatibility is resolved when bottom displacement is an independent dynamical coordinate and the bottom equation participates in the constrained evolution problem.
 
 ### Dependencies
 
-Milestone 4.8 with its compatible-and-convergent exit.
+Completed Milestones 4.7–4.8, including the common flat energy–enstrophy basis and the incompatible volume-only compatibility audit.
 
 ### Deliverables
 
-- Solve the complete unmodified dense generalized Hermitian problem
+- Construct the finite-dimensional state
 
 ```math
-iJ_\gamma\boldsymbol c_n
+\boldsymbol x
 =
-\Omega_nE_\gamma\boldsymbol c_n.
+\begin{pmatrix}
+\boldsymbol a\\
+\boldsymbol b
+\end{pmatrix},
 ```
 
-- Classify nonzero-frequency modes by APV norm and projection onto the flat wave subspace. Verify that converged oscillatory modes lie in the nullspace of $Q_\gamma$.
-- Retain the complete zero-frequency balanced subspace, including ordinary interior geostrophic flow, the bottom-inversion coordinates, and the mean-density anomaly.
-- Within the zero-frequency subspace, solve
-
-  ```math
-  Z_\gamma\boldsymbol c_n
-  =
-  \lambda_nE_\gamma\boldsymbol c_n
-  ```
-
-  to obtain energy–enstrophy-orthogonal vortical modes and an energy-orthogonal zero-enstrophy remainder.
-- Normalize modes in the finite-terrain energy and resolve degenerate eigenspaces by $E_\gamma$-orthogonalization.
-- Use sinusoidal terrain to verify leading Fourier selection and terrain-induced modal coupling.
-- Verify the oscillatory bottom relation
+where $\boldsymbol a$ contains the existing interior coordinates and $\boldsymbol b$ contains independent bottom-displacement coefficients.
+- Preserve the public coefficient ordering. Use the complete balanced bottom inversion only to reconstruct the fields associated with $\boldsymbol b$; do not identify the bottom coordinate with a volume equivalence class.
+- Assemble one mixed descriptor problem containing the volume momentum and displacement equations, incompressibility with pressure retained as a Lagrange multiplier, the strong bottom row
 
 ```math
-\sigma i\Omega\hat\eta_b
-=
-\boldsymbol u_{H,b}\boldsymbol{\cdot}\nabla_Hh.
+B\dot{\boldsymbol x}=R_h\boldsymbol x,
 ```
 
-- Recover a zero-mean pressure after convergence by fitting the strong momentum equations. Treat this as a diagnostic only.
-- Report strong horizontal and vertical momentum, continuity, surface, and physical-bottom residuals separately.
+and independent volume and bottom test equations.
+- Retain pressure and all algebraic constraints until the complete augmented saddle-point system has been assembled.
+- Record the descriptor rank, constraint rank, pressure nullspace, stationary nullspace, and number of independent prognostic coordinates.
+- Do not eliminate pressure or project onto the divergence-free volume space before the bottom row has been included.
 
 ### Automated acceptance
 
-- Terrain frequencies are real to $10^{-10}$ relative accuracy.
-- Distinct-frequency modes are $E_\gamma$-orthogonal to $10^{-10}$.
-- Total quadratic potential enstrophy is conserved to $10^{-12}$ and every converged nonzero-frequency mode has negligible APV.
-- The balanced dimension, bottom-inversion freedom, and mean-density coordinate agree with the discrete state count.
-- The secondary energy–enstrophy diagonalization spans the complete balanced nullspace and reproduces both quadratic forms to $10^{-10}$.
-- Sinusoidal terrain produces the predicted Fourier couplings.
-- Bottom and strong-equation residuals decrease under horizontal and vertical refinement.
-- Failure of the energy, APV, quadratic potential-enstrophy, bottom, balanced-dimension, or strong-residual gates blocks Milestone 6.
+- Flat and uniform-depth systems reproduce the existing nonhydrostatic waves, stationary geostrophic modes, complete bottom inversion, and mean-density-anomaly states.
+- Continuity, pressure gauge, surface condition, and bottom evolution close within $10^{-12}$.
+- The bottom coordinate remains independent of the volume equivalence class under packing, reconstruction, and constraint elimination.
+- The descriptor rank and nullspaces agree with the expected prognostic, diagnostic, and stationary dimensions.
+- Failure of any rank, independence, or residual check blocks Milestone 6.
 
-## Milestone 6: Residual-enriched terrain dressing
+## Milestone 6: Boundary Green identity and invariant discovery
 
-- [ ] Complete
+- [ ] Complete — branching scientific gate
 
 ### Purpose
 
-Construct selected terrain modes efficiently from flat nonhydrostatic seeds without diagonalizing the complete global dense problem.
+Derive rather than assume the quadratic structure associated with the active bottom coordinate, and determine which invariant formulation the later implementation must follow.
 
 ### Dependencies
 
@@ -828,61 +820,87 @@ Milestone 5.
 
 ### Deliverables
 
-- Use the Milestone-4.7 flat nonhydrostatic wave modes and complete balanced modes as initial vectors.
-- Evaluate each seed's residual in the unmodified boundary-complete finite-terrain generalized eigenproblem approved by Milestone 4.8.
-- Apply block residual corrections preconditioned by the flat signed-frequency operator.
-- Remove the complete degenerate or near-resonant flat eigenspace before applying the complementary inverse.
-- Include the complete bottom-inversion coordinate in the same correction, energy orthogonalization, and reduced Ritz solve.
-- Rediagonalize the exact reduced $(iJ_\gamma,E_\gamma)$ pair after every enrichment step.
-- Preserve the discrete APV nullspace during oscillatory-mode enrichment and retain the complete balanced block when a near-zero-frequency resonance is present.
-- Compare selective dressed modes with the raw boundary-complete dense terrain oracle.
+- Use constant stratification and a local constant-slope problem, for which horizontal Fourier coefficients remain independent.
+- Start from the material bottom relation
+
+```math
+-i\omega\eta_b
+=
+\boldsymbol u_{H,b}\boldsymbol{\cdot}\nabla_H h
+```
+
+and derive the complete boundary Green identity before choosing an inner product.
+- Seek the most general Hermitian quadratic boundary contribution permitted by the physical boundary invariants. Permit volume–boundary cross terms when a pure $|\eta_b|^2$ contribution is insufficient.
+- Compare the derived form with the free-surface generalized-energy construction, Yassin's $L^2\oplus\mathbb C$ endpoint inner product, the hydrostatic or quasigeostrophic constant-slope limit, and the full nonhydrostatic constant-$N$ problem.
+- Classify the result into exactly one of the following branches:
+  - **H — positive generalized metric:** a positive boundary-complete invariant exists.
+  - **K — signed metric:** the derived form is nondegenerate but indefinite and requires Pontryagin or Krein treatment.
+  - **P — physical-energy-only:** no separate nontrivial boundary quadratic invariant exists, but the mixed descriptor preserves physical energy.
+  - **Incompatible:** the mixed equations fail physical energy, pointwise APV, or bottom compatibility.
+- Record the selected branch together with the relevant metric's definiteness, rank, numerical conditioning, and nullspace.
 
 ### Automated acceptance
 
-- For weak nonresonant terrain, one correction reduces an $O(h)$ seed residual to $O(h^2)$, with observed terrain-amplitude order at least 1.8.
-- Degenerate tests converge only after the complete coupled block is included.
-- Residual norms decrease monotonically after accepted enrichment steps.
-- Repeated enrichment reproduces targeted dense eigenvalues and energy-normalized eigenspaces within $10^{-9}$.
-- Dressed oscillatory modes have negligible APV and satisfy the bottom relation at the dense-oracle tolerance.
-- Dressed balanced blocks reproduce the dense oracle's energy–enstrophy eigenspaces.
+- The boundary form follows from the Green identity or an exact boundary Casimir and never from residual fitting.
+- The augmented generator satisfies the applicable skew-adjoint identity within $10^{-11}$.
+- Physical energy, pointwise APV, and bottom evolution close independently.
+- The flat limit contains stationary boundary modes, while finite slope activates at least one boundary or topographic mode.
+- Frequencies and mode counts agree with the applicable Yassin and analytic limits.
+- Branch classification is reproducible from definiteness, rank, and conditioning diagnostics.
+- An incompatible result stops the roadmap before Milestone 7.
 
-## Milestone 7: Matrix-free operator actions
+## Milestone 7: Periodic-terrain augmented dense compatibility gate
 
-- [ ] Complete
+- [ ] Complete — principal blocking gate
 
 ### Purpose
 
-Replace global dense terrain matrices with adjoint-consistent field reconstruction, terrain multiplication, and projection.
+Determine whether the selected augmented descriptor remains physically compatible when periodic terrain couples horizontal Fourier coefficients globally.
 
 ### Dependencies
 
-Milestone 6.
+Milestone 6 with branch H, K, or P.
 
 ### Deliverables
 
-- Implement matrix-free applications of the raw boundary-complete $E_\gamma$, $J_\gamma$, and $Q_\gamma$.
-- Unpack interior and balanced bottom-inversion coordinates, reconstruct the mapped and physical fields, multiply by terrain and stratification weights on an oversampled grid, and project with the exact adjoints.
-- Use a default horizontal oversampling factor of two and permit larger factors for convergence studies.
-- Implement flat signed-frequency preconditioning and block iterative eigensolves.
-- Exploit preserved meridional wavenumber and Bloch classes when the terrain provides those symmetries.
-- Keep diagnostic pressure recovery outside ordinary operator applications.
+- Extend the augmented descriptor to periodic sinusoidal terrain.
+- Assemble the dense reference system without empirical correction, minimum-change closure, or post hoc skew-symmetrization.
+- Include terrain multiplication and the strong bottom row before eliminating pressure and constraints through the complete augmented saddle-point system.
+- Test the physical identities
+
+```math
+L^*E_\gamma+E_\gamma L=0,
+\qquad
+Q_\gamma L=0,
+\qquad
+BL=R_h,
+```
+
+and the implied quadratic potential-enstrophy identity
+
+```math
+L^*Z_\gamma+Z_\gamma L=0.
+```
+
+- If Milestone 6 identifies a generalized invariant, test it separately from physical energy and physical volume potential enstrophy.
+- Report the rank and nullity of $Q_\gamma$ and verify that the generator range lies in $\ker Q_\gamma$.
 
 ### Automated acceptance
 
-- Matrix-free actions agree with the raw boundary-complete dense oracle within $10^{-10}$ at reference resolution.
-- Matrix-free energy and exchange actions satisfy their adjoint identities within $10^{-12}$.
-- Matrix-free actions satisfy the APV, quadratic-enstrophy, and bottom compatibility identities at the Milestone-4.8 tolerances.
-- Matrix-free Ritz values, wave and balanced eigenspaces, quadratic potential enstrophy, modal APV diagnostics, and residual histories reproduce the dense results.
-- Results converge independently with Fourier resolution, vertical modes, oversampling factor, and dressing iterations.
-- Runtime operator applications allocate no global dense terrain matrix and perform no pressure solve.
+- Flat and uniform-depth cases pass all applicable identities within $10^{-12}$.
+- Weak sinusoidal terrain passes physical energy, pointwise APV, bottom evolution, quadratic potential enstrophy, and Fourier conjugacy within $10^{-10}$.
+- Residuals decrease under independent horizontal, vertical, and oversampling refinement.
+- The generator range lies in $\ker Q_\gamma$, with its rank and nullity reported explicitly.
+- The augmented formulation materially improves the Milestone-4.8 defects without altering the governing equations.
+- Failure stops the roadmap before modal construction.
 
-## Milestone 8: Energy-preserving linear evolution and examples
+## Milestone 8: Implement the selected invariant branch
 
 - [ ] Complete
 
 ### Purpose
 
-Evolve finite-terrain states without converting the weak system into an additive flat forcing.
+Commit the implementation to the single invariant structure justified by the boundary Green identity and periodic compatibility gate.
 
 ### Dependencies
 
@@ -890,42 +908,31 @@ Milestone 7.
 
 ### Deliverables
 
-- Evolve resolved terrain modes by exact phase multiplication:
-
-```math
-A_n(t)=A_n(0)e^{-i\Omega_nt}.
-```
-
-- Evolve broader mixed states with the midpoint/Cayley step
-
-  ```math
-  \left(E_\gamma-\frac{\Delta t}{2}J_\gamma\right)\boldsymbol a^{n+1}
-  =
-  \left(E_\gamma+\frac{\Delta t}{2}J_\gamma\right)\boldsymbol a^n.
-  ```
-
-- Use the flat energy and signed-frequency operator as the iterative-solve preconditioner.
-- Convert between Galerkin states and WaveVortexModel field and coefficient conventions at initialization and output.
-- Add uniform-depth, sinusoidal-terrain, and Gaussian-ridge examples showing modal scattering, physical vertical sections, bottom displacement, APV, and finite-terrain energy.
-- Report operator, eigensolver, and time-integration errors separately.
+- Implement exactly one primary branch:
+  - **H — positive generalized-energy branch:** use Cholesky-scaled Hermitian eigensolves under the derived positive boundary-complete metric.
+  - **K — signed-metric branch:** use a generalized eigensolver that preserves the signed metric, report Krein signatures, and never replace the metric by its absolute value.
+  - **P — physical-energy mixed branch:** retain physical $E_\gamma$ as the evolution norm and use the active bottom equation to resolve the zero-APV boundary sector.
+- If a separately conserved generalized boundary enstrophy was derived, include it. Otherwise retain physical volume potential enstrophy and resolve its zero-APV degeneracy through the dynamics.
+- Preserve physical energy as an independently verified invariant.
+- Preserve stationary physical pointwise APV.
+- Keep the bottom equation as an explicit dynamical row.
+- Label every generalized invariant separately from the physical invariants.
+- Select branch H when a positive derived form exists, branch K when the required form is only signed, and branch P when no separate boundary metric exists but the physical mixed system passes.
 
 ### Automated acceptance
 
-- Terrain-mode phase evolution agrees with direct matrix exponentiation at low resolution.
-- Cayley evolution conserves $\boldsymbol a^*E_\gamma\boldsymbol a/2$ to the linear-solver tolerance.
-- Cayley evolution conserves $\boldsymbol a^*Z_\gamma\boldsymbol a/2$ to the linear-solver tolerance.
-- The uniform-depth evolution agrees with the independent exact solution at depth $H$.
-- Sinusoidal and Gaussian examples converge with time step, horizontal resolution, vertical modes, and dressing iterations.
-- Quadratic potential enstrophy remains constant and resolved APV is stationary to the matrix-free compatibility tolerance.
-- Ordinary time stepping performs no diagnostic pressure solve.
+- The implemented branch matches the Milestone-6 classification and Milestone-7 compatibility results.
+- Its metric, adjoint, nullspace, and branch-specific signature tests close within the tolerances established by the dense gates.
+- Physical energy, pointwise APV, bottom evolution, and physical potential enstrophy remain independently verified.
+- No unused alternative branch or empirical metric is introduced into the evolution path.
 
-## Milestone 9: Research-production behavior
+## Milestone 9: Dense terrain modes and boundary-mode classification
 
-- [ ] Complete
+- [ ] Complete — blocking modal gate
 
 ### Purpose
 
-Add the resolution, persistence, performance, and broadband capabilities required for repeatable research calculations.
+Establish the complete dense terrain-mode oracle and identify the new modes created by the active bottom coordinate.
 
 ### Dependencies
 
@@ -933,37 +940,159 @@ Milestone 8.
 
 ### Deliverables
 
-- Support arbitrary stationary stratification and broadband periodic terrain through the already validated generalized forms.
-- Reuse the deterministic Goff terrain generator from the mean-depth implementation without reusing its forcing operator.
-- Rebuild geometry, basis functions, and operator state when the target transform resolution changes.
-- Add restartable NetCDF output for canonical inputs, Galerkin coefficients, bottom coefficients, time, basis metadata, and construction version.
-- Add selective terrain-mode and broad-state restart continuation.
-- Benchmark construction, memory, eigensolve, reconstruction, and one online evolution step at three resolutions.
-- Preserve the pressure-free online path and distinguish diagonal terrain-mode evolution from matrix-free Cayley evolution in performance reports.
+- Solve the selected augmented dense eigenproblem.
+- Classify APV-free internal waves, terrain-coupled wave–bottom modes, APV-bearing stationary geostrophic modes, stationary or propagating zero-APV bottom modes, and compatible mean-density states.
+- Enforce
+
+```math
+-i\omega_n\eta_{n,b}
+=
+\boldsymbol u_{H,n,b}\boldsymbol{\cdot}\nabla_H h
+```
+
+as an eigenproblem row rather than as a diagnostic constraint.
+- Normalize and classify modes using physical energy, APV, bottom participation, and the selected branch metric where applicable.
+- Recover diagnostic pressure after convergence and report strong momentum, continuity, surface, and bottom residuals separately.
 
 ### Automated acceptance
 
-- Repeated construction is deterministic and resolution rebuilding preserves conjugacy, energy normalization, and APV classification.
-- Restart continuation matches uninterrupted evolution to $10^{-10}$ in energy-normalized coefficients.
-- Broadband and variable-stratification calculations retain the structural, energy, APV, quadratic potential-enstrophy, and strong-residual gates.
+- Frequencies are real to $10^{-10}$ under the physical positive-energy evolution.
+- Distinct-frequency modes are orthogonal under physical energy and, where applicable, the generalized metric.
+- Nonzero-frequency modes have negligible APV.
+- The complete state and all physical and generalized invariants reconstruct to $10^{-10}$.
+- Strong momentum, continuity, and bottom residuals decrease under refinement.
+- New boundary or topographic modes are identifiable by their bottom participation and converge with resolution.
+- Failure of the modal classification or convergence tests blocks Milestone 10.
+
+## Milestone 10: Residual-enriched terrain modes
+
+- [ ] Complete
+
+### Purpose
+
+Construct selected terrain modes efficiently while retaining the complete boundary-dynamical and constraint structure of the dense oracle.
+
+### Dependencies
+
+Milestone 9.
+
+### Deliverables
+
+- Use flat internal, geostrophic, and bottom modes as block seeds for the selected augmented eigenproblem.
+- Apply residual correction to the complete resonant block, including bottom coordinates and pressure constraints.
+- Energy-orthogonalize accepted corrections with the physical metric and the selected generalized metric where applicable.
+- Compare every enriched invariant subspace with the dense terrain oracle.
+
+### Automated acceptance
+
+- One correction reduces weak nonresonant $O(h)$ residuals to $O(h^2)$.
+- Repeated enrichment reproduces dense eigenvalues and invariant subspaces within $10^{-9}$.
+- Bottom, APV, physical-energy, and branch-specific identities remain satisfied after every accepted enrichment.
+- Resonant calculations converge only when the complete coupled boundary and volume block is retained.
+
+## Milestone 11: Matrix-free augmented operators
+
+- [ ] Complete
+
+### Purpose
+
+Replace the dense augmented oracle with adjoint-consistent operator actions while preserving the explicit boundary coordinate and all constraints.
+
+### Dependencies
+
+Milestone 10.
+
+### Deliverables
+
+- Replace dense volume and terrain matrices with field reconstruction, oversampled terrain multiplication, adjoint projection, bottom-row application, and complete constraint elimination.
+- Preserve the explicit bottom coefficients throughout packing, application, and reconstruction.
+- Use the selected branch metric and flat constrained operator as preconditioners.
+- Keep diagnostic pressure recovery outside ordinary reduced operator applications.
+
+### Automated acceptance
+
+- Matrix-free actions reproduce the dense augmented oracle within $10^{-10}$.
+- Physical and generalized adjoint identities close within $10^{-12}$.
+- No diagnostic pressure solve occurs during a reduced operator application.
+- Bottom coefficients remain explicit throughout packing, application, and reconstruction.
+- Matrix-free APV, bottom-evolution, energy, and modal diagnostics reproduce the dense results.
+
+## Milestone 12: Energy-preserving evolution and scientific examples
+
+- [ ] Complete
+
+### Purpose
+
+Evolve the augmented terrain system and demonstrate the physical role of its boundary modes.
+
+### Dependencies
+
+Milestone 11.
+
+### Deliverables
+
+- Support exact phase evolution in a converged terrain-mode basis.
+- Support a descriptor-compatible midpoint or Cayley evolution for broad states.
+- Add constant-slope, sinusoidal-terrain, and Gaussian-ridge examples showing wave scattering, boundary-mode excitation, bottom displacement, APV, physical energy, and every generalized invariant selected in Milestone 8.
+- Compare dense exponentiation, modal phase evolution, and broad-state evolution at reference resolution.
+
+### Automated acceptance
+
+- Dense exponentiation, phase evolution, and Cayley evolution agree at reference resolution.
+- Physical energy is conserved to solver tolerance.
+- APV remains stationary and bottom evolution closes.
+- Generalized invariants, when present, are conserved independently.
+- Example errors converge with time step and spatial resolution.
+
+## Milestone 13: Research-production behavior
+
+- [ ] Complete
+
+### Purpose
+
+Extend the validated augmented formulation to repeatable research calculations without changing its scientific definition.
+
+### Dependencies
+
+Milestone 12.
+
+### Deliverables
+
+- Add arbitrary stationary stratification, broadband terrain, resolution rebuilding, restartable output, construction and evolution profiling, and symmetry or Bloch decomposition.
+- Retain the pressure-free online path after the augmented constrained operator has been constructed.
+- Persist the selected branch, bottom-coordinate convention, basis metadata, and construction version.
+- Benchmark construction, memory, eigenanalysis, reconstruction, and online evolution at three resolutions.
+
+### Automated acceptance
+
+- Repeated construction is deterministic and resolution rebuilding preserves conjugacy, invariant normalization, APV classification, and bottom participation.
+- Restart continuation matches uninterrupted evolution to $10^{-10}$ in invariant-normalized coefficients.
+- Broadband and variable-stratification calculations retain every applicable Milestone-7 and Milestone-9 gate.
 - Benchmarks report construction time, peak stored state, operator-application time, iteration counts, and reconstruction time.
-- Selective terrain-mode evolution reduces to phase multiplication and reconstruction.
-- Broad-state evolution reduces to matrix-free $E_\gamma$ and raw boundary-complete $J_\gamma$ actions plus preconditioned Cayley solves.
+- Ordinary reduced evolution performs no diagnostic pressure solve.
 
-## Planning and implementation cadence
+## Goal-oriented batch cadence
 
-- **Batch A — Milestones 1–4.6.** These completed milestones established the software foundation, the initial dense forms, and the two incompatible closure audits. Milestones 2–4 are retained as historical prototypes because their displacement-only bottom coordinate is superseded.
-- **Batch B1 — Milestones 4.7–4.7.1.** Implement the balanced bottom-inversion basis, then resolve its flat stationary degeneracy with the common physical energy–enstrophy basis. Stop if either step fails to recover the complete flat nonhydrostatic and balanced problem with acceptable conditioning.
-- **Batch B2 — Milestones 4.8–5.** Rebuild the raw finite-terrain forms in the revised basis and test their mutual compatibility before solving terrain modes. Milestone 4.8 is the principal blocking gate: only a compatible-and-convergent raw system proceeds to the modal classification and balanced energy–enstrophy diagonalization in Milestone 5.
-- **Batch B3 — Milestone 6.** Implement residual enrichment only after the boundary-complete dense terrain eigensystem passes. Compare every selective result with the raw dense oracle.
-- **Batch C — Milestones 7–9.** Plan only after the dense terrain modes and residual-enrichment tests pass. Implement matrix-free actions before online evolution, resolution rebuilding, or persistence.
-- Use one focused commit per completed milestone and retain the acceptance evidence in the automated tests and examples.
-- Do not bypass a blocking gate by symmetrizing a scientifically incorrect operator or by introducing empirical correction factors.
+| Batch | Milestones | Goal-sized stopping condition |
+|---|---:|---|
+| **D1 — Boundary formulation** | 5–6 | Build the mixed descriptor, derive the Green identity, and record branch H, K, P, or incompatible. Do not begin periodic terrain. |
+| **D2 — Periodic scientific gate** | 7 | Test the selected augmented formulation on sinusoidal terrain. Stop immediately if physical energy, APV, or bottom evolution does not converge. |
+| **D3 — Selected branch and dense modes** | 8–9 | Implement only the selected branch and establish the dense terrain-mode oracle. Do not implement enrichment. |
+| **E1 — Selective modes** | 10 | Implement residual enrichment and validate it exclusively against the dense oracle. |
+| **E2 — Matrix-free production core** | 11 | Replace dense actions while preserving every Milestone-7 and Milestone-9 identity. |
+| **F — Evolution and examples** | 12 | Add energy-preserving evolution and the three scientific examples. |
+| **G — Research production** | 13 | Add persistence, rebuilding, broadband terrain, arbitrary stratification, and profiling. |
+
+Each batch is suitable for a Codex goal of the form: “Implement Batch D1; do not proceed to Batch D2; continue until all acceptance criteria pass or a genuine scientific blocker is established.”
+
+Use one focused commit per completed milestone and retain acceptance evidence in the automated tests and examples. Do not bypass a blocking gate by symmetrizing an incompatible operator, fitting a closure, or introducing an empirical correction.
 
 ## Definition of done
 
-The scientific proof of concept is established when Milestones 4.7–6 pass in addition to the completed foundation: the balanced bottom-inversion basis recovers the complete flat nonhydrostatic and balanced state, the unmodified finite-terrain forms satisfy energy, APV, quadratic-enstrophy, and bottom-evolution compatibility under refinement, terrain modes satisfy the physical bottom condition, and residual dressing converges to the raw boundary-complete dense oracle.
+The augmented scientific proof of concept is established when Milestones 5–9 pass: the boundary coordinate is independently dynamical, the Green identity selects a justified invariant branch, the periodic descriptor simultaneously satisfies physical energy, pointwise APV, bottom evolution, and physical potential enstrophy, and the complete dense modes include converged boundary or topographic modes.
 
-The research implementation is complete when Milestones 7–9 pass: matrix-free actions reproduce the oracle, linear evolution preserves finite-terrain energy and quadratic potential enstrophy, the uniform-depth and scattering examples converge, and restartable broadband calculations require no diagnostic pressure solve during ordinary evolution.
+The efficient research implementation is established when Milestones 10–12 pass: residual enrichment reproduces the dense oracle, matrix-free actions preserve every augmented identity, and energy-preserving evolution produces convergent constant-slope, sinusoidal-terrain, and Gaussian-ridge examples.
 
-Nonlinear terrain dynamics, an additive terrain `WVForcing`, an MPM release, modifications to WaveVortexModel, independent surface buoyancy, and dynamic barotropic backreaction remain outside this roadmap.
+Milestone 13 completes research-production behavior through arbitrary stationary stratification, broadband terrain, resolution rebuilding, restartable output, symmetry decomposition, and profiling.
+
+Nonlinear terrain dynamics, an additive terrain `WVForcing`, empirical closure, an MPM release, modifications to WaveVortexModel, independent surface buoyancy, and dynamic barotropic backreaction remain outside this roadmap.
