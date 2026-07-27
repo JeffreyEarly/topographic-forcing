@@ -61,6 +61,8 @@ rawEnergyMatrix = wvt.rho0*(uHat'*(volumeWeight./gammaGrid.*uHat)+vHat'*(volumeW
     +w'*(gammaWeight.*w)+etaHat'*(gammaWeight.*N2.*etaHat));
 exchange = wvt.f*u'*(gammaWeight.*v)+etaHat'*(gammaWeight.*N2.*w);
 rawExchangeMatrix = wvt.rho0*(exchange-exchange');
+quadratureEnergyMatrix = rawEnergyMatrix;
+quadratureExchangeMatrix = rawExchangeMatrix;
 if max(gamma,[],"all")-min(gamma,[],"all") <= 10*eps(max(abs(gamma),[],"all"))
     [rawEnergyMatrix,rawExchangeMatrix] = constantGammaForms(problem,gamma(1),N2(1:nXY:end));
 end
@@ -110,6 +112,8 @@ oversamplingAdjointDefect = abs(leftAdjointProduct-rightAdjointProduct)/max([abs
 forms = struct();
 forms.rawEnergyMatrix = rawEnergyMatrix;
 forms.rawExchangeMatrix = rawExchangeMatrix;
+forms.quadratureEnergyMatrix = quadratureEnergyMatrix;
+forms.quadratureExchangeMatrix = quadratureExchangeMatrix;
 forms.energyMatrix = energyMatrix;
 forms.exchangeMatrix = exchangeMatrix;
 forms.apvMatrix = apvMatrix;
@@ -130,10 +134,12 @@ diagnostics.skewHermitianDefect = skewHermitianDefect;
 diagnostics.scaledEnergyRcond = scaledEnergyRcond;
 diagnostics.flatEnergyRelativeResidual = flatEnergyRelativeResidual;
 diagnostics.flatExchangeRelativeResidual = flatExchangeRelativeResidual;
+diagnostics.quadratureEnergyRelativeResidual = norm(quadratureEnergyMatrix-energyMatrix,"fro")/max(norm(energyMatrix,"fro"),realmin);
+diagnostics.quadratureExchangeRelativeResidual = norm(quadratureExchangeMatrix-exchangeMatrix,"fro")/max(norm(exchangeMatrix,"fro"),realmin);
 diagnostics.oversamplingAdjointDefect = oversamplingAdjointDefect;
 diagnostics.maximumTerrainInterpolationImaginaryPart = terrainInterpolationImaginaryPart;
 diagnostics.numberOfDegreesOfFreedom = nState;
-diagnostics.estimatedDenseFormBytes = 16*(5*nState*nState+nGrid*nState);
+diagnostics.estimatedDenseFormBytes = 16*(7*nState*nState+nGrid*nState);
 end
 
 function [h,gamma,gammaX,gammaY,imaginaryPart] = oversampledTerrain(problem,Nx,Ny)

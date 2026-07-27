@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Development branch:** `terrain-energy-galerkin` contains the pressure-free finite-terrain-energy Galerkin prototypes, the completed closure audits, and the boundary-complete flat basis developed through Milestone 4.7.1 of the active [terrain-energy roadmap](milestones.md). Finite-terrain compatibility remains the blocking Milestone-4.8 question. The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
+> **Development branch:** `terrain-energy-galerkin` contains the pressure-free finite-terrain-energy Galerkin prototypes, the completed closure audits, and the boundary-complete flat basis. Milestone 4.8 found that the unmodified finite-terrain forms remain incompatible with simultaneous APV, quadratic-enstrophy, and strong bottom-evolution conservation, so development stops before Milestone 5. The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -41,7 +41,37 @@ The dense finite-terrain oracle evaluates the mapped geometry and stratification
 E_\gamma,\qquad J_\gamma,\qquad Q_\gamma.
 ```
 
-The raw energy and exchange forms retain their Hermitian and skew-Hermitian structure before roundoff cleanup. Their flat limit reproduces the per-wavenumber oracle, and the constant-$\gamma$ problem agrees with an independent flat transform of physical depth $H=\gamma D$. Terrain-dependent modes remain deferred to Milestone 5.
+The raw energy and exchange forms retain their Hermitian and skew-Hermitian structure before roundoff cleanup. Their flat limit reproduces the per-wavenumber oracle, and the constant-$\gamma$ problem agrees with an independent flat transform of physical depth $H=\gamma D$.
+
+## Raw finite-terrain compatibility audit
+
+Audit the unmodified generator without constructing a closure:
+
+```matlab
+audit = problem.auditFiniteTerrainCompatibility();
+```
+
+The audit forms
+
+```math
+L_\gamma=E_\gamma^{-1}J_\gamma,
+\qquad
+Z_\gamma=Q_\gamma^*Q_\gamma
+```
+
+and directly tests energy, pointwise APV, quadratic potential enstrophy, strong bottom evolution, and Fourier conjugacy. It reports both pre-restoration and operational matrices, deterministic random-state tendencies, APV rank, flat-common-subspace residuals, vertical APV rows, horizontal bottom rows, and the unresolved part of the oversampled bottom product. It never re-skews, projects, or corrects the generator.
+
+Flat and uniform-depth references pass within $10^{-12}$. For the documented 20 m sinusoidal terrain at resolution $[4,4,5]$ and oversampling factor two, the normalized APV, bottom, and enstrophy defects are respectively
+
+```math
+1.89\times10^{-7},
+\qquad
+2.99\times10^{-2},
+\qquad
+4.78\times10^{-8}.
+```
+
+Energy and conjugacy remain at roundoff. Increasing horizontal oversampling from two to three does not change the incompatible defects, and the finest horizontal refinement pair changes them by less than $13\%$. The result therefore satisfies the roadmap's incompatible exit rather than its compatible-and-convergent exit. Milestone 5 is blocked; no corrected closure or relaxed invariant is substituted.
 
 ## Constrained-closure audit
 
@@ -79,7 +109,7 @@ This audit uses independent real physical coordinates and seeks a skew-symmetric
 G_\gamma=S^{-*}Q_\gamma^*Q_\gamma S^{-1}.
 ```
 
-The commutator conserves total discrete quadratic potential enstrophy without requiring every APV sample to remain fixed. Flat and uniform-depth problems again return the raw generator with zero correction. The sinusoidal reference remains incompatible: at 20 m amplitude its minimum bottom residual is $2.46\times10^{-5}$, or $88.5\%$ of the bottom target, and 23 of 44 resolved enstrophy eigenspaces fail the bottom constraint. The residual scales linearly with terrain amplitude and remains between approximately $81\%$ and $89\%$ under the tested horizontal, vertical, and oversampling refinements. These results describe the superseded displacement-only state. The complete balanced bottom inversion and common flat basis now provide the input to the separate Milestone-4.8 compatibility gate.
+The commutator conserves total discrete quadratic potential enstrophy without requiring every APV sample to remain fixed. Flat and uniform-depth problems again return the raw generator with zero correction. The sinusoidal reference remains incompatible: at 20 m amplitude its minimum bottom residual is $2.46\times10^{-5}$, or $88.5\%$ of the bottom target, and 23 of 44 resolved enstrophy eigenspaces fail the bottom constraint. The residual scales linearly with terrain amplitude and remains between approximately $81\%$ and $89\%$ under the tested horizontal, vertical, and oversampling refinements. These results describe the superseded displacement-only state and are retained as historical diagnostics; the raw Milestone-4.8 audit above is the authoritative result for the boundary-complete basis.
 
 `topographic-forcing` provides a fast, first-order bottom wave generator for WaveVortexModel. The formulation retains the ordinary rigid-lid wave--vortex basis and represents weak topography through the mean-depth bottom condition.
 

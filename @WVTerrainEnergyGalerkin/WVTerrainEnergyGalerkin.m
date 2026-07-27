@@ -20,6 +20,7 @@ classdef WVTerrainEnergyGalerkin < handle
     % - Topic: Transform Galerkin states
     % - Topic: Inspect flat modes
     % - Topic: Inspect terrain forms
+    % - Topic: Audit terrain compatibility
     % - Topic: Audit constrained evolution
     % - Declaration: classdef WVTerrainEnergyGalerkin < handle
 
@@ -106,7 +107,9 @@ classdef WVTerrainEnergyGalerkin < handle
         % representation of the finite-terrain energy inner product,
         % `exchangeMatrix` is the skew-Hermitian Coriolis--buoyancy form,
         % and `apvMatrix` maps mixed coefficients to quadrature-weighted
-        % finite-terrain APV samples.
+        % finite-terrain APV samples. `quadratureEnergyMatrix` and
+        % `quadratureExchangeMatrix` retain the direct common-quadrature
+        % forms before exact flat or uniform-depth oracle substitutions.
         %
         % - Topic: Inspect terrain forms
         finiteTerrainForms
@@ -424,6 +427,26 @@ classdef WVTerrainEnergyGalerkin < handle
                     "The horizontal mode (%d,%d) is not retained.",kMode,lMode)
             end
             block = self.flatModeBlocks{iK};
+        end
+
+        function audit = auditFiniteTerrainCompatibility(self)
+            % Audit the unmodified finite-terrain Galerkin evolution.
+            %
+            % The audit forms the raw generator
+            % $$L_\gamma=E_\gamma^{-1}J_\gamma$$ and tests energy, APV,
+            % quadratic potential-enstrophy, strong bottom evolution, and
+            % real-field conjugacy without correcting or projecting the
+            % generator. An incompatible result is scientific output and
+            % does not modify the problem.
+            %
+            % ```matlab
+            % audit = problem.auditFiniteTerrainCompatibility();
+            % ```
+            %
+            % - Topic: Audit terrain compatibility
+            % - Declaration: audit = auditFiniteTerrainCompatibility()
+            % - Returns audit: raw matrices and compatibility diagnostics
+            audit = buildFiniteTerrainCompatibilityAudit(self);
         end
 
         function audit = auditConstrainedClosure(self)

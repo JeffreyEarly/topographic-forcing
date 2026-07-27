@@ -653,7 +653,7 @@ Each flat block stores the common classification and the physical-energy project
 
 ## Milestone 4.8: Boundary-complete finite-terrain compatibility gate
 
-- [ ] Complete — blocking scientific gate
+- [x] Complete — incompatible scientific exit; Milestone 5 blocked
 
 ### Purpose
 
@@ -724,6 +724,38 @@ Milestone 4.7.1.
 - The gate has two scientifically valid exits:
   - **Compatible and convergent:** the raw forms pass the stated identities and refinement tests. Milestone 5 proceeds with the unmodified $E_\gamma$, $J_\gamma$, and $Q_\gamma$.
   - **Incompatible:** a residual remains above tolerance or converges to a nonzero limit. Stop before Milestone 5 and revise the boundary-complete state, weak forms, or adjoint-consistent discretization. Do not relax the invariants or substitute a constrained surrogate.
+
+### Result
+
+The read-only `auditFiniteTerrainCompatibility` method now evaluates the unmodified generator and retains complete residual matrices, deterministic random-state tests, APV rank, flat-common-subspace diagnostics, equation-row diagnostics, and the pre-restoration forms. It does not call either historical closure audit and does not alter the generator.
+
+Flat terrain and uniform depth pass the energy, APV, bottom, quadratic-enstrophy, and conjugacy identities within $10^{-12}$. Direct common quadrature of the boundary-intensified bottom inversion converges toward the exact flat bottom rows under vertical refinement.
+
+For the 20 m sinusoidal reference terrain at resolution $[4,4,5]$ and horizontal oversampling factor two, the normalized operational defects are:
+
+```math
+\frac{\lVert Q_\gamma L_\gamma\rVert_F}
+{\lVert Q_\gamma\rVert_F\lVert L_\gamma\rVert_F}
+=1.89\times10^{-7},
+```
+
+```math
+\frac{\lVert BL_\gamma-R_h\rVert_F}
+{\lVert B\rVert_F\lVert L_\gamma\rVert_F+\lVert R_h\rVert_F}
+=2.99\times10^{-2},
+```
+
+```math
+\frac{\lVert L_\gamma^*Z_\gamma+Z_\gamma L_\gamma\rVert_F}
+{\lVert Z_\gamma\rVert_F\lVert L_\gamma\rVert_F}
+=4.78\times10^{-8}.
+```
+
+The energy and conjugacy defects are $1.87\times10^{-23}$ and $4.07\times10^{-16}$. The raw form defects remain near roundoff and the scaled energy reciprocal condition number is $6.09\times10^{-2}$, so the failure is not caused by loss of Hermitian structure or an ill-conditioned energy form.
+
+Oversampling factors two and three give the same incompatible residuals. Across the two finest horizontal resolutions, the APV, bottom, and enstrophy defects change by approximately $9.6\%$, $12.5\%$, and $6.2\%$. Vertical refinement reduces the residuals but does not overcome the independent horizontal and oversampling plateaus. At the reference discretization, the energy-scaled APV map has numerical nullity 34 while the raw generator has rank 76, which is already incompatible with mapping the complete generator range into the APV nullspace. Right-action diagnostics show nonzero defects from the wave, APV-bearing geostrophic, and bottom-inversion input subspaces; the mean-density sector has negligible direct APV and bottom defects.
+
+Milestone 4.8 therefore takes its incompatible exit. Milestone 5 must not proceed from these raw forms. No corrected closure, empirical symmetrization, or relaxed invariant has been introduced.
 
 ## Milestone 5: Terrain modes and wave–balanced separation
 
