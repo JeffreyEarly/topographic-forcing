@@ -1,6 +1,6 @@
 # Mean-depth bottom wave generation
 
-> **Development branch:** `terrain-energy-galerkin` now contains the first four milestones and the Milestone-4.5 constrained-closure audit of the pressure-free, finite-terrain-energy Galerkin system described in the active [terrain-energy roadmap](milestones.md). The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
+> **Development branch:** `terrain-energy-galerkin` now contains the first four milestones and the completed Milestone-4.5 and Milestone-4.6 closure audits of the pressure-free, finite-terrain-energy Galerkin system described in the active [terrain-energy roadmap](milestones.md). Both audits establish incompatible exits for sinusoidal terrain, so terrain-mode construction remains blocked. The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -33,7 +33,7 @@ The dense finite-terrain oracle evaluates the mapped geometry and stratification
 E_\gamma,\qquad J_\gamma,\qquad Q_\gamma.
 ```
 
-The raw energy and exchange forms retain their Hermitian and skew-Hermitian structure before roundoff cleanup. Their flat limit reproduces the per-wavenumber oracle, and the constant-\(\gamma\) problem agrees with an independent flat transform of physical depth \(H=\gamma D\). Terrain-dependent modes remain deferred to Milestone 5.
+The raw energy and exchange forms retain their Hermitian and skew-Hermitian structure before roundoff cleanup. Their flat limit reproduces the per-wavenumber oracle, and the constant-$\gamma$ problem agrees with an independent flat transform of physical depth $H=\gamma D$. Terrain-dependent modes remain deferred to Milestone 5.
 
 ## Constrained-closure audit
 
@@ -53,7 +53,25 @@ The audit transforms the raw generator into energy coordinates and asks whether 
 
 It preserves the raw Galerkin matrices, reports the numerical APV rank and bottom-constraint compatibility, and computes the minimum-change closure only when the complete constraint system is feasible. The bottom equation is enforced in the retained Fourier space; the unrepresented part of the oversampled terrain product is reported separately.
 
-Flat and uniform-depth reference problems pass: the APV nullity equals the 56-dimensional flat wave space in the automated reference case, and the minimum-change closure is the raw generator to roundoff. The corresponding 20 m sinusoidal-terrain problem does not pass. Under the documented numerical-rank criterion, its discrete APV nullity is 35, and its minimum bottom-constraint residual is approximately \(2.46\times10^{-5}\), compared with the \(10^{-12}\) acceptance threshold. The audit therefore returns `status="incompatible"` and no constrained terrain generator. Milestone 5 remains blocked until the state or constraint formulation is revised.
+Flat and uniform-depth reference problems pass: the APV nullity equals the 56-dimensional flat wave space in the automated reference case, and the minimum-change closure is the raw generator to roundoff. The corresponding 20 m sinusoidal-terrain problem does not pass. Under the documented numerical-rank criterion, its discrete APV nullity is 35, and its minimum bottom-constraint residual is approximately $2.46\times10^{-5}$. The audit therefore returns `status="incompatible"` and no constrained terrain generator.
+
+The weaker quadratic-invariant question is available separately:
+
+```matlab
+audit = problem.auditQuadraticInvariantClosure();
+```
+
+This audit uses independent real physical coordinates and seeks a skew-symmetric energy-coordinate generator satisfying
+
+```math
+[G_\gamma,K_c]=0,
+\qquad
+\overline B K_c=\overline R,
+\qquad
+G_\gamma=S^{-*}Q_\gamma^*Q_\gamma S^{-1}.
+```
+
+The commutator conserves total discrete quadratic potential enstrophy without requiring every APV sample to remain fixed. Flat and uniform-depth problems again return the raw generator with zero correction. The sinusoidal reference remains incompatible: at 20 m amplitude its minimum bottom residual is $2.46\times10^{-5}$, or $88.5\%$ of the bottom target, and 23 of 44 resolved enstrophy eigenspaces fail the bottom constraint. The residual scales linearly with terrain amplitude and remains between approximately $81\%$ and $89\%$ under the tested horizontal, vertical, and oversampling refinements. Milestone 5 therefore remains blocked pending a revised boundary form or state coordinates.
 
 `topographic-forcing` provides a fast, first-order bottom wave generator for WaveVortexModel. The formulation retains the ordinary rigid-lid wave--vortex basis and represents weak topography through the mean-depth bottom condition.
 

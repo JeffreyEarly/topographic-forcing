@@ -361,7 +361,7 @@ The 20 m sinusoidal-terrain reference is incompatible. Under the documented nume
 
 ## Milestone 4.6: Quadratic energy–enstrophy closure audit
 
-- [ ] Complete — blocking scientific gate
+- [x] Complete — incompatible exit; Milestone 5 remains blocked
 
 ### Purpose
 
@@ -461,19 +461,19 @@ Milestone 4 and the completed incompatibility diagnosis from Milestone 4.5.
 
   ```math
   \frac{\lVert K_c+K_c^*\rVert_F}
-  {\max(1,\lVert K_c\rVert_F)}
+  {\max(\operatorname{realmin},\lVert K_c\rVert_F)}
   \leq10^{-13},
   ```
 
   ```math
   \frac{\lVert G_\gamma K_c-K_cG_\gamma\rVert_F}
-  {\max(1,\lVert G_\gamma\rVert_F\lVert K_c\rVert_F)}
+  {\max(\operatorname{realmin},\lVert G_\gamma\rVert_F\lVert K_c\rVert_F)}
   \leq10^{-12},
   ```
 
   ```math
   \frac{\lVert\overline B K_c-\overline R\rVert_F}
-  {\max(1,\lVert\overline R\rVert_F)}
+  {\max(\operatorname{realmin},\lVert\overline B\rVert_F\lVert K_c\rVert_F+\lVert\overline R\rVert_F)}
   \leq10^{-12}.
   ```
 
@@ -485,6 +485,14 @@ Milestone 4 and the completed incompatibility diagnosis from Milestone 4.5.
   - **Feasible but dynamically poor:** the algebraic constraints close, but the correction remains order one, fails to converge, or produces modal structure inconsistent with the raw oracle. Retain the result as a diagnostic and keep Milestone 5 blocked.
   - **Incompatible:** the rank-revealing solve establishes a nonzero minimum bottom or conjugacy residual within the exact commutant of $G_\gamma$. Keep Milestone 5 blocked and next investigate revised boundary forms or state coordinates.
 - Approximate feasibility obtained by merging spectrally distinct eigenvalues, relaxing invariant tolerances, deleting physical coordinates, or changing the energy or potential-enstrophy norm does not pass this gate.
+
+### Outcome
+
+The audit uses unitary maps from independent real physical coordinates to the full signed Fourier state. In these coordinates the energy and quadratic potential-enstrophy forms are real symmetric, conjugacy is structural, and the closure problem separates into independent real skew-symmetric solves within the numerically resolved equal-eigenvalue subspaces of $G_\gamma$. Flat and uniform-depth reference problems satisfy all constraints with the raw generator and require zero correction.
+
+The sinusoidal-terrain problem is incompatible. At the automated $[4,4,5]$ resolution with horizontal oversampling factor two, a 20 m sinusoid has a minimum bottom residual of approximately $2.46\times10^{-5}$, equal to $88.5\%$ of the resolved bottom target; 23 of its 44 enstrophy eigenspaces fail the bottom constraint. The raw generator's relative enstrophy-commutator defect is approximately $2.70\times10^{-3}$, so the failure cannot be hidden by the absolute scaling of the dimensional enstrophy metric.
+
+The minimum residual scales linearly with terrain amplitude from 1 m through 20 m. The incompatible exit persists for horizontal resolutions $[4,4,5]$ and $[6,4,5]$, vertical resolution $[4,4,7]$, and horizontal oversampling factors one through three; the residual remains approximately $81\%$--$89\%$ of the bottom target. No quadratic-invariant-preserving terrain generator is returned. Milestone 5 remains blocked, and the next scientific step must investigate revised boundary forms or state coordinates rather than proceed to terrain-mode construction.
 
 ## Milestone 5: Terrain modes and wave–balanced separation
 

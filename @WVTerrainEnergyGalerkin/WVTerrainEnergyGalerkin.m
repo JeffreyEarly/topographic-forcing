@@ -422,6 +422,26 @@ classdef WVTerrainEnergyGalerkin < handle
             % - Returns audit: dense closure matrices and compatibility diagnostics
             audit = buildConstrainedClosureAudit(self);
         end
+
+        function audit = auditQuadraticInvariantClosure(self)
+            % Audit an energy-, enstrophy-, and bottom-compatible closure.
+            %
+            % This audit preserves the finite-terrain energy and the total
+            % quadratic potential enstrophy. It does not require every
+            % resolved APV sample to remain fixed. The calculation uses
+            % independent real physical coordinates, so Fourier conjugacy
+            % is enforced structurally. Incompatibility is scientific
+            % output rather than an exception.
+            %
+            % ```matlab
+            % audit = problem.auditQuadraticInvariantClosure();
+            % ```
+            %
+            % - Topic: Audit constrained evolution
+            % - Declaration: audit = auditQuadraticInvariantClosure()
+            % - Returns audit: dense closure matrices and compatibility diagnostics
+            audit = buildQuadraticInvariantClosureAudit(self);
+        end
     end
 
     methods (Access=private)
