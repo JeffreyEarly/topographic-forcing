@@ -96,7 +96,7 @@ end
 
 function [result,diagnosticsFile] = diagnosticsForSimulation(simulationFile,diagnosticsStride)
 diagnostics = WVDiagnostics(char(simulationFile));
-cleanup = onCleanup(@()closeDiagnosticsFiles(diagnostics));
+cleanup = onCleanup(@()diagnostics.close());
 if ~isfile(diagnostics.diagpath)
     diagnostics.createDiagnosticsFile(stride=diagnosticsStride);
 elseif diagnostics.t_diag(end) < diagnostics.t_wv(end)
@@ -320,14 +320,5 @@ for path = paths(:).'
         error("AnalyzeEddyTideBudgets:ExportFileExists", ...
             "The figure '%s' already exists. Set shouldOverwriteExisting=true to replace it.",path)
     end
-end
-end
-
-function closeDiagnosticsFiles(diagnostics)
-if ~isempty(diagnostics.diagfile)
-    diagnostics.diagfile.close();
-end
-if ~isempty(diagnostics.wvfile)
-    diagnostics.wvfile.close();
 end
 end

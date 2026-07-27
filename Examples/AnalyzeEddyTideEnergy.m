@@ -105,7 +105,7 @@ end
 
 function [energy,diagnosticsFile] = energyFromSimulation(simulationFile,diagnosticsStride)
 diagnostics = WVDiagnostics(char(simulationFile));
-diagnosticsCleanup = onCleanup(@()closeDiagnosticsFiles(diagnostics));
+diagnosticsCleanup = onCleanup(@()diagnostics.close());
 if ~isfile(diagnostics.diagpath)
     diagnostics.createDiagnosticsFile(stride=diagnosticsStride);
 elseif diagnostics.t_diag(end) < diagnostics.t_wv(end)
@@ -127,13 +127,4 @@ end
 diagnosticsFile = string(diagnostics.diagpath);
 energy = struct(time=time,timeDays=time/86400,wave=waveEnergy,geostrophic=geostrophicEnergy);
 clear diagnosticsCleanup
-end
-
-function closeDiagnosticsFiles(diagnostics)
-if ~isempty(diagnostics.diagfile)
-    diagnostics.diagfile.close();
-end
-if ~isempty(diagnostics.wvfile)
-    diagnostics.wvfile.close();
-end
 end
