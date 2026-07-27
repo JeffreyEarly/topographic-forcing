@@ -41,6 +41,66 @@ Generate the same terrain independently with:
         wvt,rmsHeight=100,minimumWavelength=40e3,randomSeed=2023);
 ```
 
+## Eddy-tide validation experiment
+
+Run the 30-day constant-stratification eddy experiment and its matched no-eddy control with:
+
+```matlab
+[~,~,eddyFile] = EddyTideTopographicForcingSimulation;
+[~,~,noEddyFile] = EddyTideTopographicForcingSimulation(includeEddy=false);
+```
+
+The setup retains the domain, shallow eddy, nonlinear advection, and damping of the JPO2026 minimal simulation. It removes the initialized fixed-amplitude wave beam. Both runs instead start with zero wave coefficients and use a one-M2-period ramp of a 5 cm/s zonal barotropic current over the same seed-2023 Goff terrain. `WVBottomWaveGenerationForcing` generates the tide. Autonomous `WVBottomWaveScatteringForcing` is opt-in with `shouldUseScattering=true` and is not part of the default validation pair.
+
+The defaults use `Nxy=128`, hourly output, $100$ m RMS terrain, corner wavenumber $10^{-4}\ \mathrm{m^{-1}}$, and a 20 km minimum terrain wavelength. The cutoff lies above the 17.84 km antialiased resolution limit for this grid. Hourly records resolve the twice-tidal terms used by the exact energy and APV-enstrophy diagnostics. Use `horizontalDomainSize` to replace the default four-mode-one-wavelength square domain; the vertical resolution is then selected by `WVStratification.verticalResolutionForHorizontalResolution`. Use `maxT`, `Nxy`, `outputInterval`, `minimumWavelength`, and the other documented options for shorter tests or longer continuations. An explicit `outputFilename` overrides the descriptive default name.
+
+After both runs finish, build standard WaveVortexModelDiagnostics files and create the normalized energy figure with:
+
+```matlab
+[figureHandle,energy,diagnosticsFiles] = ...
+    AnalyzeEddyTideEnergy(eddyFile,noEddyFile);
+```
+
+The upper panel compares wave energy and the lower panel compares geostrophic energy. Eddy and no-eddy curves share the eddy simulation's initial geostrophic energy as their normalization. The returned `energy` structure contains the raw and normalized time series, and the default PNG is saved beside the model output. Set `shouldExport=false` for an in-memory figure or specify `exportPath`, `exportResolution`, and `shouldOverwriteExisting`.
+
+Create the complete basic figure set after a paired run with:
+
+```matlab
+[figures,summary] = AnalyzeEddyTideBasicFigures(eddyFile,noEddyFile);
+```
+
+This produces paired energy and maximum-wave-speed histories, final horizontal/vertical-mode wave spectra, and final surface wave/geostrophic vertical-vorticity maps. The MAT summary records the plotted values, extrema, integrated generation, spectral peaks, and output paths.
+
+For forcing-resolved energy and potential-enstrophy pathways, run:
+
+```matlab
+[figures,budget,diagnosticsFiles] = AnalyzeEddyTideBudgets(eddyFile,noEddyFile);
+```
+
+The three figures compare reservoirs, cumulative forcing budgets, and nonlinear-triad pathways. The returned structure contains raw rates, cumulative integrals, integrated contributions, closure metrics, and eddy-minus-control differences. The implementation uses the lower-level WVDiagnostics flux APIs directly; it does not depend on the mirror-triad variables required by `summarizeSourcesSinksReservoirs`.
+
+After the generation-only control is available, assess whether autonomous scattering is perturbative with:
+
+```matlab
+[benchmark,figureHandle] = GoffScatteringPerturbationBenchmark(noEddyFile);
+```
+
+The benchmark scales the same Goff realization from 100 down to 3.125 m RMS height by factors of two, verifies the expected first- and second-order exponents, and measures first-order physical-energy drift in short scattering-only integrations. Scattering remains opt-in even when a reduced terrain amplitude passes the reported gates.
+
+The model output can be extended without rebuilding the experiment:
+
+```matlab
+model = WVModel.modelFromFile(char(eddyFile));
+model.integrateToTime(60*86400);
+model.closeNetCDFFile();
+```
+
+Rerun `AnalyzeEddyTideEnergy` to append diagnostics for the new records. WaveVortexModel 4.1.1 or newer is required for the simulation, and WaveVortexModelDiagnostics 1.0.6 or newer is required for the analysis.
+
+This 30-day run is intended to validate the new infrastructure before longer experiments. It follows the JPO2026 WaveVortexModel configuration rather than literally reproducing the $500$ m MITgCM grid in [Shakespeare (2023)](https://doi.org/10.1175/JPO-D-23-0127.1).
+
+The repository-level [README](../README.md#500-km-shakespeare-comparison-pair) records the exact matched $500$ km, $256^2\times45$ Shakespeare-comparison pair that was run first to day 30 and then restarted to day 50. It includes the two process-ready simulation calls, exact output filenames, reduced $0.05/\sqrt{10}\ \mathrm{m\,s^{-1}}$ tidal amplitude, 6 km terrain cutoff, diagnostics command, and day-50 cross-machine reference values.
+
 ## Performance benchmark
 
 Profile construction and ordinary forcing calls with:
