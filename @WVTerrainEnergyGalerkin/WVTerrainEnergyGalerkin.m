@@ -19,6 +19,7 @@ classdef WVTerrainEnergyGalerkin < handle
     % - Topic: Transform Galerkin states
     % - Topic: Inspect flat modes
     % - Topic: Inspect terrain forms
+    % - Topic: Audit constrained evolution
     % - Declaration: classdef WVTerrainEnergyGalerkin < handle
 
     properties (SetAccess=private)
@@ -399,6 +400,27 @@ classdef WVTerrainEnergyGalerkin < handle
                     "The horizontal mode (%d,%d) is not retained.",kMode,lMode)
             end
             block = self.flatModeBlocks{iK};
+        end
+
+        function audit = auditConstrainedClosure(self)
+            % Audit an energy-, APV-, and bottom-compatible dense closure.
+            %
+            % The audit preserves the raw finite-terrain Galerkin forms and
+            % asks whether a skew-Hermitian generator in energy coordinates
+            % can also satisfy zero APV tendency and the resolved strong
+            % bottom-displacement equation. Incompatibility is scientific
+            % output rather than an exception. `constrainedGenerator` and
+            % `constrainedExchangeMatrix` are empty when no algebraically
+            % feasible closure exists.
+            %
+            % ```matlab
+            % audit = problem.auditConstrainedClosure();
+            % ```
+            %
+            % - Topic: Audit constrained evolution
+            % - Declaration: audit = auditConstrainedClosure()
+            % - Returns audit: dense closure matrices and compatibility diagnostics
+            audit = buildConstrainedClosureAudit(self);
         end
     end
 
