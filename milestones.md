@@ -23,7 +23,7 @@ The implementation will use ordinary hydrostatic modes as economical vertical co
 
 The completed mean-depth generator and scattering implementation is retained as reusable engineering infrastructure. Its scientific roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md). Neither existing forcing is used as the terrain-energy evolution operator.
 
-The completed dense finite-terrain forms remain a volume-only diagnostic oracle. Milestones 4.5 and 4.6 are retained as completed negative results: neither pointwise-APV nor quadratic-enstrophy minimum-change closure can reconcile the strong bottom equation with the displacement-only bottom coordinate. Milestones 4.7 and 4.8 replace that coordinate with a complete balanced bottom-inversion reconstruction but show that the projected volume generator is still incompatible with the strong bottom evolution and pointwise APV. The next scientific oracle is therefore the augmented descriptor assembled before pressure or constraints are eliminated. No constrained surrogate advances beyond the historical closure audits.
+The completed dense finite-terrain forms remain a volume-only diagnostic oracle. Milestones 4.5 and 4.6 are retained as completed negative results: neither pointwise-APV nor quadratic-enstrophy minimum-change closure can reconcile the strong bottom equation with the displacement-only bottom coordinate. Milestones 4.7 and 4.8 replace that coordinate with a complete balanced bottom-inversion reconstruction but show that the projected volume generator is still incompatible with the strong bottom evolution and pointwise APV. Milestones 5–6 then retain pressure and the bottom equation in an augmented local descriptor. Milestone 6.1 independently confirms that an eta-only polynomial coordinate and the coupled Branch-P energy weak form recover energy and bottom kinematics, but not pointwise APV or potential enstrophy. No constrained surrogate advances beyond the historical closure audits, and periodic terrain remains blocked pending an APV-compatible primitive discretization.
 
 ## Fixed conventions and boundaries
 
@@ -888,6 +888,69 @@ The discrete test uses constant `N2=2e-5 s^-2`, domain `[24,20,1.2] km`, resolut
 
 The implemented primitive F–G descriptor therefore takes the **incompatible** discrete exit even though the continuous Green identity selects branch P. No empirical symmetrization, fitted closure, or altered invariant has been introduced. Batch D1 stops here, and Milestone 7 must not begin from this descriptor.
 
+## Milestone 6.1: Branch-P primitive oracle and F–G repair audit
+
+- [x] Complete — independent oracle establishes an APV-compatible-space blocker
+
+### Purpose
+
+Determine whether the Milestone-6 failure came from the physical Branch-P formulation, the hydrostatic F–G coordinates, their embedded balanced bottom inversion, or the eigenvector-based public-coordinate reconstruction.
+
+### Dependencies
+
+Milestones 5–6.
+
+### Deliverables
+
+- Add `auditBranchPDiscreteOracle` without changing the public Galerkin coefficient layout.
+- Construct an independent primitive polynomial oracle using Gauss–Legendre quadrature and the vertical spaces
+
+```math
+\mathcal F_N=\operatorname{span}\{P_0,\ldots,P_N\},
+\qquad
+\mathcal G_N^0=(1-r^2)\operatorname{span}\{P_0,\ldots,P_{N-1}\},
+```
+
+with one eta-only bottom function
+
+```math
+\chi_b=\frac{1-r}{2}.
+```
+
+- Retain pressure through the constrained saddle solve and differentiate that saddle system analytically with respect to the local bottom slope.
+- Assemble the coupled momentum–displacement rows with the physical terrain-energy weak form. In particular, include the metric-induced physical vertical velocity carried by every horizontal test velocity.
+- Audit the first-order coefficient identities for weak evolution, physical energy, pointwise APV, strong bottom evolution, and quadratic potential enstrophy.
+- Reduce the existing F–G descriptor directly through its saddle system, compare its native and public-coordinate forms, and do not construct its generator from generalized eigenvectors.
+- Permit a repair only if the independent primitive oracle passes every physical identity.
+
+### Automated acceptance
+
+- Endpoint values and the polynomial Green identity close within $10^{-13}$.
+- The constrained saddle residual, continuity tangency, pressure work, weak evolution, physical energy, and bottom evolution close within $10^{-11}$.
+- The analytic slope derivative agrees with a centered independent calculation within $10^{-9}$.
+- The flat mode-one frequency converges to the constant-$N$ nonhydrostatic dispersion relation.
+- Every physical identity remains convergent for polynomial degrees 4, 6, 8, and 10 and for zonal, meridional, and oblique slopes.
+- The existing public packing, ordering, and Fourier-conjugacy maps remain unchanged.
+- If the independent polynomial oracle fails a mandatory physical identity without refinement, record the blocker and apply no F–G repair.
+
+### Outcome
+
+The eta-only polynomial coordinate is independent: its velocity and pressure fields vanish, its bottom displacement is one, and its surface displacement is zero. The polynomial endpoint residual is zero and the quadrature Green-identity defect remains below `3.1e-15`. At polynomial degree eight, the flat mode-one frequency agrees with the analytic constant-$N$ nonhydrostatic frequency to `1.27e-13`.
+
+The first uncoupled primitive projection reproduced the Milestone-6 energy failure. Reassembling the momentum equations as the coupled finite-terrain energy weak form identified and removed that defect: for degree six and slope `[0.01,0]`, the weak-evolution, physical-energy, bottom-evolution, pressure-work, continuity-tangency, and saddle residuals are respectively
+
+```text
+6.79e-16, 8.71e-16, 1.53e-15, 3.26e-14, 9.51e-20, 1.17e-16.
+```
+
+The analytic slope derivative agrees with centered differencing to `9.82e-12`, and the finite-slope remainder has the expected second-order absolute scaling.
+
+Pointwise APV and quadratic potential enstrophy do not pass. Their normalized first-order defects are `6.97e-1` and `4.90e-1` at degree six. Across degrees 4, 6, 8, and 10, the APV defect ranges from `6.85e-1` to `7.04e-1`, while the enstrophy defect ranges from `4.82e-1` to `4.96e-1`; neither tends toward zero. The same split occurs for zonal, meridional, and oblique slopes.
+
+The direct F–G saddle reduction is worse but consistent with the earlier audit: its native first-order energy and APV defects are approximately `6.6e-3` and `7.8e-1`, while strong bottom evolution remains at roundoff. Mapping that reduction to the unchanged public coordinates does not remove the failure.
+
+Milestone 6.1 therefore takes its blocking exit. The result does **not** invalidate the continuous Branch-P equations: it shows that neither the present F–G descriptor nor the independent finite polynomial trial/test pair is a pointwise-APV-compatible discretization of them. Because the independent oracle fails a mandatory identity, no F–G repair, empirical correction, or public-layout change is applied. Periodic terrain and modal construction remain blocked.
+
 ## Milestone 7: Periodic-terrain augmented dense compatibility gate
 
 - [ ] Complete — principal blocking gate
@@ -898,7 +961,7 @@ Determine whether the selected augmented descriptor remains physically compatibl
 
 ### Dependencies
 
-Milestone 6 with branch H, K, or P.
+Milestone 6.1 with a compatible primitive oracle and a validated repair of the local descriptor. The current Milestone-6.1 outcome does not satisfy this dependency.
 
 ### Deliverables
 
@@ -1115,6 +1178,7 @@ Milestone 12.
 | Batch | Milestones | Goal-sized stopping condition |
 |---|---:|---|
 | **D1 — Boundary formulation** | 5–6 | Build the mixed descriptor, derive the Green identity, and record branch H, K, P, or incompatible. Do not begin periodic terrain. |
+| **D1.1 — Primitive repair oracle** | 6.1 | Compare an independent eta-only polynomial discretization with the F–G descriptor. Stop without repair if the primitive physical identities do not all converge. |
 | **D2 — Periodic scientific gate** | 7 | Test the selected augmented formulation on sinusoidal terrain. Stop immediately if physical energy, APV, or bottom evolution does not converge. |
 | **D3 — Selected branch and dense modes** | 8–9 | Implement only the selected branch and establish the dense terrain-mode oracle. Do not implement enrichment. |
 | **E1 — Selective modes** | 10 | Implement residual enrichment and validate it exclusively against the dense oracle. |

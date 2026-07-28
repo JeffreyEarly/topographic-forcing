@@ -22,6 +22,7 @@ classdef WVTerrainEnergyGalerkin < handle
     % - Topic: Inspect terrain forms
     % - Topic: Audit boundary-dynamical evolution
     % - Topic: Audit the boundary Green identity
+    % - Topic: Audit the Branch-P discrete oracle
     % - Topic: Audit terrain compatibility
     % - Topic: Audit constrained evolution
     % - Declaration: classdef WVTerrainEnergyGalerkin < handle

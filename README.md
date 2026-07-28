@@ -1,8 +1,22 @@
 # Topographic forcing research implementations
 
-> **Development branch:** `terrain-energy-galerkin` contains the pressure-free finite-terrain-energy Galerkin prototypes, the completed closure audits, and the boundary-complete flat basis. Milestone 4.8 established that the volume-only projection is incompatible with simultaneous APV, quadratic-enstrophy, and strong bottom-evolution conservation. Batch D1 then retained pressure and the bottom equation in an explicit primitive descriptor. The descriptor passes its flat and uniform-depth rank and spectrum gates, and the local boundary Green identity selects physical-energy-only branch P for the continuous constant-slope problem. Its first-order discrete tangent nevertheless fails physical energy and APV while satisfying pressure cancellation and bottom evolution, so Milestone 6 records the incompatible exit and Milestone 7 is blocked. The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
+> **Development branch:** `terrain-energy-galerkin` contains the pressure-free finite-terrain-energy Galerkin prototypes, the completed closure audits, and the boundary-complete flat basis. Milestone 4.8 established that the volume-only projection is incompatible with simultaneous APV, quadratic-enstrophy, and strong bottom-evolution conservation. Batch D1 then retained pressure and the bottom equation in an explicit primitive descriptor, while Milestone 6.1 added an independent eta-only Legendre polynomial oracle. The corrected primitive energy-weak discretization preserves physical energy, pressure cancellation, continuity, and exact bottom evolution at roundoff, but its pointwise-APV and quadratic-enstrophy defects remain order one from polynomial degree 4 through 10. This identifies an APV-compatible-space blocker rather than a failure of the continuous Branch-P equations. No F–G repair has been applied, and periodic terrain and modal construction remain blocked. The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
+
+## Branch-P discrete oracle
+
+The local constant-slope audit can be reproduced with:
+
+```matlab
+audit = problem.auditBranchPDiscreteOracle( ...
+    bottomSlope=[0.01 0], ...
+    polynomialDegree=6);
+```
+
+The oracle is independent of the hydrostatic F–G reconstruction. It uses an eta-only bottom coordinate, retains pressure through a constrained saddle solve, and differentiates the saddle system analytically with respect to slope. The coupled physical-energy weak form closes energy and bottom kinematics at roundoff and recovers the analytic flat nonhydrostatic dispersion relation spectrally. Pointwise APV and quadratic potential enstrophy do not close or converge under polynomial refinement, so `audit.status` is `"scientific-blocker"` and `audit.repairCandidate` is `"none"`.
+
+The audit also reduces the existing F–G descriptor directly in native coordinates and maps the same reduced system to the unchanged public coefficient ordering. Those comparisons reproduce the prior defects and show that the eigenvector-based public reconstruction was not their sole cause. The full acceptance evidence and numerical values are recorded in [Milestone 6.1](milestones.md#milestone-61-branch-p-primitive-oracle-and-fg-repair-audit).
 
 ## Terrain-energy Galerkin flat oracle
 
