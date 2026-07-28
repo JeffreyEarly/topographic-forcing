@@ -1050,6 +1050,93 @@ When the wavenumber and slope are parallel, the analytic source vanishes. The en
 
 Milestone 6.2 therefore records a **mathematical blocker for the frozen cross-slope Branch-P system**. No finite-space change can preserve both its unmodified weak equations and $QL=0$ when the analytic source is nonzero. The next scientific formulation must retain the globally varying small-terrain coefficients or derive a covariant local/WKB system containing the missing connection terms. Periodic terrain and modal construction remain out of scope.
 
+## Milestone 6.3: Global small-terrain primitive compatibility oracle
+
+- [x] Complete — the global equations remove the frozen-slope source, but the finite primitive representation is not APV-compatible
+
+### Purpose
+
+Determine whether retaining the globally varying first-order terrain coefficients restores the APV cancellation lost by the frozen local model before attempting finite-amplitude periodic terrain or terrain-mode construction.
+
+### Dependencies
+
+Milestone 6.2.
+
+### Deliverables
+
+- Add `auditGlobalSmallTerrainPrimitive` without modifying the public wave–vortex coefficient layout.
+- Use the compatible primitive spaces
+
+```math
+\hat u,\hat v\in P_N,
+\qquad
+\hat w\in P_{N+1}^{00},
+\qquad
+\hat\eta\in P_{N+1}^{0s},
+\qquad
+\hat p\in P_{N+1}.
+```
+
+- Assemble one globally coupled signed-Fourier saddle system with pressure retained through continuity and the bottom equation.
+- Differentiate the complete mapped system analytically in the direction
+
+```math
+h=\delta\widetilde h
+```
+
+and compare it with centered differences of the unexpanded system.
+- Construct the first-order physical-energy, exchange, APV, potential-enstrophy, and bottom maps independently.
+- Test
+
+```math
+E_0L_1+E_1L_0=J_1,
+```
+
+```math
+L_1^*E_0+E_0L_1+L_0^*E_1+E_1L_0=0,
+```
+
+```math
+Q_0L_1+Q_1L_0=0,
+\qquad
+BL_1=R_1,
+```
+
+and the corresponding first-order quadratic-potential-enstrophy identity.
+- Separate horizontally interior inputs, for which every first-order terrain sideband is retained, from Fourier-edge inputs whose sidebands leave the state space.
+- Prohibit APV projection, empirical closure, energy symmetrization, or removal of failing states.
+
+### Automated acceptance
+
+- Analytic and centered first-order forms agree within $10^{-9}$.
+- Raw energy and exchange tangents retain Hermitian and skew-Hermitian structure within $10^{-12}$.
+- Weak evolution, physical energy, bottom evolution, and Fourier conjugacy close within $10^{-11}$.
+- Pointwise APV and quadratic potential enstrophy close within $10^{-10}$ for the complete retained state.
+- A single sinusoidal terrain component couples only the analytically selected neighboring Fourier blocks.
+- Constant-$N$ flat frequencies converge spectrally to the analytic nonhydrostatic dispersion relation.
+- The classification is unchanged under polynomial, quadrature, horizontal-oversampling, and smooth-stratification checks.
+- Failure of the full APV identity after independent tangent agreement is recorded as a representation blocker; no corrected generator is constructed.
+
+### Outcome
+
+For constant $N^2$, resolution `[6 6 5]`, terrain $\widetilde h=20\cos(2\pi y/L_y)\ {\rm m}$, polynomial degree six, and horizontal oversampling factor two, the analytic and centered first-order operators agree to `2.97e-10`. The weak-evolution, physical-energy, bottom-evolution, and conjugacy defects are
+
+```text
+3.94e-15, 2.42e-15, 2.47e-13, 5.79e-16.
+```
+
+The energy and exchange Hermitian-structure defects remain below `4.6e-16`, Fourier coupling leakage is `1.03e-13`, and the flat mode-one frequency error is `1.64e-9`.
+
+The pointwise-APV and quadratic-potential-enstrophy defects are instead
+
+```text
+2.34e-1, 3.28e-4.
+```
+
+The failure has two distinguishable pieces. For horizontally interior input modes, the APV cancellation defect decreases from `4.44e-3` at polynomial degree two to `5.38e-4` at degree six. Fourier-edge inputs remain near `4.14e-1` because multiplication by the terrain creates sidebands outside the retained prognostic state. Increasing vertical degree therefore improves the interior approximation but cannot close the complete finite horizontal state under terrain convolution.
+
+Milestone 6.3 takes the **representation-blocker** exit. Retaining global terrain variation removes the analytic frozen-slope objection and produces the correct Fourier selection, but the current finite primitive Galerkin state does not satisfy stationary pointwise APV exactly. This does not invalidate the continuous conservation law. It identifies the next missing object: an APV-compatible global representation or a rigorously projected discrete APV law whose state, range, and invariant are closed under the same truncation. Finite-amplitude periodic terrain and modal construction remain blocked.
+
 ## Milestone 7: Periodic-terrain augmented dense compatibility gate
 
 - [ ] Complete — principal blocking gate
@@ -1060,7 +1147,7 @@ Determine whether the selected augmented descriptor remains physically compatibl
 
 ### Dependencies
 
-A global small-terrain or covariant local formulation that removes the Milestone-6.2 analytic APV source while preserving physical energy and strong bottom evolution. The current frozen local formulation does not satisfy this dependency.
+An APV-compatible global representation that resolves the Milestone-6.3 finite-state blocker while preserving the verified first-order energy and strong bottom evolution. The current primitive representation does not satisfy this dependency.
 
 ### Deliverables
 
@@ -1278,6 +1365,7 @@ Milestone 12.
 |---|---:|---|
 | **D1 — Boundary formulation** | 5–6 | Build the mixed descriptor, derive the Green identity, and record branch H, K, P, or incompatible. Do not begin periodic terrain. |
 | **D1.1 — Primitive repair oracle** | 6.1 | Compare an independent eta-only polynomial discretization with the F–G descriptor. Stop without repair if the primitive physical identities do not all converge. |
+| **D1.2 — Global first-order oracle** | 6.2–6.3 | Diagnose the frozen-slope APV source, restore global terrain coupling, and stop if the complete finite state remains incompatible with stationary APV. |
 | **D2 — Periodic scientific gate** | 7 | Test the selected augmented formulation on sinusoidal terrain. Stop immediately if physical energy, APV, or bottom evolution does not converge. |
 | **D3 — Selected branch and dense modes** | 8–9 | Implement only the selected branch and establish the dense terrain-mode oracle. Do not implement enrichment. |
 | **E1 — Selective modes** | 10 | Implement residual enrichment and validate it exclusively against the dense oracle. |

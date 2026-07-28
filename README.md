@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Development branch:** `terrain-energy-galerkin` contains the pressure-free finite-terrain-energy Galerkin prototypes, the completed closure audits, and the boundary-complete flat basis. Milestone 4.8 established that the volume-only projection is incompatible with simultaneous APV, quadratic-enstrophy, and strong bottom-evolution conservation. Batch D1 then retained pressure and the bottom equation in an explicit primitive descriptor, while Milestone 6.1 added an independent eta-only Legendre polynomial oracle. Milestone 6.2 has now isolated a sharper obstruction: the frozen constant-slope Branch-P equations themselves generate APV for a cross-slope Fourier component. A compatible mixed polynomial descriptor preserves physical energy and bottom evolution while reproducing that analytic source; vorticity--divergence and explicit-APV formulations remove the source only by changing the weak equations and losing physical-energy conservation. The parallel-slope special case passes every identity. No F–G repair has been applied, and periodic terrain and modal construction remain blocked pending a global small-terrain or covariant local formulation. The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
+> **Development branch:** `terrain-energy-galerkin` contains the pressure-free finite-terrain-energy Galerkin prototypes, the completed closure audits, and the boundary-complete flat basis. Milestone 4.8 established that the volume-only projection is incompatible with simultaneous APV, quadratic-enstrophy, and strong bottom-evolution conservation. Batch D1 then retained pressure and the bottom equation in an explicit primitive descriptor. Milestone 6.2 showed that freezing a cross-slope terrain coefficient creates an analytic APV source. Milestone 6.3 has now retained the global first-order Fourier coupling and removed that local approximation: independent analytic and centered tangents agree, physical energy and bottom evolution close at roundoff, and the expected terrain Fourier selection is recovered. The finite primitive state is nevertheless not APV-compatible. Interior APV cancellation converges only algebraically with vertical degree, while edge modes fail because the retained horizontal state is not closed under terrain convolution. This is a representation blocker rather than evidence against stationary APV in the continuous equations. No F–G repair has been applied, and finite-amplitude terrain and modal construction remain blocked pending an APV-compatible global representation. The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -40,6 +40,20 @@ For the frozen Branch-P equations, direct differentiation gives
 The source is nonzero whenever the retained horizontal wavenumber and local slope are not parallel. The energy-weak candidate uses `u,v` in `P_N`, homogeneous mapped vertical velocity in the endpoint-zero part of `P_{N+1}`, displacement in the surface-zero part of `P_{N+1}`, pressure in `P_{N+1}`, and the complete surface-zero space to test vertical momentum. It closes physical energy, the weak equations, continuity, and strong bottom evolution at roundoff and reproduces the analytic APV source. The vorticity--divergence candidate and its explicit-APV coordinate form instead make `q_t=0` at roundoff, but they have nonzero physical-energy and weak-equation defects.
 
 Consequently, `audit.status` is `"mathematical-blocker"` for a cross-slope mode and `"compatible-aligned-special-case"` when `k*s_y-l*s_x=0`. This result is specific to the frozen local approximation; it does not contradict stationary APV in the exact spatially varying terrain equations. The complete evidence is recorded in [Milestone 6.2](milestones.md#milestone-62-apv-compatible-local-primitive-investigation).
+
+## Global small-terrain primitive audit
+
+The global follow-up differentiates a fully coupled signed-Fourier primitive saddle system in the direction supplied by `topographicHeight`:
+
+```matlab
+audit = problem.auditGlobalSmallTerrainPrimitive( ...
+    polynomialDegree=6, ...
+    tangentStep=1e-3);
+```
+
+The audit retains pressure until continuity and the bottom equation have been imposed. It constructs the first terrain coefficient analytically and compares it with centered differences of the unexpanded mapped equations. For sinusoidal terrain, the two constructions agree below `3e-10`, the weak equation, physical energy, bottom evolution, and conjugacy close near roundoff, and coupling is confined to the expected neighboring Fourier blocks.
+
+The unmodified finite primitive representation still gives `audit.status="representation-blocker"`. At the reference resolution its normalized pointwise-APV defect is approximately `2.34e-1`. For horizontally interior inputs the defect decreases from `4.44e-3` to `5.38e-4` as the polynomial degree increases from two to six, while Fourier-edge inputs remain near `4.14e-1`. No APV projection, energy symmetrization, or fitted correction is applied. The complete evidence is recorded in [Milestone 6.3](milestones.md#milestone-63-global-small-terrain-primitive-compatibility-oracle).
 
 ## Terrain-energy Galerkin flat oracle
 
