@@ -762,7 +762,7 @@ Milestone 4.8 therefore takes its incompatible exit. Milestone 5 must not procee
 
 ## Milestone 5: Explicit boundary-dynamical descriptor system
 
-- [ ] Complete — blocking gate
+- [x] Complete — blocking gate passed
 
 ### Purpose
 
@@ -806,9 +806,24 @@ and independent volume and bottom test equations.
 - The descriptor rank and nullspaces agree with the expected prognostic, diagnostic, and stationary dimensions.
 - Failure of any rank, independence, or residual check blocks Milestone 6.
 
+### Outcome
+
+The implementation uses the private primitive ordering
+
+```math
+\boldsymbol y
+=
+(\boldsymbol u_F,\boldsymbol v_F,\boldsymbol w_G,
+\boldsymbol\eta_G,\eta_b,\boldsymbol p_F)^T.
+```
+
+Pressure has no time derivative. The bottom equation supplies the endpoint displacement row, continuity supplies the algebraic constraint rows, and the null horizontal-mean continuity row is replaced by the pressure gauge. Finite generalized eigenvectors are mapped back to the unchanged public coefficient layout.
+
+At the automated `[4,4,5]` reference resolution, both flat depth and the uniform 150 m depth change have 100 finite prognostic modes and 71 infinite diagnostic modes across the retained horizontal blocks. The largest flat/uniform descriptor residual is `6.32e-14`; continuity, pressure gauge, public mapping, and bottom-coordinate mapping close between `4.77e-35` and `1.74e-15`. The largest frequency error is `5.25e-14`. All descriptor, constraint, pressure, finite-mode, and stationary-mode ranks match their expected values. Milestone 5 therefore passes.
+
 ## Milestone 6: Boundary Green identity and invariant discovery
 
-- [ ] Complete — branching scientific gate
+- [x] Complete — continuum branch P; incompatible discrete exit
 
 ### Purpose
 
@@ -848,6 +863,30 @@ and derive the complete boundary Green identity before choosing an inner product
 - Frequencies and mode counts agree with the applicable Yassin and analytic limits.
 - Branch classification is reproducible from definiteness, rank, and conditioning diagnostics.
 - An incompatible result stops the roadmap before Milestone 7.
+
+### Outcome
+
+Freezing the mapped coefficients at `h=0` while retaining the local slope `s=grad(h)` gives
+
+```math
+w
+=
+\hat w-\frac{\xi}{D}\hat{\boldsymbol u}_H\boldsymbol{\cdot}\boldsymbol s.
+```
+
+The horizontal metric-pressure terms cancel pointwise against the metric contribution inside physical `w`; mapped continuity and homogeneous mapped normal velocity remove the remaining pressure integral. The resulting continuous metric is physical energy. The bottom value instead obeys
+
+```math
+\partial_t\hat\eta_b
+=
+\hat{\boldsymbol u}_{H,b}\boldsymbol{\cdot}\boldsymbol s,
+```
+
+so a standalone endpoint form proportional to `abs(eta_b)^2` is not conserved. The permitted volume-boundary cross term is already the first-order cross term in physical vertical kinetic energy. No separate nontrivial boundary Casimir is derived. The continuous local problem is therefore branch **P — physical-energy-only**, rather than H or K.
+
+The discrete test uses constant `N2=2e-5 s^-2`, domain `[24,20,1.2] km`, resolution `[4,4,5]`, latitude 45 degrees, and slope `[0.01,0]`. Its first-order tangent is obtained from the unmodified descriptor about zero slope; halving the differentiation increment changes the tangent by `2.58e-9` relatively. Pressure cancellation and the strong bottom row close to `1.26e-16` and `3.77e-13`, and finite slope activates nonzero-frequency modes with bottom participation. However, the physical-energy, pointwise-APV, and quadratic-potential-enstrophy defects are respectively `1.27e-6`, `1.19e-4`, and `9.75e-5`; the maximum real growth rate is `2.73e-6 s^-1`.
+
+The implemented primitive F–G descriptor therefore takes the **incompatible** discrete exit even though the continuous Green identity selects branch P. No empirical symmetrization, fitted closure, or altered invariant has been introduced. Batch D1 stops here, and Milestone 7 must not begin from this descriptor.
 
 ## Milestone 7: Periodic-terrain augmented dense compatibility gate
 

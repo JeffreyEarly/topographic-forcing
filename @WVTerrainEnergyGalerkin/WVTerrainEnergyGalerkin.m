@@ -20,6 +20,8 @@ classdef WVTerrainEnergyGalerkin < handle
     % - Topic: Transform Galerkin states
     % - Topic: Inspect flat modes
     % - Topic: Inspect terrain forms
+    % - Topic: Audit boundary-dynamical evolution
+    % - Topic: Audit the boundary Green identity
     % - Topic: Audit terrain compatibility
     % - Topic: Audit constrained evolution
     % - Declaration: classdef WVTerrainEnergyGalerkin < handle
