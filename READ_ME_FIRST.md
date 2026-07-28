@@ -4,7 +4,7 @@
 
 **This research direction is paused at a scientific representation blocker.** The project is not abandoned, but Milestone 7 must not begin from the current finite primitive representation.
 
-The authoritative numerical checkpoint is commit [`060560a`](https://github.com/JeffreyEarly/topographic-forcing/tree/060560a) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The matching mathematical checkpoint is commit `1539f0d` in the `ape-apv-bottom-topography` literature repository.
+The authoritative global numerical checkpoint is commit [`060560a`](https://github.com/JeffreyEarly/topographic-forcing/tree/060560a) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The matching mathematical checkpoint is commit `7527984` in the `ape-apv-bottom-topography` literature repository.
 
 The objective was to construct a flow-linear system, exact in the resolved stationary terrain, that satisfies the continuum requirements
 
@@ -57,6 +57,10 @@ For constant stratification, resolution `[6 6 5]`, terrain `20*cos(2*pi*y/Ly) m`
 The energy and exchange forms retain their Hermitian structure, the flat nonhydrostatic dispersion converges, and a single terrain Fourier component produces only the expected neighboring horizontal couplings.
 
 The last complete repository verification at checkpoint `060560a` passed 101 tests with zero failures.
+
+Milestone 6.4 subsequently validates the coupled volume–boundary PV frequency problem in a local single-wavenumber QG oracle. The direct $L^2\oplus\mathbb C$ system and an independent discretization of Yassin's endpoint problem agree to `4.82e-11` in the leading resolved frequencies, while physical energy and signed pseudoenstrophy close at roundoff. The $f$-plane boundary mode has zero volume APV and active bottom PV, and its representation in the existing balanced-plus-bottom basis converges with vertical resolution. The complete suite now contains 108 passing tests.
+
+This is positive evidence for the boundary-dynamical formulation, but it does not alter the global Milestone-6.3 blocker: the periodic finite Fourier state remains unclosed under the terrain convolution required by the volume-APV cancellation.
 
 ## The blocker
 
@@ -130,9 +134,11 @@ audit = problem.auditGlobalSmallTerrainPrimitive( ...
 
 The acceptance tests are in [`TestWVTerrainEnergyGlobalSmallTerrainPrimitive`](UnitTests/TestWVTerrainEnergyGlobalSmallTerrainPrimitive.m), and the full numerical record is in [Milestone 6.3](milestones.md#milestone-63-global-small-terrain-primitive-compatibility-oracle).
 
+The local coupled-PV oracle is exposed by [`auditCoupledPVFrequencyOracle`](<@WVTerrainEnergyGalerkin/auditCoupledPVFrequencyOracle.m>), tested by [`TestWVTerrainEnergyCoupledPVFrequencyOracle`](UnitTests/TestWVTerrainEnergyCoupledPVFrequencyOracle.m), and recorded in [Milestone 6.4](milestones.md#milestone-64-coupled-volumeboundary-pv-frequency-oracle).
+
 ## Mathematical sources
 
-The mathematical repository is `ape-apv-bottom-topography` at checkpoint `1539f0d`. Its relevant sources and equation labels are:
+The mathematical repository is `ape-apv-bottom-topography` at checkpoint `7527984`. Its relevant sources and equation labels are:
 
 - `main.tex`: `eq:finite-terrain-linear-displacement-boundaries`, `eq:finite-terrain-linear-total-energy`, `eq:finite-terrain-linear-apv`, `eq:finite-terrain-linear-potential-enstrophy`, and `eq:finite-terrain-pressure-free-weak-equation`;
 - `terrain-energy-galerkin.tex`: `eq:galerkin-linear-apv`, `eq:galerkin-discrete-compatibility-identities`, `eq:galerkin-boundary-descriptor-pencil`, and `eq:galerkin-first-order-conservation-identities`;

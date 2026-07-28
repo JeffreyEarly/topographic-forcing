@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Paused research branch:** terrain-energy Galerkin development is paused at the Milestone-6.3 representation blocker. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before using the prototypes or continuing the roadmap. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Paused research branch:** Milestone 6.4 validates the local coupled volume–boundary PV dynamics, but terrain-energy Galerkin development remains paused at the global Milestone-6.3 representation blocker. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before using the prototypes or continuing the roadmap. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -54,6 +54,22 @@ audit = problem.auditGlobalSmallTerrainPrimitive( ...
 The audit retains pressure until continuity and the bottom equation have been imposed. It constructs the first terrain coefficient analytically and compares it with centered differences of the unexpanded mapped equations. For sinusoidal terrain, the two constructions agree below `3e-10`, the weak equation, physical energy, bottom evolution, and conjugacy close near roundoff, and coupling is confined to the expected neighboring Fourier blocks.
 
 The unmodified finite primitive representation still gives `audit.status="representation-blocker"`. At the reference resolution its normalized pointwise-APV defect is approximately `2.34e-1`. For horizontally interior inputs the defect decreases from `4.44e-3` to `5.38e-4` as the polynomial degree increases from two to six, while Fourier-edge inputs remain near `4.14e-1`. No APV projection, energy symmetrization, or fitted correction is applied. The complete evidence is recorded in [Milestone 6.3](milestones.md#milestone-63-global-small-terrain-primitive-compatibility-oracle).
+
+## Coupled volume–boundary PV frequency oracle
+
+Milestone 6.4 validates the dynamical interpretation in a controlled single-wavenumber QG problem:
+
+```matlab
+audit = problem.auditCoupledPVFrequencyOracle( ...
+    horizontalMode=[1 0], ...
+    volumePVGradient=[0 2e-11], ...
+    bottomSlope=[0 0.01], ...
+    polynomialDegree=20);
+```
+
+The direct $L^2\oplus\mathbb C$ volume–boundary inversion conserves physical energy and the applicable signed pseudoenstrophy at roundoff. Its leading physical frequencies agree with an independent Chebyshev discretization of Yassin's eigenvalue-dependent endpoint problem to `4.82e-11`. The $f$-plane limit contains an active bottom mode with zero volume APV, and the existing balanced-plus-bottom Galerkin basis represents the leading modes with a residual that decreases under vertical refinement.
+
+This passing local oracle does not repair the global Fourier-edge APV defect. The project therefore remains paused before Milestone 7; the next required object is still a rigorously closed horizontal representation for periodic terrain.
 
 ## Terrain-energy Galerkin flat oracle
 

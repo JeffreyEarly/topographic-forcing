@@ -1139,6 +1139,106 @@ The failure has two distinguishable pieces. For horizontally interior input mode
 
 Milestone 6.3 takes the **representation-blocker** exit. Retaining global terrain variation removes the analytic frozen-slope objection and produces the correct Fourier selection, but the current finite primitive Galerkin state does not satisfy stationary pointwise APV exactly. This does not invalidate the continuous conservation law. It identifies the next missing object: an APV-compatible global representation or a rigorously projected discrete APV law whose state, range, and invariant are closed under the same truncation. Finite-amplitude periodic terrain and modal construction remain blocked.
 
+## Milestone 6.4: Coupled volume–boundary PV frequency oracle
+
+- [x] Complete — passed local dynamical gate; periodic terrain remains blocked
+
+### Purpose
+
+Validate the coupled volume–boundary PV interpretation and the physical frequency eigenproblem in a controlled single-wavenumber QG problem before revisiting any primitive or periodic-terrain representation.
+
+### Dependencies
+
+Milestones 5–6.3 and the coupled dynamical formulation in `boundary-energy-enstrophy.tex` and `terrain-energy-galerkin.tex` at mathematical checkpoint `7527984`.
+
+### Deliverables
+
+- Add `auditCoupledPVFrequencyOracle` for one retained nonzero horizontal mode, a prescribed volume-PV gradient, and a prescribed bottom slope.
+- Use the internal state
+
+```math
+\boldsymbol{\mathcal Q}_{\boldsymbol K}
+=
+\begin{pmatrix}
+q_{\boldsymbol K}\\
+r_{b,\boldsymbol K}
+\end{pmatrix},
+\qquad
+r_b=-f\eta_b,
+\qquad
+\psi_{\boldsymbol K}
+=
+\mathcal G_{\boldsymbol K}[q_{\boldsymbol K},r_{b,\boldsymbol K}].
+```
+
+- Compute the projected gradients
+
+```math
+\beta_{\boldsymbol K}
+=K_x\overline q_y-K_y\overline q_x,
+\qquad
+s_{\boldsymbol K}
+=f(K_xh_y-K_yh_x),
+```
+
+and solve
+
+```math
+\partial_tq_{\boldsymbol K}
++i\beta_{\boldsymbol K}\psi_{\boldsymbol K}=0,
+\qquad
+\partial_tr_{b,\boldsymbol K}
++is_{\boldsymbol K}\psi_{b,\boldsymbol K}=0.
+```
+
+- Construct the direct volume–boundary inversion with a Legendre--Galerkin discretization and verify its physical-energy Green identity.
+- Independently construct Yassin's eigenvalue-dependent endpoint problem with a Chebyshev--Lobatto tau discretization. When both projected gradients are nonzero, compare physical frequencies using
+
+```math
+\lambda_{\mathrm Y}
+=-\kappa^2-\frac{\beta_{\boldsymbol K}}{\omega}.
+```
+
+- Construct the signed volume–boundary pseudoenstrophy only when both normalizing gradients are nonzero. Report its inertia and retain its sign.
+- Reconstruct the QG modes as geostrophic velocity, displacement, and pressure, then project them into the existing `A0` plus bottom-coordinate subspace without changing the public coefficient layout.
+- Classify the result as `passed`, `qg-formulation-blocker`, `endpoint-equivalence-blocker`, or `basis-representation-blocker`.
+- Do not reuse the blocked frozen-slope primitive generator as the reference, alter the primitive generator, or introduce empirical closure.
+
+### Automated acceptance
+
+- The inversion and Green-identity defects are below $10^{-12}$.
+- Physical-energy skew-adjointness is below $10^{-12}$.
+- Signed-pseudoenstrophy conservation is below $10^{-12}$ whenever the form is nonsingular.
+- Direct and endpoint physical frequencies agree below $10^{-10}$ for resolved modes, and matched eigenfunctions or invariant subspaces agree below $10^{-9}$ in physical energy.
+- Frequencies are real to $10^{-11}$.
+- When $\beta_{\boldsymbol K}=0$, every nonzero-frequency mode has negligible volume APV and the active boundary mode has nonzero $r_b$.
+- When both projected gradients vanish, the complete PV state is stationary.
+- Reversing both gradients reverses the frequencies without changing the modal subspaces.
+- Opposite gradient signs retain the indefinite pseudoenstrophy without replacing it by a positive metric.
+- The $\boldsymbol K$ and $-\boldsymbol K$ blocks satisfy Fourier conjugacy.
+- Projection into the existing boundary-complete balanced subspace converges under vertical refinement and retains nonzero bottom participation for the boundary mode.
+- The complete repository suite and static analysis pass.
+
+### Outcome
+
+The independent single-wavenumber oracle passes. At polynomial degree 20, the direct Legendre volume–boundary inversion has inversion, Green-identity, physical-energy, signed-pseudoenstrophy, and frequency-imaginary defects
+
+```text
+3.04e-16, 2.17e-16, 1.64e-16, 5.29e-17, 9.76e-18.
+```
+
+The four leading resolved frequencies agree with the independent Chebyshev--Lobatto Yassin endpoint problem to `4.82e-11`; their energy-normalized eigenfunction defect is at roundoff. Lower polynomial degrees converge spectrally toward this result. The weak Legendre inversion's strong bottom-flux residual decreases from `1.14e-1` at degree 8 to `1.30e-2` at degree 20, while its Green and dynamical identities remain at roundoff.
+
+With zero volume-PV gradient, the only nonzero-frequency mode has zero volume APV to roundoff and dominant bottom participation. With zero bottom gradient, the bottom tendency row vanishes. With both gradients zero, the complete PV generator vanishes. Same-sign gradients give a definite pseudoenstrophy, opposite signs give the expected Pontryagin metric, and reversing the signed horizontal wavenumber reverses the frequencies.
+
+Projection of the four leading QG modes into the existing `A0` plus bottom-coordinate subspace gives resolved energy-norm defects `1.64e-1`, `4.19e-2`, and `1.70e-2` at vertical resolutions 5, 7, and 9, respectively, while reproducing the bottom value exactly. Constant and exponential stratification and both antialias settings pass. The full repository suite passes 108 tests with zero failures, and `checkcode` reports no issues in the new source.
+
+Milestone 6.4 therefore validates the coupled volume–boundary PV interpretation, confirms that the physical frequency comes from the dynamical eigenproblem, and shows that the present boundary-complete balanced basis can represent the known local QG modes. It does not repair the Milestone-6.3 Fourier-edge APV defect.
+
+### Stopping condition
+
+A passing local oracle validates the boundary-dynamical interpretation and identifies the current balanced basis as an admissible representation of the known QG modes. It does not resolve the Milestone-6.3 horizontal-convolution blocker and does not activate Milestone 7. Any classified blocker is recorded without modifying the governing equations or fitting a correction.
+
 ## Milestone 7: Periodic-terrain augmented dense compatibility gate
 
 - [ ] Complete — principal blocking gate
@@ -1368,6 +1468,7 @@ Milestone 12.
 | **D1 — Boundary formulation** | 5–6 | Build the mixed descriptor, derive the Green identity, and record branch H, K, P, or incompatible. Do not begin periodic terrain. |
 | **D1.1 — Primitive repair oracle** | 6.1 | Compare an independent eta-only polynomial discretization with the F–G descriptor. Stop without repair if the primitive physical identities do not all converge. |
 | **D1.2 — Global first-order oracle** | 6.2–6.3 | Diagnose the frozen-slope APV source, restore global terrain coupling, and stop if the complete finite state remains incompatible with stationary APV. |
+| **D1.3 — Coupled PV frequency oracle** | 6.4 | Validate the single-wavenumber volume–boundary PV dynamics, Yassin endpoint equivalence, and current-basis representation. Do not begin periodic terrain. |
 | **D2 — Periodic scientific gate** | 7 | Test the selected augmented formulation on sinusoidal terrain. Stop immediately if physical energy, APV, or bottom evolution does not converge. |
 | **D3 — Selected branch and dense modes** | 8–9 | Implement only the selected branch and establish the dense terrain-mode oracle. Do not implement enrichment. |
 | **E1 — Selective modes** | 10 | Implement residual enrichment and validate it exclusively against the dense oracle. |
