@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Development branch:** `terrain-energy-galerkin` contains the pressure-free finite-terrain-energy Galerkin prototypes, the completed closure audits, and the boundary-complete flat basis. Milestone 4.8 established that the volume-only projection is incompatible with simultaneous APV, quadratic-enstrophy, and strong bottom-evolution conservation. Batch D1 then retained pressure and the bottom equation in an explicit primitive descriptor, while Milestone 6.1 added an independent eta-only Legendre polynomial oracle. The corrected primitive energy-weak discretization preserves physical energy, pressure cancellation, continuity, and exact bottom evolution at roundoff, but its pointwise-APV and quadratic-enstrophy defects remain order one from polynomial degree 4 through 10. This identifies an APV-compatible-space blocker rather than a failure of the continuous Branch-P equations. No F–G repair has been applied, and periodic terrain and modal construction remain blocked. The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
+> **Development branch:** `terrain-energy-galerkin` contains the pressure-free finite-terrain-energy Galerkin prototypes, the completed closure audits, and the boundary-complete flat basis. Milestone 4.8 established that the volume-only projection is incompatible with simultaneous APV, quadratic-enstrophy, and strong bottom-evolution conservation. Batch D1 then retained pressure and the bottom equation in an explicit primitive descriptor, while Milestone 6.1 added an independent eta-only Legendre polynomial oracle. Milestone 6.2 has now isolated a sharper obstruction: the frozen constant-slope Branch-P equations themselves generate APV for a cross-slope Fourier component. A compatible mixed polynomial descriptor preserves physical energy and bottom evolution while reproducing that analytic source; vorticity--divergence and explicit-APV formulations remove the source only by changing the weak equations and losing physical-energy conservation. The parallel-slope special case passes every identity. No F–G repair has been applied, and periodic terrain and modal construction remain blocked pending a global small-terrain or covariant local formulation. The implemented mean-depth generator and scattering classes documented below are retained as a validated baseline; their completed roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md).
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -17,6 +17,29 @@ audit = problem.auditBranchPDiscreteOracle( ...
 The oracle is independent of the hydrostatic F–G reconstruction. It uses an eta-only bottom coordinate, retains pressure through a constrained saddle solve, and differentiates the saddle system analytically with respect to slope. The coupled physical-energy weak form closes energy and bottom kinematics at roundoff and recovers the analytic flat nonhydrostatic dispersion relation spectrally. Pointwise APV and quadratic potential enstrophy do not close or converge under polynomial refinement, so `audit.status` is `"scientific-blocker"` and `audit.repairCandidate` is `"none"`.
 
 The audit also reduces the existing F–G descriptor directly in native coordinates and maps the same reduced system to the unchanged public coefficient ordering. Those comparisons reproduce the prior defects and show that the eigenvector-based public reconstruction was not their sole cause. The full acceptance evidence and numerical values are recorded in [Milestone 6.1](milestones.md#milestone-61-branch-p-primitive-oracle-and-fg-repair-audit).
+
+## APV-compatible local primitive audit
+
+The follow-up audit compares a compatible mixed polynomial descriptor with vorticity--divergence and explicit-APV formulations:
+
+```matlab
+audit = problem.auditAPVCompatiblePrimitive( ...
+    bottomSlope=[0 0.01], ...
+    horizontalMode=[1 0], ...
+    polynomialDegree=6);
+```
+
+For the frozen Branch-P equations, direct differentiation gives
+
+```math
+\partial_t q_{\boldsymbol s}
+=
+\frac{i(k s_y-\ell s_x)}{\rho_0D}\,p.
+```
+
+The source is nonzero whenever the retained horizontal wavenumber and local slope are not parallel. The energy-weak candidate uses `u,v` in `P_N`, homogeneous mapped vertical velocity in the endpoint-zero part of `P_{N+1}`, displacement in the surface-zero part of `P_{N+1}`, pressure in `P_{N+1}`, and the complete surface-zero space to test vertical momentum. It closes physical energy, the weak equations, continuity, and strong bottom evolution at roundoff and reproduces the analytic APV source. The vorticity--divergence candidate and its explicit-APV coordinate form instead make `q_t=0` at roundoff, but they have nonzero physical-energy and weak-equation defects.
+
+Consequently, `audit.status` is `"mathematical-blocker"` for a cross-slope mode and `"compatible-aligned-special-case"` when `k*s_y-l*s_x=0`. This result is specific to the frozen local approximation; it does not contradict stationary APV in the exact spatially varying terrain equations. The complete evidence is recorded in [Milestone 6.2](milestones.md#milestone-62-apv-compatible-local-primitive-investigation).
 
 ## Terrain-energy Galerkin flat oracle
 

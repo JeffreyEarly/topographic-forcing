@@ -951,6 +951,105 @@ The direct F–G saddle reduction is worse but consistent with the earlier audit
 
 Milestone 6.1 therefore takes its blocking exit. The result does **not** invalidate the continuous Branch-P equations: it shows that neither the present F–G descriptor nor the independent finite polynomial trial/test pair is a pointwise-APV-compatible discretization of them. Because the independent oracle fails a mandatory identity, no F–G repair, empirical correction, or public-layout change is applied. Periodic terrain and modal construction remain blocked.
 
+## Milestone 6.2: APV-compatible local primitive investigation
+
+- [x] Complete — the frozen cross-slope problem has a mathematical APV obstruction
+
+### Purpose
+
+Determine whether compatible mixed polynomial spaces, vorticity--divergence variables, or an explicit APV coordinate can simultaneously preserve the frozen Branch-P weak equations, physical energy, stationary APV, and strong bottom evolution without an empirical correction.
+
+### Dependencies
+
+Milestone 6.1.
+
+### Deliverables
+
+- Add `auditAPVCompatiblePrimitive` without changing the public Galerkin coefficient layout.
+- Use the compatible polynomial sequence
+
+```math
+u,v\in P_N,
+\qquad
+\hat w\in P_{N+1}^{00},
+\qquad
+\eta\in P_{N+1}^{0s}.
+```
+
+- Verify the rectangular product rule between the surface-zero displacement space and the horizontal-velocity space.
+- Test an energy-weak mixed descriptor with one additional pressure polynomial and the complete surface-zero space as the vertical-momentum test space.
+- Replace the horizontal momentum rows by vorticity--divergence and APV rows in an independent candidate.
+- Transform that candidate to coordinates whose first block is the discrete APV itself.
+- Derive the APV tendency of the frozen constant-slope equations analytically before interpreting a numerical residual.
+- Retain the strong bottom-displacement row and prohibit empirical symmetrization, APV projection, or fitted closure.
+- Stop before periodic terrain or modal construction.
+
+### Automated acceptance
+
+- The rectangular polynomial product rule, continuity rank, admissible dimension, and bottom endpoint values close within $10^{-11}$.
+- The energy-weak candidate preserves its weak equation, physical energy, continuity, and bottom evolution within $10^{-11}$.
+- The vorticity--divergence candidate preserves APV, potential enstrophy, continuity, and bottom evolution within $10^{-11}$.
+- The explicit-APV coordinate map is complete and its APV tendency rows vanish within $10^{-11}$.
+- The flat reference recovers the constant-$N$ nonhydrostatic mode-one frequency spectrally.
+- Zonal, meridional, oblique, and sign-reversed slopes reproduce the analytic cross-slope source.
+- The result is unchanged in classification under vertical-degree and quadrature refinement and remains valid for a smooth nonconstant $N^2(z)$.
+- A working oracle is accepted only if one unmodified candidate preserves physical energy, pointwise APV, and strong bottom evolution simultaneously.
+
+### Analytic result
+
+For the frozen equations used by the Branch-P local oracle, the APV is
+
+```math
+q_{\boldsymbol s}
+=
+ikv-i\ell u
++\frac{s_x}{D}\left(v+\xi v_\xi\right)
+-\frac{s_y}{D}\left(u+\xi u_\xi\right)
+-f\eta_\xi .
+```
+
+Substitution of the frozen horizontal momentum, displacement, and mapped-continuity equations gives
+
+```math
+\boxed{
+\partial_t q_{\boldsymbol s}
+=
+\frac{i(k s_y-\ell s_x)}{\rho_0D}\,p .
+}
+```
+
+The Coriolis and stretching contributions cancel through mapped continuity. The two metric pressure-gradient terms cancel only when $k s_y-\ell s_x=0$. Thus a cross-slope Fourier component of the frozen local problem creates APV before any vertical discretization is chosen. This does not contradict stationary APV in the exact terrain equations: freezing the terrain value while retaining its slope removes horizontal coefficient variation needed by the exact APV cancellation.
+
+### Numerical outcome
+
+At polynomial degree six, horizontal mode `[1,0]`, and slope `[0,0.01]`, the energy-weak mixed descriptor gives the normalized defects
+
+```text
+weak evolution       4.38e-19
+physical energy      6.23e-19
+bottom evolution     1.50e-15
+pointwise APV        1.11e-05
+potential enstrophy  1.86e-06
+```
+
+The direct polynomial evaluation of the boxed analytic identity closes to `5.52e-16`. The mixed descriptor's computed APV tendency agrees with that analytic pressure source to `6.14e-3` relatively. The compatible rectangular product-rule defect is `1.01e-13`. Refinement from degrees 4 through 10 and doubled quadrature preserve the same classification.
+
+The vorticity--divergence candidate instead gives
+
+```text
+pointwise APV        2.38e-17
+potential enstrophy  1.38e-17
+bottom evolution     1.45e-15
+physical energy      2.31e-07
+weak evolution       1.59e-05
+```
+
+The explicit-APV coordinate map has full rank and its APV rows vanish to `1.43e-20`, but it is only a coordinate representation of this same APV-enforced, non-energy-conserving candidate. It does not repair the weak equations.
+
+When the wavenumber and slope are parallel, the analytic source vanishes. The energy-weak descriptor then preserves physical energy, APV, potential enstrophy, and bottom evolution at roundoff. This is a valid two-dimensional special oracle but not a general constant-slope solution.
+
+Milestone 6.2 therefore records a **mathematical blocker for the frozen cross-slope Branch-P system**. No finite-space change can preserve both its unmodified weak equations and $QL=0$ when the analytic source is nonzero. The next scientific formulation must retain the globally varying small-terrain coefficients or derive a covariant local/WKB system containing the missing connection terms. Periodic terrain and modal construction remain out of scope.
+
 ## Milestone 7: Periodic-terrain augmented dense compatibility gate
 
 - [ ] Complete — principal blocking gate
@@ -961,7 +1060,7 @@ Determine whether the selected augmented descriptor remains physically compatibl
 
 ### Dependencies
 
-Milestone 6.1 with a compatible primitive oracle and a validated repair of the local descriptor. The current Milestone-6.1 outcome does not satisfy this dependency.
+A global small-terrain or covariant local formulation that removes the Milestone-6.2 analytic APV source while preserving physical energy and strong bottom evolution. The current frozen local formulation does not satisfy this dependency.
 
 ### Deliverables
 
