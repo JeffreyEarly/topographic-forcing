@@ -1,5 +1,7 @@
 # Terrain-energy Galerkin milestones
 
+> **Paused after Milestone 6.3:** the current finite primitive representation is not closed under the terrain convolution required for stationary APV at the retained Fourier edge. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before interpreting this roadmap. Milestones 7–13 are inactive prospective work and must not begin from the current representation.
+
 ## Objective
 
 Develop `WVTerrainEnergyGalerkin`, a boundary-dynamical Galerkin system for the linear rotating Boussinesq equations over stationary bottom topography. The formulation is linear in flow amplitude and exact in the resolved terrain. The immediate goal is to determine whether a mixed volume–bottom descriptor can conserve physical energy and quadratic potential enstrophy, preserve pointwise APV, and enforce the resolved bottom evolution simultaneously. Pressure remains a Lagrange multiplier during construction and is removed only from the validated reduced evolution.
