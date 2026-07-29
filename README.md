@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Checkpoint after Milestone 6.8:** terrain-dependent geostrophic test states recover the APV Green identity and stationary primitive rows at roundoff, resolving the Milestone-6.7 tangent representation failure. Milestone 7 and finite-amplitude terrain have not begun. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Checkpoint after Milestone 7:** the finite-amplitude boundary-complete primitive weak oracle passes for flat, uniform-depth, constant-stratification, and variable-stratification cases. Physical energy and weak APV close at roundoff, while the independently tested bottom equation converges spectrally. Terrain-mode construction, Milestone 8, and time integration have not begun. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -94,7 +94,7 @@ where $\mathcal P$ is the orthogonal projection onto the retained signed Fourier
 
 Edge inputs still produce nonzero sidebands outside the retained state. Those sidebands are explicitly measured and discarded by the Galerkin projection rather than aliased back into the state or counted as an internal APV defect. The existing balanced-plus-bottom basis represents the active topographic modes increasingly accurately under simultaneous oracle and vertical refinement.
 
-This establishes a closed periodic QG oracle and identifies an explicit PV-coordinate formulation as the promising horizontal representation. Milestone 6.6 tests that idea in a complete hybrid descriptor; the result below shows why Milestone 7 remains inactive.
+This establishes a closed periodic QG oracle and identifies an explicit PV-coordinate formulation as the promising horizontal representation. Milestone 6.6 tests that idea in a complete hybrid descriptor; the result below explains why Milestone 7 was inactive at that stage.
 
 Milestone 6.6 tests the smallest such hybrid descriptor:
 
@@ -119,7 +119,7 @@ audit = problem.auditDealiasedProjectedPrimitiveTangent( ...
 
 All terrain products use one zero-pad, multiply, and adjoint-restrict operation. Exact mode-number convolution and the pseudospectral action agree to `1.19e-15`; the primitive weak, physical-energy, projected-bottom, conjugacy, and padding defects are all below their acceptance tolerances. External edge sidebands are measured separately and are not aliased into the retained equations.
 
-The trusted-band APV defect decreases from `5.45e-4` to `1.85e-4` to `1.01e-4` at polynomial degrees `4`, `8`, and `12`. The corresponding potential-enstrophy defect decreases from `3.34e-4` to `1.12e-4` to `6.08e-5`. These rates and final values fail the required factor-four and `1e-8` gates, while horizontal support refinement alone leaves the result unchanged. The oracle therefore returns `audit.status="nonconvergent-projected"`. No projected replacement rows or corrective closure are used, and finite-amplitude Milestone 7 remains inactive.
+The trusted-band APV defect decreases from `5.45e-4` to `1.85e-4` to `1.01e-4` at polynomial degrees `4`, `8`, and `12`. The corresponding potential-enstrophy defect decreases from `3.34e-4` to `1.12e-4` to `6.08e-5`. These rates and final values fail the required factor-four and `1e-8` gates, while horizontal support refinement alone leaves the result unchanged. The oracle therefore returns `audit.status="nonconvergent-projected"`. No projected replacement rows or corrective closure are used. This result kept finite-amplitude work inactive until Milestone 6.8 supplied the terrain-dependent geostrophic inclusion.
 
 The complete repository suite passes 125 tests with zero failures.
 
@@ -137,9 +137,43 @@ audit = problem.auditBoundaryCompleteWeakEigenproblem( ...
 
 The oracle constructs both the flat and first-terrain geostrophic inclusions, evaluates APV moments independently from the strong mapped diagnostic, and solves the unmodified tangent generalized eigenproblem. The first-terrain Green-identity and stationary-row defects are `8.01e-15` and `6.63e-14`; independently evaluated APV evolution is `1.11e-13`. Physical energy and projected bottom evolution retain defects `4.28e-15` and `2.47e-12`.
 
-The result is `compatible-boundary-complete-weak-oracle`. APV follows from the original primitive weak equations once the terrain derivative of the test space is retained. No APV replacement rows, empirical corrections, symmetrization, APV-nullspace projection, or mode deletion are used. Milestone 7 remains a separate, unstarted finite-amplitude increment.
+The result is `compatible-boundary-complete-weak-oracle`. APV follows from the original primitive weak equations once the terrain derivative of the test space is retained. No APV replacement rows, empirical corrections, symmetrization, APV-nullspace projection, or mode deletion are used. Milestone 7 extends this construction without making a small-terrain approximation.
 
 The complete repository suite passes 130 tests with zero failures.
+
+## Finite-amplitude boundary-complete primitive gate
+
+Milestone 7 constructs the finite-terrain energy and exchange forms and the terrain-dependent geostrophic inclusion at the same amplitude:
+
+```matlab
+audit = problem.auditFiniteAmplitudeBoundaryCompleteWeakSystem( ...
+    trustedModeBounds=[1 0], ...
+    supportModeBounds=[1 1;1 2;1 4], ...
+    scalarPolynomialDegree=2, ...
+    primitivePolynomialDegrees=[2;3;5], ...
+    paddingFactors=[2;3], ...
+    terrainScales=[0.25;0.5;1]);
+```
+
+The coefficient evolution is the unmodified primitive weak system
+
+```math
+H_\gamma\dot{\boldsymbol A}
+=
+J_\gamma\boldsymbol A,
+\qquad
+L_\gamma
+=
+H_\gamma^{-1}J_\gamma.
+```
+
+Pressure recovery and the strong bottom equation are independent diagnostics; neither replaces an evolution row. At the finest constant-stratification reference calculation, the weak equation and physical-energy defects are `2.62e-16` and `1.59e-15`. The APV Green identity, stationary geostrophic row, weak APV evolution, independently evaluated strong APV evolution, and their agreement are respectively `4.33e-15`, `9.86e-17`, `1.32e-14`, `4.47e-15`, and `4.43e-15`.
+
+The trusted-band bottom defect decreases from `3.47e-5` to `2.89e-7` to `2.01e-11` as the primitive vertical and horizontal support spaces are enriched. Padding factors two and three agree to `2.18e-12`; external sidebands remain reported separately. Variable stratification reaches a geostrophic-state representation defect of `7.18e-11`, APV evolution of `3.21e-15`, and bottom defect of `1.45e-11` under joint horizontal and vertical enrichment.
+
+The exact finite-amplitude forms differ from their flat-plus-tangent approximations by \(O(h^2)\): halving terrain amplitude reduces the energy, exchange, and geostrophic-inclusion remainders by a factor of approximately four. The oracle returns `compatible-finite-amplitude-weak-oracle`. It does not construct terrain modes or advance a state in time.
+
+The complete repository suite passes 139 tests with zero failures, and `checkcode` reports no issues in all 69 MATLAB files.
 
 ## Terrain-energy Galerkin flat oracle
 

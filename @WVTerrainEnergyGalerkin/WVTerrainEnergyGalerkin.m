@@ -27,6 +27,7 @@ classdef WVTerrainEnergyGalerkin < handle
     % - Topic: Audit a hybrid primitive-PV descriptor
     % - Topic: Audit a dealiased projected primitive tangent
     % - Topic: Audit a boundary-complete weak eigenproblem
+    % - Topic: Audit a finite-amplitude boundary-complete weak system
     % - Topic: Audit the Branch-P discrete oracle
     % - Topic: Audit terrain compatibility
     % - Topic: Audit constrained evolution

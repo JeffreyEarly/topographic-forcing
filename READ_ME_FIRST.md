@@ -2,9 +2,9 @@
 
 ## Current status
 
-**This branch is at a passing Milestone-6.8 tangent checkpoint.** Milestone 6.7 showed that a fixed flat test space does not recover the trusted-band APV cancellation even under a common padded projection. Milestone 6.8 returns to the continuous Green identity and includes the terrain derivative of the stationary geostrophic test states. The resulting primitive weak APV moments, physical energy, projected bottom evolution, and tangent eigenproblem pass without replacement APV rows or corrections. Milestone 7 and finite-amplitude terrain have not begun.
+**This branch is at a passing Milestone-7 finite-amplitude checkpoint.** Milestone 6.8 showed that the terrain-dependent stationary geostrophic test states derive APV from the primitive weak equations. Milestone 7 now constructs those test states and the primitive energy and exchange forms at the same finite terrain amplitude. Physical energy and APV close at roundoff, and the independently evaluated bottom equation converges under support refinement without replacement APV rows or corrections. Terrain-mode construction, Milestone 8, and time integration have not begun.
 
-The pre-Milestone-6.7 checkpoint is commit [`d5ab18f`](https://github.com/JeffreyEarly/topographic-forcing/tree/d5ab18f) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The current branch contains the completed projected and boundary-complete weak oracles. The matching mathematics is maintained in `finite-terrain-projection-problem.tex` and `terrain-energy-galerkin.tex` in the `ape-apv-bottom-topography` literature repository.
+The pre-Milestone-6.7 checkpoint is commit [`d5ab18f`](https://github.com/JeffreyEarly/topographic-forcing/tree/d5ab18f) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The current branch contains the completed projected, tangent boundary-complete, and finite-amplitude weak oracles. The matching mathematics is maintained in `finite-terrain-projection-problem.tex` and `terrain-energy-galerkin.tex` in the `ape-apv-bottom-topography` literature repository.
 
 The objective was to construct a flow-linear system, exact in the resolved stationary terrain, that satisfies the continuum requirements
 
@@ -108,6 +108,36 @@ This result changes the interpretation of Milestone 6.7: ordinary padding was ne
 
 The complete repository suite now contains 130 passing tests, including the Milestone-6.8 constant- and variable-stratification weak-sequence and eigenproblem audits.
 
+Milestone 7 removes the small-terrain expansion. It evaluates \(H_\gamma\), \(J_\gamma\), the mapped APV operator, and the terrain-dependent geostrophic inclusion at the same finite amplitude, then advances the retained coefficients with
+
+```math
+L_\gamma
+=
+H_\gamma^{-1}J_\gamma.
+```
+
+For the constant-stratification reference calculation with terrain \(20\cos(2\pi y/L_y)\ {\rm m}\), trusted bounds `[1 0]`, supports `[1 1;1 2;1 4]`, primitive degrees `[2;3;5]`, and padding factors two and three, the finest diagnostics are:
+
+| Test | Defect |
+|---|---:|
+| Primitive weak evolution | `2.62e-16` |
+| Physical energy | `1.59e-15` |
+| APV Green identity | `4.33e-15` |
+| Stationary geostrophic row | `9.86e-17` |
+| Weak APV evolution | `1.32e-14` |
+| Independent strong APV evolution | `4.47e-15` |
+| Weak/strong APV agreement | `4.43e-15` |
+| Projected bottom evolution | `2.01e-11` |
+| Fourier conjugacy | `7.92e-15` |
+| Quadratic potential enstrophy | `3.98e-14` |
+| Padding factors two versus three | `2.18e-12` |
+
+The projected bottom defect decreases from `3.47e-5` to `2.89e-7` to `2.01e-11`. The finite forms' remainders relative to their flat-plus-tangent approximations decrease by a factor of approximately four whenever terrain amplitude is halved, confirming the expected \(O(h^2)\) term rather than a first-order inconsistency. An exponential-stratification calculation passes after joint horizontal and vertical enrichment, with geostrophic-state representation, strong APV, and bottom defects of `7.18e-11`, `3.21e-15`, and `1.45e-11`.
+
+Milestone 7 is therefore classified `compatible-finite-amplitude-weak-oracle`. This validates the dense finite-amplitude weak structure but does not yet establish a terrain-mode construction or online evolution method.
+
+The complete repository suite contains 139 passing tests, and static analysis reports no issues in all 69 MATLAB files.
+
 ## What the spectral-edge audit means
 
 The APV defect separates into two parts:
@@ -139,11 +169,11 @@ The sequence of independent audits removed the following explanations:
 
 Changing the bottom basis alone, changing a quadratic norm without a derived invariant, or merely enlarging a fixed flat test space does not reproduce the derived weak sequence.
 
-## Do not resume by
+## Do not continue by
 
 Do not proceed by:
 
-- starting Milestone 7 without carrying the Milestone-6.8 terrain-dependent geostrophic test sequence into the finite-amplitude construction;
+- starting terrain-mode construction, Milestone 8, or time integration without a separate approved increment;
 - projecting the generator into an APV nullspace;
 - empirically symmetrizing the generator;
 - fitting a minimum-change closure;
@@ -155,9 +185,9 @@ Those operations either answer a different dynamical question or hide the diagno
 
 ## Conditions for continuing
 
-Milestone 6.8 supplies the derived primitive representation that Milestone 6.7 lacked. The next increment may test finite-amplitude terrain only by constructing the terrain-dependent geostrophic inclusion and APV Green map at the same amplitude as the primitive \(H_\gamma,J_\gamma\) forms. It must retain exact physical energy and projected bottom evolution, compare the energy-derived APV moments with an independent strong APV diagnostic, and refine the trusted scalar and primitive support spaces independently.
+Milestone 7 supplies the finite-amplitude dense weak oracle. Any terrain-mode increment must use its unmodified \(H_\gamma,J_\gamma\) pair and the same terrain-dependent geostrophic inclusion. It must preserve physical energy, weak APV, bottom convergence, adjoint-consistent padded products, and the independent strong diagnostics established here.
 
-External sidebands must remain separately reported. No corrected generator, fitted closure, empirical symmetrization, replacement APV rows, APV-nullspace projection, or mode deletion is permitted.
+External sidebands must remain separately reported. No corrected generator, fitted closure, empirical symmetrization, replacement APV rows, APV-nullspace projection, or mode deletion is permitted. Terrain-mode construction and evolution require separate planning and authorization.
 
 ## Reproducing the numerical result
 
@@ -180,6 +210,8 @@ The hybrid primitive–PV oracle is exposed by [`auditHybridPrimitivePVOracle`](
 The common projected primitive oracle is exposed by [`auditDealiasedProjectedPrimitiveTangent`](<@WVTerrainEnergyGalerkin/auditDealiasedProjectedPrimitiveTangent.m>), tested by [`TestWVTerrainEnergyDealiasedProjectedPrimitiveTangent`](UnitTests/TestWVTerrainEnergyDealiasedProjectedPrimitiveTangent.m), and recorded in [Milestone 6.7](milestones.md#milestone-67-dealiased-projected-primitive-tangent-oracle).
 
 The boundary-complete weak oracle is exposed by [`auditBoundaryCompleteWeakEigenproblem`](<@WVTerrainEnergyGalerkin/auditBoundaryCompleteWeakEigenproblem.m>), tested by [`TestWVTerrainEnergyBoundaryCompleteWeakEigenproblem`](UnitTests/TestWVTerrainEnergyBoundaryCompleteWeakEigenproblem.m), and recorded in [Milestone 6.8](milestones.md#milestone-68-boundary-complete-weak-terrain-eigenproblem).
+
+The finite-amplitude weak oracle is exposed by [`auditFiniteAmplitudeBoundaryCompleteWeakSystem`](<@WVTerrainEnergyGalerkin/auditFiniteAmplitudeBoundaryCompleteWeakSystem.m>), tested by [`TestWVTerrainEnergyFiniteAmplitudeBoundaryCompleteWeakSystem`](UnitTests/TestWVTerrainEnergyFiniteAmplitudeBoundaryCompleteWeakSystem.m), and recorded in [Milestone 7](milestones.md#milestone-7-finite-amplitude-projected-primitive-dense-gate).
 
 ## Mathematical sources
 

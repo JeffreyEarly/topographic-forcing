@@ -9,6 +9,7 @@ arguments
     options.paddingFactor (1,1) double = problem.horizontalOversamplingFactor
     options.trustedModeBounds (1,2) double = [Inf Inf]
     options.rejectTerrainNyquist (1,1) logical = false
+    options.evaluationScales (:,1) double = zeros(0,1)
 end
 
 context = buildContext(problem,polynomialDegree,quadratureOrder, ...
@@ -34,6 +35,11 @@ strongAPV = strongAPVDiagnostics(context,flat,analytic);
 fourier = fourierDiagnostics(context,analytic,compatibility.apvCancellation);
 flatDiagnostics = flatReferenceDiagnostics(context,flat);
 structure = structureDiagnostics(context,flat,analytic);
+evaluatedDirections = repmat(flat,numel(options.evaluationScales),1);
+for iScale = 1:numel(options.evaluationScales)
+    evaluatedDirections(iScale) = descriptorAtScale(context, ...
+        options.evaluationScales(iScale));
+end
 
 requiredTolerance = struct("tangent",1e-9,"weak",1e-11,"energy",1e-11, ...
     "apv",1e-10,"enstrophy",1e-10,"bottom",1e-11,"conjugacy",1e-11);
@@ -84,6 +90,8 @@ audit.strongAPV = strongAPV;
 audit.fourier = fourier;
 audit.flatDiagnostics = flatDiagnostics;
 audit.structure = structure;
+audit.evaluationScales = options.evaluationScales;
+audit.evaluatedDirections = evaluatedDirections;
 audit.projection = context.projectionDiagnostics;
 audit.requiredTolerance = requiredTolerance;
 audit.diagnosis = diagnosis;

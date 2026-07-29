@@ -1661,7 +1661,7 @@ Milestone 6.8 passes, but this goal stops here. Do not begin Milestone 7 or fini
 
 ## Milestone 7: Finite-amplitude projected primitive dense gate
 
-- [ ] Complete — principal blocking gate
+- [x] Complete — passed finite-amplitude boundary-complete primitive gate
 
 ### Purpose
 
@@ -1698,6 +1698,65 @@ BL=R_{h,N},
 - Trusted-band results from padding factors two and three agree within \(10^{-10}\).
 - Strong momentum, continuity, and physical bottom residuals decrease under refinement.
 - Failure stops the roadmap before modal construction.
+
+### Implementation result
+
+The public finite-amplitude oracle is:
+
+```matlab
+audit = problem.auditFiniteAmplitudeBoundaryCompleteWeakSystem( ...
+    trustedModeBounds=[1 0], ...
+    supportModeBounds=[1 1;1 2;1 4], ...
+    scalarPolynomialDegree=2, ...
+    primitivePolynomialDegrees=[2;3;5], ...
+    paddingFactors=[2;3], ...
+    terrainScales=[0.25;0.5;1]);
+```
+
+The retained evolution is constructed only from the finite-terrain primitive energy and exchange forms,
+
+```math
+H_\gamma\dot{\boldsymbol A}
+=
+J_\gamma\boldsymbol A,
+\qquad
+L_\gamma
+=
+H_\gamma^{-1}J_\gamma.
+```
+
+The finite-amplitude geostrophic inclusion is evaluated independently at the same terrain amplitude. Its energy pairing is compared with the strong mapped APV diagnostic, while the physical bottom equation is evaluated as an independent residual. Pressure and the complete strong primitive solve are diagnostics; neither replaces an energy-weak evolution row.
+
+For constant stratification, resolution `[6 10 5]`, terrain \(20\cos(2\pi y/L_y)\ {\rm m}\), trusted bounds `[1 0]`, and the settings above, the finest diagnostics are:
+
+| Test | Defect |
+|---|---:|
+| Geostrophic-state representation | `2.84e-11` |
+| APV Green identity | `4.33e-15` |
+| Stationary geostrophic row | `9.86e-17` |
+| Weak APV evolution | `1.32e-14` |
+| Independent strong APV evolution | `4.47e-15` |
+| Weak/strong APV agreement | `4.43e-15` |
+| Primitive weak evolution | `2.62e-16` |
+| Physical energy | `1.59e-15` |
+| Projected bottom evolution | `2.01e-11` |
+| Fourier conjugacy | `7.92e-15` |
+| Quadratic potential enstrophy | `3.98e-14` |
+| Padding factors two versus three | `2.18e-12` |
+
+The trusted bottom residual decreases from `3.47e-5` to `2.89e-7` to `2.01e-11` under joint support and primitive-degree refinement. The complete strong primitive diagnostic also converges on the trusted band. Its unprojected outer-support residual is retained separately, as are terrain-generated external sidebands.
+
+The exact energy, exchange, and geostrophic-inclusion forms were compared with their flat-plus-tangent approximations at terrain scales `0.25`, `0.5`, and `1`. Doubling the amplitude increases each remainder by a factor within `6.3e-4` of four, confirming the expected second-order finite-amplitude contribution.
+
+Flat and uniform-depth controls pass. With \(N^2(z)=10^{-5}[1+\exp(z/1000)]\ {\rm s}^{-2}\), joint horizontal and vertical enrichment reaches geostrophic-state representation, strong APV, and bottom defects `7.18e-11`, `3.21e-15`, and `1.45e-11`. The result is `compatible-finite-amplitude-weak-oracle`.
+
+No replacement APV row, empirical correction, post hoc symmetrization, APV-nullspace projection, or mode deletion is used.
+
+The complete repository suite passes 139 tests with zero failures, and `checkcode` reports no issues in all 69 MATLAB files.
+
+### Stopping condition
+
+Milestone 7 passes, but this goal stops here. Terrain-mode construction, Milestone 8, and time integration require a separate approved increment.
 
 ## Milestone 8: Implement the selected invariant branch
 
