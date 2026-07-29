@@ -1760,7 +1760,7 @@ Milestone 7 passes, but this goal stops here. Terrain-mode construction, Milesto
 
 ## Milestone 8: Complete finite-terrain stationary balanced space
 
-- [ ] Complete — blocking stationary-space gate
+- [x] Complete — passed stationary-space gate
 
 ### Purpose
 
@@ -1815,6 +1815,52 @@ within $10^{-10}$.
 - Flat and uniform-depth calculations reproduce the established stationary spaces within $10^{-10}$; sinusoidal-symmetry and variable-stratification results converge under refinement.
 - Failure of the stationary dimension, bottom tangency, or boundary-complete Green identity blocks Milestone 9.
 
+### Implementation result
+
+The public stationary-space oracle is:
+
+```matlab
+audit = problem.auditCompleteStationaryBalancedSpace( ...
+    trustedModeBounds=[1 1], ...
+    supportModeBounds=[1 2;1 3;1 4], ...
+    primitivePolynomialDegrees=[2;3;4], ...
+    paddingFactors=[2;3]);
+```
+
+The first primitive degree defines the trusted scalar vertical space, while the later degrees provide vertical support. The finite-terrain geostrophic states include nonzero bottom values, enforce the commonly projected bottom-tangency condition, and retain the complete boundary term
+
+```math
+c_b[\psi]
+=
+f\hat\eta_b+v_bh_x-u_bh_y.
+```
+
+For the constant-stratification sinusoidal reference calculation, the finest trusted diagnostics are:
+
+| Test | Defect |
+|---|---:|
+| Geostrophic-state representation | `1.29e-17` |
+| Complete APV Green identity | `1.15e-14` |
+| Stationary primitive row | `1.39e-13` |
+| Projected bottom tangency | `1.44e-17` |
+| Strong trusted-band bottom tangency | `2.77e-17` |
+| Fourier conjugacy | `6.57e-14` |
+| Padding factors two versus three | `9.37e-13` |
+
+The trusted stationary space contains 11 states at this reduced resolution. Six independent bottom-streamfunction directions fail the tangency condition and remain in the full primitive state for subsequent dynamical classification; no mode is deleted or projected out. The complete balanced bottom inversion retained by the public coefficient layout continues to satisfy its flat APV and inversion residual gates, while the stationary polynomial oracle identifies the APV-bearing, zero-volume-APV candidate, bottom-participating, and mean-density sectors.
+
+The raw energy-scaled exchange form also has a sharply separated numerical nullspace, but it is not used to define the physical stationary space. At the finest reference resolution the first nonzero boundary-mode singular value is only about `1e-14 s^-1`. Roundoff therefore rotates a hard SVD nullspace projector by about `9.33e-5` even though the physically derived stationary rows close to `1.39e-13`. This is the expected conditioning signature of active, very-low-frequency topographic boundary modes—not evidence that those modes are stationary or should be removed. Milestone 9 must use the Milestone-8 tangency construction to identify the stationary sector before classifying the nonzero-frequency complement.
+
+Flat and uniform-depth controls pass with no non-tangent bottom complement. The sinusoidal calculation has the expected tangent bottom-streamfunction symmetry. Variable stratification passes after vertical enrichment, and the conjugacy and common-projection checks pass with both ordinary and antialiased originating layouts.
+
+The result is `complete-stationary-space-oracle`. The public coefficient layout is unchanged, and no replacement APV rows, empirical corrections, symmetrization, APV-nullspace projection, or mode deletion is used.
+
+The complete repository suite passes 147 tests with zero failures.
+
+### Stopping condition
+
+Milestone 8 passes, but this goal stops here. Milestone 9, nonzero-frequency terrain-mode classification, and time integration require a separate approved increment.
+
 ## Milestone 9: Dense physical-energy terrain modes
 
 - [ ] Complete — blocking modal gate
@@ -1838,8 +1884,9 @@ iJ_\gamma\boldsymbol c_n
 ```
 
 - Use the positive physical-energy Gram matrix $H_\gamma$ and a Cholesky-scaled Hermitian eigensolve.
-- Identify $\mathcal G_{\gamma,N}$ from the zero-frequency eigenspace and compare its projector with the independently constructed Milestone-8 stationary space.
-- Define $\mathcal W_{\gamma,N}$ as the span of the nonzero-frequency eigenvectors.
+- Use the independently constructed Milestone-8 $\mathcal G_{\gamma,N}$ as the stationary sector rather than identifying it with a hard frequency cutoff.
+- Construct its physical-energy orthogonal complement and solve the dynamical eigenproblem there; retain every nonzero eigenpair, including arbitrarily low-frequency topographic boundary modes.
+- Define $\mathcal W_{\gamma,N}$ as the span of the resulting nonzero-frequency eigenvectors.
 - Classify internal waves and topographic boundary waves using frequency, polarization, volume APV, and bottom participation; retain compatible mean-density and bottom-buoyancy states inside the stationary space.
 - Evaluate
 
@@ -1865,7 +1912,8 @@ as an independent modal residual rather than a replacement eigenproblem row.
 
 - Frequencies are real and generalized eigen-residuals close within $10^{-10}$.
 - Distinct-frequency modes are orthogonal under physical finite-terrain energy within $10^{-10}$.
-- The zero-frequency projector agrees with the Milestone-8 stationary-space projector within $10^{-9}$.
+- The Milestone-8 stationary basis has eigen-residual below $10^{-10}$, and the physical-energy complement is orthogonal to it within $10^{-10}$.
+- Stationary and low-frequency boundary subspaces remain stable when the numerical frequency threshold is varied; no active mode may be reclassified or deleted solely because its frequency is close to zero.
 - Nonzero-frequency modes have negligible projected volume APV at the validated exact or trusted-band convergence gate.
 - Flat and uniform-depth frequencies reproduce the established nonhydrostatic solutions, and mode counts remain stable under refinement.
 - Bottom participation and the internal-wave versus topographic-boundary-wave classification converge under refinement.

@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Checkpoint after Milestone 7:** the finite-amplitude boundary-complete primitive weak oracle passes for flat, uniform-depth, constant-stratification, and variable-stratification cases. Physical energy and weak APV close at roundoff, while the independently tested bottom equation converges spectrally. Terrain-mode construction, Milestone 8, and time integration have not begun. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Checkpoint after Milestone 8:** the finite-amplitude primitive weak oracle and the complete trusted stationary balanced-space construction pass for flat, uniform-depth, constant-stratification, and variable-stratification cases. The complete APV Green identity, stationary primitive rows, and bottom tangency close at roundoff, while non-tangent bottom directions remain available for active boundary modes. Milestone 9 terrain-mode classification and time integration have not begun. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -174,6 +174,32 @@ The trusted-band bottom defect decreases from `3.47e-5` to `2.89e-7` to `2.01e-1
 The exact finite-amplitude forms differ from their flat-plus-tangent approximations by \(O(h^2)\): halving terrain amplitude reduces the energy, exchange, and geostrophic-inclusion remainders by a factor of approximately four. The oracle returns `compatible-finite-amplitude-weak-oracle`. It does not construct terrain modes or advance a state in time.
 
 The complete repository suite passes 139 tests with zero failures, and `checkcode` reports no issues in all 69 MATLAB files.
+
+## Complete finite-terrain stationary balanced space
+
+Milestone 8 extends the geostrophic inclusion to nonzero bottom values and enforces the finite-terrain tangency condition:
+
+```matlab
+audit = problem.auditCompleteStationaryBalancedSpace( ...
+    trustedModeBounds=[1 1], ...
+    supportModeBounds=[1 2;1 3;1 4], ...
+    primitivePolynomialDegrees=[2;3;4], ...
+    paddingFactors=[2;3]);
+```
+
+The oracle verifies the full APV Green identity, including
+
+```math
+c_b[\psi]
+=
+f\hat\eta_b+v_bh_x-u_bh_y,
+```
+
+and returns `complete-stationary-space-oracle`. At the reduced constant-stratification reference resolution, geostrophic representation, the complete Green identity, stationary rows, trusted bottom tangency, conjugacy, and padding agreement are all below `1.4e-13`. Six non-tangent bottom-streamfunction directions remain in the full state for dynamical classification.
+
+The raw exchange matrix contains extremely low-frequency active boundary directions next to its exact stationary kernel. Consequently, a hard SVD or frequency threshold is not used to define the physical stationary space. Milestone 9 must start from the tangency-defined Milestone-8 space and diagonalize its physical-energy complement, retaining the low-frequency topographic boundary modes.
+
+The complete repository suite passes 147 tests with zero failures.
 
 ## Terrain-energy Galerkin flat oracle
 

@@ -2,7 +2,7 @@
 
 ## Current status
 
-**This branch is at a passing Milestone-7 finite-amplitude checkpoint.** Milestone 6.8 showed that the terrain-dependent stationary geostrophic test states derive APV from the primitive weak equations. Milestone 7 now constructs those test states and the primitive energy and exchange forms at the same finite terrain amplitude. Physical energy and APV close at roundoff, and the independently evaluated bottom equation converges under support refinement without replacement APV rows or corrections. Terrain-mode construction, Milestone 8, and time integration have not begun.
+**This branch is at a passing Milestone-8 stationary-space checkpoint.** Milestone 7 constructs the terrain-dependent geostrophic test states and primitive energy and exchange forms at the same finite terrain amplitude. Milestone 8 extends that family to nonzero bottom values, enforces bottom tangency, and identifies the complete trusted stationary balanced space without removing the non-tangent bottom directions. Physical energy, APV Green identities, stationary primitive rows, and bottom tangency close at roundoff without replacement APV rows or corrections. Terrain-mode construction, Milestone 9, and time integration have not begun.
 
 The pre-Milestone-6.7 checkpoint is commit [`d5ab18f`](https://github.com/JeffreyEarly/topographic-forcing/tree/d5ab18f) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The current branch contains the completed projected, tangent boundary-complete, and finite-amplitude weak oracles. The matching mathematics is maintained in `finite-terrain-projection-problem.tex` and `terrain-energy-galerkin.tex` in the `ape-apv-bottom-topography` literature repository.
 
@@ -136,7 +136,30 @@ The projected bottom defect decreases from `3.47e-5` to `2.89e-7` to `2.01e-11`.
 
 Milestone 7 is therefore classified `compatible-finite-amplitude-weak-oracle`. This validates the dense finite-amplitude weak structure but does not yet establish a terrain-mode construction or online evolution method.
 
-The complete repository suite contains 139 passing tests, and static analysis reports no issues in all 69 MATLAB files.
+Milestone 8 constructs the trusted stationary scalar family with nonzero bottom values and the projected tangency condition
+
+```math
+\partial_x\phi_b\,\partial_yh
+-
+\partial_y\phi_b\,\partial_xh
+=0.
+```
+
+The resulting primitive states satisfy the complete APV Green identity with
+
+```math
+c_b[\psi]
+=
+f\hat\eta_b+v_bh_x-u_bh_y.
+```
+
+For the constant-stratification sinusoidal reference calculation, the geostrophic representation, complete Green identity, stationary row, projected bottom tangency, strong trusted bottom tangency, conjugacy, and padding defects are respectively `1.29e-17`, `1.15e-14`, `1.39e-13`, `1.44e-17`, `2.77e-17`, `6.57e-14`, and `9.37e-13`. Six non-tangent bottom-streamfunction directions remain in the full primitive state.
+
+The raw energy-scaled exchange form contains active topographic boundary directions with singular values near `1e-14 s^-1`. A hard SVD nullspace is therefore ill-conditioned even when the physically derived stationary rows close. The Milestone-8 tangency construction, not a numerical frequency threshold, defines the stationary sector. This distinction preserves the time-dependent Yassin-like boundary branch for Milestone 9.
+
+Milestone 8 is classified `complete-stationary-space-oracle`. Flat and uniform-depth controls pass, variable stratification converges, and ordinary and antialiased layouts preserve the common projection and Fourier conjugacy.
+
+The complete repository suite contains 147 passing tests, and static analysis reports no issues in all 72 MATLAB files.
 
 ## What the spectral-edge audit means
 
@@ -173,7 +196,7 @@ Changing the bottom basis alone, changing a quadratic norm without a derived inv
 
 Do not proceed by:
 
-- starting terrain-mode construction, Milestone 8, or time integration without a separate approved increment;
+- starting terrain-mode construction, Milestone 9, or time integration without a separate approved increment;
 - projecting the generator into an APV nullspace;
 - empirically symmetrizing the generator;
 - fitting a minimum-change closure;
@@ -185,7 +208,7 @@ Those operations either answer a different dynamical question or hide the diagno
 
 ## Conditions for continuing
 
-Milestone 7 supplies the finite-amplitude dense weak oracle. Any terrain-mode increment must use its unmodified \(H_\gamma,J_\gamma\) pair and the same terrain-dependent geostrophic inclusion. It must preserve physical energy, weak APV, bottom convergence, adjoint-consistent padded products, and the independent strong diagnostics established here.
+Milestones 7 and 8 supply the finite-amplitude dense weak oracle and the trusted stationary balanced space. Any terrain-mode increment must use the unmodified \(H_\gamma,J_\gamma\) pair and start from the tangency-defined stationary space. It must preserve physical energy, weak APV, bottom convergence, adjoint-consistent padded products, and the independent strong diagnostics established here. A hard zero-frequency cutoff is not an acceptable substitute because active boundary modes may have frequencies arbitrarily close to zero.
 
 External sidebands must remain separately reported. No corrected generator, fitted closure, empirical symmetrization, replacement APV rows, APV-nullspace projection, or mode deletion is permitted. Terrain-mode construction and evolution require separate planning and authorization.
 
@@ -212,6 +235,8 @@ The common projected primitive oracle is exposed by [`auditDealiasedProjectedPri
 The boundary-complete weak oracle is exposed by [`auditBoundaryCompleteWeakEigenproblem`](<@WVTerrainEnergyGalerkin/auditBoundaryCompleteWeakEigenproblem.m>), tested by [`TestWVTerrainEnergyBoundaryCompleteWeakEigenproblem`](UnitTests/TestWVTerrainEnergyBoundaryCompleteWeakEigenproblem.m), and recorded in [Milestone 6.8](milestones.md#milestone-68-boundary-complete-weak-terrain-eigenproblem).
 
 The finite-amplitude weak oracle is exposed by [`auditFiniteAmplitudeBoundaryCompleteWeakSystem`](<@WVTerrainEnergyGalerkin/auditFiniteAmplitudeBoundaryCompleteWeakSystem.m>), tested by [`TestWVTerrainEnergyFiniteAmplitudeBoundaryCompleteWeakSystem`](UnitTests/TestWVTerrainEnergyFiniteAmplitudeBoundaryCompleteWeakSystem.m), and recorded in [Milestone 7](milestones.md#milestone-7-finite-amplitude-projected-primitive-dense-gate).
+
+The complete stationary-space oracle is exposed by [`auditCompleteStationaryBalancedSpace`](<@WVTerrainEnergyGalerkin/auditCompleteStationaryBalancedSpace.m>), tested by [`TestWVTerrainEnergyCompleteStationaryBalancedSpace`](UnitTests/TestWVTerrainEnergyCompleteStationaryBalancedSpace.m), and recorded in [Milestone 8](milestones.md#milestone-8-complete-finite-terrain-stationary-balanced-space).
 
 ## Mathematical sources
 
