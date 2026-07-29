@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Paused research branch:** Milestone 6.5 validates a rigorously projected periodic QG volume–boundary PV system, but terrain-energy Galerkin development remains paused before the full primitive periodic problem. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before using the prototypes or continuing the roadmap. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Paused research branch:** Milestone 6.6 constructs a complete hybrid wave–projected-APV–bottom descriptor, but shows that it is not equivalent to the unmodified primitive weak equations and does not conserve physical energy. Terrain-energy Galerkin development therefore remains paused before the full primitive periodic problem. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before using the prototypes or continuing the roadmap. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -94,7 +94,16 @@ where $\mathcal P$ is the orthogonal projection onto the retained signed Fourier
 
 Edge inputs still produce nonzero sidebands outside the retained state. Those sidebands are explicitly measured and discarded by the Galerkin projection rather than aliased back into the state or counted as an internal APV defect. The existing balanced-plus-bottom basis represents the active topographic modes increasingly accurately under simultaneous oracle and vertical refinement.
 
-This establishes a closed periodic QG oracle and identifies an explicit PV-coordinate formulation as the promising horizontal representation. It does not establish the required hybrid primitive/PV descriptor, so Milestone 7 remains inactive.
+This establishes a closed periodic QG oracle and identifies an explicit PV-coordinate formulation as the promising horizontal representation. Milestone 6.6 tests that idea in a complete hybrid descriptor; the result below shows why Milestone 7 remains inactive.
+
+Milestone 6.6 tests the smallest such hybrid descriptor:
+
+```matlab
+audit = problem.auditHybridPrimitivePVOracle( ...
+    zonalMode=1,polynomialDegree=4);
+```
+
+The wave, projected-volume-APV, and bottom rows form a complete coordinate system and close at roundoff. Nevertheless, the resulting first-order generator fails the unmodified primitive weak equation, physical energy, and full sampled APV. The error is confined to meridional Fourier-edge inputs and persists under vertical refinement. The oracle therefore classifies the result as `primitive-equivalence-blocker`: using projected APV as a replacement coordinate is not by itself an equivalent discretization of the primitive equations.
 
 ## Terrain-energy Galerkin flat oracle
 
