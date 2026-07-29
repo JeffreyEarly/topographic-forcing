@@ -25,7 +25,7 @@ Finite-terrain products require oversampled horizontal quadrature. The same prol
 
 `spectralVariableWithResolution` is not sufficient for this purpose: it operates on WV modal arrays, copies a prefix of the stored ordering, and does not expose an adjoint full-DFT transfer. `waveVortexTransformWithDoubleResolution` also changes the vertical resolution when only horizontal oversampling is required.
 
-Milestone 4 now contains a validated project-local implementation for the dense oracle. It reconstructs retained signed modes on the oversampled periodic grid, uses the exact horizontal mean as the adjoint projection, and treats terrain interpolation separately from the prognostic truncation. The upstream API remains P0 because Milestone 7 will need the same operation as a reusable matrix-free prolongation/restriction pair rather than as an explicitly materialized dense reconstruction.
+Milestones 4 and 6.7 now contain validated project-local dense implementations. They reconstruct retained signed modes on the oversampled periodic grid, use the exact horizontal mean as the adjoint projection, and treat terrain interpolation separately from the prognostic truncation. Milestone 6.7 verifies adjointness and exact mode-number convolution at roundoff for padding factors two and three. The upstream API remains P0 if matrix-free development resumes because a production operator would need the same operation as a reusable prolongation/restriction pair rather than as an explicitly materialized dense reconstruction.
 
 ### Acceptance criteria
 

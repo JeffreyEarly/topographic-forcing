@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Paused before Milestone 6.7:** Milestone 6.6 shows that replacing primitive rows with projected APV and bottom rows is not equivalent to the primitive weak equations and does not conserve physical energy. The previously reported Fourier-edge APV residual is now recognized as an unprojected external sideband, not a fundamental spectral blocker. The next planned experiment retains the unmodified primitive weak forms and applies one common padded Galerkin projection. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Checkpoint after Milestone 6.8:** terrain-dependent geostrophic test states recover the APV Green identity and stationary primitive rows at roundoff, resolving the Milestone-6.7 tangent representation failure. Milestone 7 and finite-amplitude terrain have not begun. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -103,7 +103,43 @@ audit = problem.auditHybridPrimitivePVOracle( ...
     zonalMode=1,polynomialDegree=4);
 ```
 
-The wave, projected-volume-APV, and bottom rows form a complete coordinate system and close at roundoff. Nevertheless, the resulting first-order generator fails the unmodified primitive weak equation and physical energy. The full sampled APV audit also contains external meridional sidebands. The oracle therefore classifies the result as `primitive-equivalence-blocker`: using projected APV as a replacement coordinate is not by itself an equivalent discretization of the primitive equations. Milestone 6.7 will instead retain the primitive energy and exchange rows and test the common dealiased projection on a trusted physical band.
+The wave, projected-volume-APV, and bottom rows form a complete coordinate system and close at roundoff. Nevertheless, the resulting first-order generator fails the unmodified primitive weak equation and physical energy. The full sampled APV audit also contains external meridional sidebands. The oracle therefore classifies the result as `primitive-equivalence-blocker`: using projected APV as a replacement coordinate is not by itself an equivalent discretization of the primitive equations.
+
+## Dealiased projected primitive tangent oracle
+
+Milestone 6.7 returns to the unmodified primitive energy and exchange rows:
+
+```matlab
+audit = problem.auditDealiasedProjectedPrimitiveTangent( ...
+    trustedModeBounds=[1 0], ...
+    supportModeBounds=[1 1;1 2;1 3], ...
+    polynomialDegrees=[4;8;12], ...
+    paddingFactors=[2;3]);
+```
+
+All terrain products use one zero-pad, multiply, and adjoint-restrict operation. Exact mode-number convolution and the pseudospectral action agree to `1.19e-15`; the primitive weak, physical-energy, projected-bottom, conjugacy, and padding defects are all below their acceptance tolerances. External edge sidebands are measured separately and are not aliased into the retained equations.
+
+The trusted-band APV defect decreases from `5.45e-4` to `1.85e-4` to `1.01e-4` at polynomial degrees `4`, `8`, and `12`. The corresponding potential-enstrophy defect decreases from `3.34e-4` to `1.12e-4` to `6.08e-5`. These rates and final values fail the required factor-four and `1e-8` gates, while horizontal support refinement alone leaves the result unchanged. The oracle therefore returns `audit.status="nonconvergent-projected"`. No projected replacement rows or corrective closure are used, and finite-amplitude Milestone 7 remains inactive.
+
+The complete repository suite passes 125 tests with zero failures.
+
+## Boundary-complete weak terrain eigenproblem
+
+Milestone 6.8 uses the terrain-dependent geostrophic test states derived from the primitive APV Green identity:
+
+```matlab
+audit = problem.auditBoundaryCompleteWeakEigenproblem( ...
+    trustedModeBounds=[1 0], ...
+    supportModeBounds=[1 2], ...
+    polynomialDegrees=[4;8;12], ...
+    paddingFactor=2);
+```
+
+The oracle constructs both the flat and first-terrain geostrophic inclusions, evaluates APV moments independently from the strong mapped diagnostic, and solves the unmodified tangent generalized eigenproblem. The first-terrain Green-identity and stationary-row defects are `8.01e-15` and `6.63e-14`; independently evaluated APV evolution is `1.11e-13`. Physical energy and projected bottom evolution retain defects `4.28e-15` and `2.47e-12`.
+
+The result is `compatible-boundary-complete-weak-oracle`. APV follows from the original primitive weak equations once the terrain derivative of the test space is retained. No APV replacement rows, empirical corrections, symmetrization, APV-nullspace projection, or mode deletion are used. Milestone 7 remains a separate, unstarted finite-amplitude increment.
+
+The complete repository suite passes 130 tests with zero failures.
 
 ## Terrain-energy Galerkin flat oracle
 

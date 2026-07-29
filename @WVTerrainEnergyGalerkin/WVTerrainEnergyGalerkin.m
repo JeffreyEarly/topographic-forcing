@@ -25,6 +25,8 @@ classdef WVTerrainEnergyGalerkin < handle
     % - Topic: Audit coupled PV dynamics
     % - Topic: Audit periodic coupled PV closure
     % - Topic: Audit a hybrid primitive-PV descriptor
+    % - Topic: Audit a dealiased projected primitive tangent
+    % - Topic: Audit a boundary-complete weak eigenproblem
     % - Topic: Audit the Branch-P discrete oracle
     % - Topic: Audit terrain compatibility
     % - Topic: Audit constrained evolution

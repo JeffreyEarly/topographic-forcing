@@ -1,7 +1,19 @@
-function audit = buildGlobalSmallTerrainPrimitiveAudit(problem,polynomialDegree,quadratureOrder,tangentStep)
+function [audit,context] = buildGlobalSmallTerrainPrimitiveAudit(problem,polynomialDegree,quadratureOrder,tangentStep,options)
 % Build and classify the global first-order primitive terrain oracle.
+arguments
+    problem (1,1) WVTerrainEnergyGalerkin
+    polynomialDegree (1,1) double
+    quadratureOrder (1,1) double
+    tangentStep (1,1) double
+    options.horizontalLayout = problem.horizontalLayout
+    options.paddingFactor (1,1) double = problem.horizontalOversamplingFactor
+    options.trustedModeBounds (1,2) double = [Inf Inf]
+    options.rejectTerrainNyquist (1,1) logical = false
+end
 
-context = buildContext(problem,polynomialDegree,quadratureOrder);
+context = buildContext(problem,polynomialDegree,quadratureOrder, ...
+    options.horizontalLayout,options.paddingFactor,options.trustedModeBounds, ...
+    options.rejectTerrainNyquist);
 flat = descriptorAtScale(context,0);
 analytic = analyticTangent(context,flat);
 steps = tangentStep./(2.^(0:2));
@@ -17,6 +29,7 @@ end
 
 tangentAgreement = tangentAgreementDiagnostics(analytic,centered);
 compatibility = compatibilityDiagnostics(context,flat,analytic);
+projectedCompatibility = projectedCompatibilityDiagnostics(context,flat,analytic);
 strongAPV = strongAPVDiagnostics(context,flat,analytic);
 fourier = fourierDiagnostics(context,analytic,compatibility.apvCancellation);
 flatDiagnostics = flatReferenceDiagnostics(context,flat);
@@ -65,21 +78,23 @@ audit.analyticTangent = analytic;
 audit.centeredTangents = centered;
 audit.tangentAgreement = tangentAgreement;
 audit.compatibility = compatibility;
+audit.projectedCompatibility = projectedCompatibility;
 audit.apvCancellation = compatibility.apvCancellation;
 audit.strongAPV = strongAPV;
 audit.fourier = fourier;
 audit.flatDiagnostics = flatDiagnostics;
 audit.structure = structure;
+audit.projection = context.projectionDiagnostics;
 audit.requiredTolerance = requiredTolerance;
 audit.diagnosis = diagnosis;
 audit.nextScope = "finite-amplitude-periodic-terrain-only-if-compatible";
 end
 
-function context = buildContext(problem,degree,quadratureOrder)
+function context = buildContext(problem,degree,quadratureOrder,horizontalLayout,paddingFactor,trustedModeBounds,rejectTerrainNyquist)
 wvt = problem.originatingTransform;
 quadrature = legendreQuadrature(quadratureOrder,wvt.Lz);
 spaces = polynomialSpaces(degree,quadrature,wvt.Lz);
-nK = height(problem.horizontalLayout);
+nK = height(horizontalLayout);
 nF = size(spaces.F,2);
 nG = size(spaces.G,2);
 nH = size(spaces.H,2);
@@ -88,13 +103,13 @@ nXBlock = 2*nF+nG+nH;
 nX = nK*nXBlock;
 nPressure = nK*nP;
 
-oversampling = problem.horizontalOversamplingFactor;
+oversampling = paddingFactor;
 Nx = oversampling*wvt.Nx;
 Ny = oversampling*wvt.Ny;
 nXY = Nx*Ny;
 nZ = numel(quadrature.xi);
 [x,y] = ndgrid((0:Nx-1)'*wvt.Lx/Nx,(0:Ny-1)'*wvt.Ly/Ny);
-phase = exp(1i*(x(:)*problem.horizontalLayout.k.'+y(:)*problem.horizontalLayout.l.'));
+phase = exp(1i*(x(:)*horizontalLayout.k.'+y(:)*horizontalLayout.l.'));
 phaseGramDefect = norm(phase'*phase/nXY-eye(nK),"fro")/sqrt(nK);
 if phaseGramDefect > 1e-12
     error("WVTerrainEnergyGalerkin:GlobalPrimitivePhaseFailure", ...
@@ -111,6 +126,8 @@ h = real(h);
 H = h/wvt.Lz;
 HX = hX/wvt.Lz;
 HY = hY/wvt.Lz;
+[terrainMultiplication,projectionDiagnostics] = projectedTerrainMultiplication( ...
+    problem,horizontalLayout,phase,H,HX,HY,nXY,rejectTerrainNyquist);
 
 nGrid = nXY*nZ;
 Ru = zeros(nGrid,nX);
@@ -153,15 +170,15 @@ for iK = 1:nK
     TH(:,hCols) = kron(spaces.H,phaseK);
     RP(:,pCols) = kron(spaces.Pressure,phaseK);
     RPXi(:,pCols) = kron(spaces.PressureXi,phaseK);
-    RPX(:,pCols) = 1i*problem.horizontalLayout.k(iK)*RP(:,pCols);
-    RPY(:,pCols) = 1i*problem.horizontalLayout.l(iK)*RP(:,pCols);
+    RPX(:,pCols) = 1i*horizontalLayout.k(iK)*RP(:,pCols);
+    RPY(:,pCols) = 1i*horizontalLayout.l(iK)*RP(:,pCols);
     uBottom(:,iu) = phaseK*spaces.Fendpoint(1,:);
     vBottom(:,iv) = phaseK*spaces.Fendpoint(1,:);
     bottomValueFull(iK,ieta) = spaces.Hendpoint(1,:);
 end
 
-kByState = repelem(problem.horizontalLayout.k,nXBlock);
-lByState = repelem(problem.horizontalLayout.l,nXBlock);
+kByState = repelem(horizontalLayout.k,nXBlock);
+lByState = repelem(horizontalLayout.l,nXBlock);
 RuX = Ru.*(1i*kByState.');
 RuY = Ru.*(1i*lByState.');
 RvX = Rv.*(1i*kByState.');
@@ -169,9 +186,10 @@ RvY = Rv.*(1i*lByState.');
 divergence = RuX+RvY+RwhXi;
 volumeWeight = kron(quadrature.weight,ones(nXY,1)/nXY);
 continuity = TF'*(volumeWeight.*divergence);
-[N,admissibleDimensions,admissibleRanges,continuityDiagnostics] = admissibleBasis(problem,continuity,nXBlock,nF);
+[N,admissibleDimensions,admissibleRanges,continuityDiagnostics] = admissibleBasis( ...
+    horizontalLayout,continuity,nXBlock,nF,nG,nH,spaces,quadrature);
 
-zeroK = find(problem.horizontalLayout.kMode == 0 & problem.horizontalLayout.lMode == 0,1);
+zeroK = find(horizontalLayout.kMode == 0 & horizontalLayout.lMode == 0,1);
 if isempty(zeroK)
     error("WVTerrainEnergyGalerkin:MissingMeanHorizontalMode", ...
         "The retained signed layout must include the zero horizontal mode.")
@@ -179,7 +197,7 @@ end
 pressureGauge = zeros(nX+nPressure,1);
 pressureGauge(nX+(zeroK-1)*nP+1) = 1;
 
-horizontalConjugateIndex = conjugateHorizontalIndex(problem);
+horizontalConjugateIndex = conjugateHorizontalIndex(horizontalLayout);
 coordinateConjugateIndex = zeros(size(N,2),1);
 for iK = 1:nK
     partner = horizontalConjugateIndex(iK);
@@ -200,12 +218,23 @@ end
 [Pq,Pqr] = legendreValues(quadrature.r,nZ-1);
 N2Xi = (2/wvt.Lz)*(Pqr/Pq)*N20;
 
+trustedHorizontalModes = abs(horizontalLayout.kMode) <= trustedModeBounds(1) ...
+    & abs(horizontalLayout.lMode) <= trustedModeBounds(2);
+trustedColumns = horzcat(admissibleRanges{trustedHorizontalModes});
+Pxy = phase'/nXY;
+Pq = kron(speye(nZ),Pxy);
+Iq = kron(speye(nZ),phase);
+apvVerticalWeight = kron(quadrature.weight,ones(nK,1));
 layout = struct("numberOfHorizontalModes",nK,"numberOfStateCoefficients",nX, ...
     "numberOfAdmissibleCoefficients",size(N,2),"numberOfPressureCoefficients",nPressure, ...
     "stateBlockSize",nXBlock,"admissibleBlockSizes",admissibleDimensions, ...
     "admissibleRanges",{admissibleRanges}, ...
-    "nF",nF,"nG",nG,"nH",nH,"nP",nP,"oversampledSize",[Nx Ny nZ]);
+    "nF",nF,"nG",nG,"nH",nH,"nP",nP,"oversampledSize",[Nx Ny nZ], ...
+    "paddingFactor",paddingFactor,"horizontalLayout",horizontalLayout, ...
+    "trustedModeBounds",trustedModeBounds,"trustedHorizontalModes",trustedHorizontalModes, ...
+    "trustedColumns",trustedColumns);
 context = struct("problem",problem,"wvt",wvt,"quadrature",quadrature,"spaces",spaces, ...
+    "horizontalLayout",horizontalLayout, ...
     "layout",layout,"nK",nK,"nF",nF,"nG",nG,"nH",nH,"nP",nP, ...
     "nXBlock",nXBlock,"nX",nX,"nPressure",nPressure,"nXY",nXY,"nZ",nZ, ...
     "phase",phase,"H",H(:),"HX",HX(:),"HY",HY(:),"hX",hX(:),"hY",hY(:), ...
@@ -216,7 +245,75 @@ context = struct("problem",problem,"wvt",wvt,"quadrature",quadrature,"spaces",sp
     "uBottom",uBottom,"vBottom",vBottom,"bottomValueFull",bottomValueFull, ...
     "continuity",continuity,"N",N,"pressureGauge",pressureGauge, ...
     "N20",N20,"N2Xi",N2Xi,"coordinateConjugateIndex",coordinateConjugateIndex, ...
-    "continuityDiagnostics",continuityDiagnostics,"phaseGramDefect",phaseGramDefect);
+    "Pxy",Pxy,"Pq",Pq,"Iq",Iq,"apvVerticalWeight",apvVerticalWeight, ...
+    "terrainMultiplication",terrainMultiplication, ...
+    "continuityDiagnostics",continuityDiagnostics,"phaseGramDefect",phaseGramDefect, ...
+    "projectionDiagnostics",projectionDiagnostics);
+end
+
+function [multiplication,diagnostics] = projectedTerrainMultiplication(problem,horizontalLayout,phase,H,HX,HY,nXY,rejectTerrainNyquist)
+wvt = problem.originatingTransform;
+P = phase'/nXY;
+pseudoH = P*(H(:).*phase);
+pseudoHX = P*(HX(:).*phase);
+pseudoHY = P*(HY(:).*phase);
+nativeSpectrum = fft2(problem.topographicHeight)/(wvt.Nx*wvt.Ny*wvt.Lz);
+nyquistMask = logical(WVGeometryDoublyPeriodic.maskForNyquistModes(wvt.Nx,wvt.Ny));
+scale = max(abs(nativeSpectrum),[],"all");
+tolerance = 100*eps*max(scale,1);
+nyquistAmplitude = max(abs(nativeSpectrum(nyquistMask)),[],"all");
+if rejectTerrainNyquist && nyquistAmplitude > tolerance
+    error("WVTerrainEnergyGalerkin:ProjectedPrimitiveTerrainNyquist", ...
+        "The dealiased projected primitive audit requires terrain with no material Nyquist coefficient.")
+end
+[kMode,lMode] = ndgrid(wvt.kMode_dft,wvt.lMode_dft);
+active = abs(nativeSpectrum) > tolerance & ~nyquistMask;
+coefficient = nativeSpectrum(active);
+kMode = kMode(active);
+lMode = lMode(active);
+nK = height(horizontalLayout);
+exactH = zeros(nK);
+exactHX = zeros(nK);
+exactHY = zeros(nK);
+discardedCount = zeros(nK,1);
+discardedNorm = zeros(nK,1);
+for iIn = 1:nK
+    inputMode = [horizontalLayout.kMode(iIn) horizontalLayout.lMode(iIn)];
+    for iTerrain = 1:numel(coefficient)
+        destination = inputMode+[kMode(iTerrain) lMode(iTerrain)];
+        iOut = find(horizontalLayout.kMode == destination(1) ...
+            & horizontalLayout.lMode == destination(2),1);
+        qx = 2*pi*kMode(iTerrain)/wvt.Lx;
+        qy = 2*pi*lMode(iTerrain)/wvt.Ly;
+        if isempty(iOut)
+            discardedCount(iIn) = discardedCount(iIn)+1;
+            discardedNorm(iIn) = hypot(discardedNorm(iIn),abs(coefficient(iTerrain)));
+        else
+            exactH(iOut,iIn) = exactH(iOut,iIn)+coefficient(iTerrain);
+            exactHX(iOut,iIn) = exactHX(iOut,iIn)+1i*qx*coefficient(iTerrain);
+            exactHY(iOut,iIn) = exactHY(iOut,iIn)+1i*qy*coefficient(iTerrain);
+        end
+    end
+end
+a = (1:nK)'+1i*(nK:-1:1)';
+g = sin((1:nXY)')+1i*cos((1:nXY)');
+lhs = (phase*a)'*g/nXY;
+rhs = a'*(P*g);
+adjointDefect = abs(lhs-rhs)/max(abs(lhs)+abs(rhs),realmin);
+defects = [norm(pseudoH-exactH,"fro")/max(norm(exactH,"fro"),1), ...
+    norm(pseudoHX-exactHX,"fro")/max(norm(exactHX,"fro"),1), ...
+    norm(pseudoHY-exactHY,"fro")/max(norm(exactHY,"fro"),1)];
+multiplication = struct("H",pseudoH,"HX",pseudoHX,"HY",pseudoHY, ...
+    "exactH",exactH,"exactHX",exactHX,"exactHY",exactHY);
+diagnostics = struct("adjointDefect",adjointDefect, ...
+    "restrictionIdentityDefect",norm(P*phase-eye(nK),"fro")/sqrt(nK), ...
+    "exactConvolutionDefects",defects,"maximumExactConvolutionDefect",max(defects), ...
+    "terrainModes",[kMode lMode],"terrainCoefficients",coefficient, ...
+    "nyquistAmplitude",nyquistAmplitude,"discardedCountByInput",discardedCount, ...
+    "discardedOperatorNormByInput",discardedNorm, ...
+    "numberOfEdgeHorizontalModes",nnz(discardedCount > 0), ...
+    "numberOfInteriorHorizontalModes",nnz(discardedCount == 0), ...
+    "maximumDiscardedOperatorNorm",max(discardedNorm));
 end
 
 function direction = descriptorAtScale(c,delta)
@@ -228,11 +325,16 @@ pressureMap = Y(c.nX+(1:c.nPressure),:);
 L = c.N'*xDot;
 R = coefficients.bottomTendencyFull*c.N;
 Q = coefficients.Q*c.N;
+QProjected = c.Pq*Q;
 E = c.N'*coefficients.Efull*c.N;
 J = c.N'*coefficients.Jfull*c.N;
 Z = c.N'*(coefficients.Q'*(coefficients.apvWeight.*coefficients.Q))*c.N;
+gammaMultiplication = eye(c.nK)-delta*c.terrainMultiplication.H;
+gammaAction = kron(speye(c.nZ),gammaMultiplication)*QProjected;
+ZProjected = QProjected'*(c.apvVerticalWeight.*gammaAction);
 B = c.bottomValueFull*c.N;
 direction = struct("scale",delta,"L",L,"E",E,"J",J,"Q",Q,"Z",Z,"B",B,"R",R, ...
+    "QProjected",QProjected,"ZProjected",ZProjected, ...
     "pressureMap",pressureMap,"primitiveTendency",xDot,"matrices",matrices);
 direction.diagnostics = solveDiagnostics;
 direction.diagnostics.continuityTangencyDefect = norm(c.continuity*xDot,"fro") ...
@@ -264,13 +366,20 @@ L1 = c.N'*xDot1;
 E1 = c.N'*first.Efull*c.N;
 J1 = c.N'*first.Jfull*c.N;
 Q1 = first.Q*c.N;
+Q1Projected = c.Pq*Q1;
 R1 = first.bottomTendencyFull*c.N;
 W0 = c.volumeWeight;
 W1 = -repmat(c.H,c.nZ,1).*W0;
 Q0Full = flat.Q;
 Z1 = Q1'*(W0.*Q0Full)+Q0Full'*(W0.*Q1)+Q0Full'*(W1.*Q0Full);
+Q0Projected = flat.QProjected;
+terrainQ0 = kron(speye(c.nZ),c.terrainMultiplication.H)*Q0Projected;
+Z1Projected = Q1Projected'*(c.apvVerticalWeight.*Q0Projected) ...
+    +Q0Projected'*(c.apvVerticalWeight.*Q1Projected) ...
+    -Q0Projected'*(c.apvVerticalWeight.*terrainQ0);
 
 analytic = struct("L",L1,"E",E1,"J",J1,"Q",Q1,"Z",Z1,"R",R1, ...
+    "QProjected",Q1Projected,"ZProjected",Z1Projected, ...
     "pressureMap",pressureMap1,"primitiveTendency",xDot1,"matrices",matrices1);
 analytic.diagnostics = struct;
 analytic.diagnostics.tangentSaddleResidual = norm(S0*Y1-rhs1,"fro")/max(norm(rhs1,"fro"),realmin);
@@ -414,7 +523,7 @@ diagnostics = struct("pressureNullity",nullity,"singularValues",singularValues, 
 end
 
 function tangent = centeredTangent(plus,minus,step)
-names = ["L","E","J","Q","Z","R","pressureMap","primitiveTendency"];
+names = ["L","E","J","Q","Z","QProjected","ZProjected","R","pressureMap","primitiveTendency"];
 tangent = struct("step",step);
 for name = names
     tangent.(name) = (plus.(name)-minus.(name))/(2*step);
@@ -422,7 +531,7 @@ end
 end
 
 function diagnostics = tangentAgreementDiagnostics(analytic,centered)
-names = ["L","E","J","Q","Z","R","pressureMap","primitiveTendency"];
+names = ["L","E","J","Q","Z","QProjected","ZProjected","R","pressureMap","primitiveTendency"];
 relative = struct;
 maximum = 0;
 for name = names
@@ -471,6 +580,41 @@ diagnostics.apvCancellation = struct("tendencyCorrection",apvTerms{1}, ...
 diagnostics.flatWeakDefect = productDefect(E0*L0-J0,{E0*L0,J0});
 end
 
+function diagnostics = projectedCompatibilityDiagnostics(c,flat,first)
+Q0 = flat.QProjected;
+Q1 = first.QProjected;
+L0 = flat.L;
+L1 = first.L;
+Z0 = flat.ZProjected;
+Z1 = first.ZProjected;
+apvTerms = {Q0*L1,Q1*L0};
+apvResidual = apvTerms{1}+apvTerms{2};
+enstrophyTerms = {L1'*Z0,Z0*L1,L0'*Z1,Z1*L0};
+enstrophyResidual = enstrophyTerms{1}+enstrophyTerms{2}+enstrophyTerms{3}+enstrophyTerms{4};
+trusted = c.layout.trustedColumns;
+externalResidual = flat.Q*L1+first.Q*L0-c.Iq*apvResidual;
+externalDefectByHorizontalMode = zeros(c.nK,1);
+for iK = 1:c.nK
+    columns = c.layout.admissibleRanges{iK};
+    externalDefectByHorizontalMode(iK) = norm(externalResidual(:,columns),"fro") ...
+        /max(norm(apvTerms{1}(:,columns),"fro")+norm(apvTerms{2}(:,columns),"fro"),realmin);
+end
+diagnostics = struct( ...
+    "apvTerms",{apvTerms}, ...
+    "apvResidual",apvResidual, ...
+    "apvDefect",productDefect(apvResidual,apvTerms), ...
+    "trustedAPVDefect",productDefect(apvResidual(:,trusted), ...
+        {apvTerms{1}(:,trusted),apvTerms{2}(:,trusted)}), ...
+    "enstrophyResidual",enstrophyResidual, ...
+    "enstrophyDefect",productDefect(enstrophyResidual,enstrophyTerms), ...
+    "trustedEnstrophyDefect",productDefect(enstrophyResidual(:,trusted), ...
+        cellfun(@(value)value(:,trusted),enstrophyTerms,"UniformOutput",false)), ...
+    "externalAPVResidual",externalResidual, ...
+    "externalAPVDefect",productDefect(externalResidual,{flat.Q*L1,first.Q*L0}), ...
+    "externalAPVDefectByHorizontalMode",externalDefectByHorizontalMode, ...
+    "maximumExternalAPVDefectByHorizontalMode",max(externalDefectByHorizontalMode));
+end
+
 function diagnostics = strongAPVDiagnostics(c,flat,first)
 H3 = repmat(c.H,c.nZ,1);
 HX3 = repmat(c.HX,c.nZ,1);
@@ -507,8 +651,8 @@ terrainModes = terrainFourierModes(c);
 allowed = false(c.nK);
 for iOut = 1:c.nK
     for iIn = 1:c.nK
-        difference = [c.problem.horizontalLayout.kMode(iOut)-c.problem.horizontalLayout.kMode(iIn), ...
-            c.problem.horizontalLayout.lMode(iOut)-c.problem.horizontalLayout.lMode(iIn)];
+        difference = [c.horizontalLayout.kMode(iOut)-c.horizontalLayout.kMode(iIn), ...
+            c.horizontalLayout.lMode(iOut)-c.horizontalLayout.lMode(iIn)];
         allowed(iOut,iIn) = any(all(terrainModes == difference,2));
     end
 end
@@ -525,12 +669,12 @@ disallowed(allowedCoordinates) = 0;
 leakage = norm(disallowed,"fro")/max(norm(first.L,"fro"),realmin);
 interiorModes = false(c.nK,1);
 for iIn = 1:c.nK
-    destinations = [c.problem.horizontalLayout.kMode(iIn)+terrainModes(:,1), ...
-        c.problem.horizontalLayout.lMode(iIn)+terrainModes(:,2)];
+    destinations = [c.horizontalLayout.kMode(iIn)+terrainModes(:,1), ...
+        c.horizontalLayout.lMode(iIn)+terrainModes(:,2)];
     retained = false(size(destinations,1),1);
     for iDestination = 1:size(destinations,1)
-        retained(iDestination) = any(c.problem.horizontalLayout.kMode == destinations(iDestination,1) ...
-            & c.problem.horizontalLayout.lMode == destinations(iDestination,2));
+        retained(iDestination) = any(c.horizontalLayout.kMode == destinations(iDestination,1) ...
+            & c.horizontalLayout.lMode == destinations(iDestination,2));
     end
     interiorModes(iIn) = all(retained);
 end
@@ -559,7 +703,7 @@ modeOneDispersionDefect = NaN;
 if N2Variation <= 1e-12*max(c.N20)
     defects = zeros(c.nK,1);
     for iK = 1:c.nK
-        kappa = hypot(c.problem.horizontalLayout.k(iK),c.problem.horizontalLayout.l(iK));
+        kappa = hypot(c.horizontalLayout.k(iK),c.horizontalLayout.l(iK));
         if kappa == 0
             defects(iK) = 0;
             continue
@@ -611,16 +755,42 @@ xDerivative = real(ifft2((1i*k).*spectrum));
 yDerivative = real(ifft2(spectrum.*(1i*l)));
 end
 
-function [N,dimensions,ranges,diagnostics] = admissibleBasis(problem,continuity,nXBlock,nF)
-nK = height(problem.horizontalLayout);
-horizontalConjugateIndex = conjugateHorizontalIndex(problem);
+function [N,dimensions,ranges,diagnostics] = admissibleBasis(horizontalLayout,continuity,nXBlock,nF,nG,nH,spaces,quadrature)
+nK = height(horizontalLayout);
+horizontalConjugateIndex = conjugateHorizontalIndex(horizontalLayout);
 local = cell(nK,1);
 rankValues = zeros(nK,1);
+expectedRank = zeros(nK,1);
+verticalMass = spaces.F'*(quadrature.weight.*spaces.F);
+verticalDivergence = spaces.F'*(quadrature.weight.*spaces.Gxi);
 for iK = 1:nK
     rows = (iK-1)*nF+(1:nF);
     cols = (iK-1)*nXBlock+(1:nXBlock);
     if isempty(local{iK})
-        local{iK} = null(continuity(rows,cols));
+        k = horizontalLayout.k(iK);
+        l = horizontalLayout.l(iK);
+        kappa = hypot(k,l);
+        if kappa > 0
+            raw = zeros(nXBlock,nF+nG+nH);
+            raw(1:nF,1:nF) = -(l/kappa)*eye(nF);
+            raw(nF+(1:nF),1:nF) = (k/kappa)*eye(nF);
+            longitudinal = (1i/kappa)*(verticalMass\verticalDivergence);
+            wColumns = nF+(1:nG);
+            raw(1:nF,wColumns) = (k/kappa)*longitudinal;
+            raw(nF+(1:nF),wColumns) = (l/kappa)*longitudinal;
+            raw(2*nF+(1:nG),wColumns) = eye(nG);
+            etaColumns = nF+nG+(1:nH);
+            raw(2*nF+nG+(1:nH),etaColumns) = eye(nH);
+            expectedRank(iK) = nF;
+        else
+            raw = zeros(nXBlock,2*nF+nH);
+            raw(1:nF,1:nF) = eye(nF);
+            raw(nF+(1:nF),nF+(1:nF)) = eye(nF);
+            raw(2*nF+nG+(1:nH),2*nF+(1:nH)) = eye(nH);
+            expectedRank(iK) = nG;
+        end
+        [local{iK},~] = qr(raw,0);
+        local{iK} = canonicalColumnPhases(local{iK});
     end
     partner = horizontalConjugateIndex(iK);
     if partner ~= iK
@@ -644,17 +814,27 @@ for iK = 1:nK
     N(rows,cols) = local{iK};
 end
 diagnostics = struct("rankByHorizontalMode",rankValues, ...
-    "expectedRank",nF,"nullspaceDefect",norm(continuity*N,"fro") ...
+    "expectedRankByHorizontalMode",expectedRank,"nullspaceDefect",norm(continuity*N,"fro") ...
     /max(norm(continuity,"fro"),realmin),"orthogonalityDefect", ...
     norm(N'*N-eye(size(N,2)),"fro")/sqrt(size(N,2)));
 end
 
-function conjugateIndex = conjugateHorizontalIndex(problem)
-nK = height(problem.horizontalLayout);
+function values = canonicalColumnPhases(values)
+for iColumn = 1:size(values,2)
+    [~,pivot] = max(abs(values(:,iColumn)));
+    if values(pivot,iColumn) ~= 0
+        values(:,iColumn) = values(:,iColumn)*conj(values(pivot,iColumn)) ...
+            /abs(values(pivot,iColumn));
+    end
+end
+end
+
+function conjugateIndex = conjugateHorizontalIndex(horizontalLayout)
+nK = height(horizontalLayout);
 conjugateIndex = zeros(nK,1);
 for iK = 1:nK
-    partner = find(problem.horizontalLayout.kMode == -problem.horizontalLayout.kMode(iK) ...
-        & problem.horizontalLayout.lMode == -problem.horizontalLayout.lMode(iK),1);
+    partner = find(horizontalLayout.kMode == -horizontalLayout.kMode(iK) ...
+        & horizontalLayout.lMode == -horizontalLayout.lMode(iK),1);
     if isempty(partner)
         error("WVTerrainEnergyGalerkin:IncompletePrimitiveHorizontalConjugacy", ...
             "The retained horizontal layout is missing a Fourier conjugate.")

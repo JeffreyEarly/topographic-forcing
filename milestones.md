@@ -1,6 +1,6 @@
 # Terrain-energy Galerkin milestones
 
-> **Paused before Milestone 6.7:** a complete hybrid wave–projected-APV–bottom descriptor can be constructed, but replacing primitive rows by projected conservation rows is not equivalent to the primitive weak equations and does not conserve physical energy. The previously reported Fourier-edge APV residual is an unprojected external sideband rather than a fundamental spectral blocker. Milestone 6.7 now defines the standard dealiased projected-primitive experiment. Milestones 7–13 remain inactive until that gate passes.
+> **Checkpoint after Milestone 6.8:** the boundary-complete weak oracle derives APV from terrain-dependent geostrophic test states inside the primitive weak space and closes the trusted tangent identities at roundoff. This resolves the Milestone-6.7 representation question without replacement APV rows or corrections. Milestones 7–13 remain inactive until separately planned.
 
 ## Objective
 
@@ -25,7 +25,7 @@ The implementation will use ordinary hydrostatic modes as economical vertical co
 
 The completed mean-depth generator and scattering implementation is retained as reusable engineering infrastructure. Its scientific roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md). Neither existing forcing is used as the terrain-energy evolution operator.
 
-The completed dense finite-terrain forms remain diagnostic oracles. Milestones 4.5–6.3 record the successive bottom-state, pressure-ordering, local-slope, and primitive-coordinate audits. Milestones 6.4–6.5 show that coupled volume and boundary PV provide a closed local and periodic QG representation. Milestone 6.6 shows that simply using projected APV and bottom PV as replacement coordinates yields a complete descriptor but not one equivalent to the primitive weak dynamics. Its row-equivalence and physical-energy failures remain decisive. The full-grid Fourier-edge APV residual from Milestones 6.3 and 6.6 is now interpreted correctly as discarded external support. Milestone 6.7 therefore returns to the unmodified primitive energy and exchange forms and tests one common padded projection before finite-amplitude terrain is attempted.
+The completed dense finite-terrain forms remain diagnostic oracles. Milestones 4.5–6.3 record the successive bottom-state, pressure-ordering, local-slope, and primitive-coordinate audits. Milestones 6.4–6.5 show that coupled volume and boundary PV provide a closed local and periodic QG representation. Milestone 6.6 shows that simply using projected APV and bottom PV as replacement coordinates yields a complete descriptor but not one equivalent to the primitive weak dynamics. Its row-equivalence and physical-energy failures remain decisive. Milestone 6.7 returns to the unmodified primitive energy and exchange forms and shows that ordinary dealiased projection alone does not recover the APV cancellation. Milestone 6.8 supplies the missing terrain derivative of the geostrophic test space and verifies the resulting weak APV Green identity directly.
 
 ## Fixed conventions and boundaries
 
@@ -1456,7 +1456,7 @@ Milestone 7 remains inactive. Do not extend this hybrid descriptor to finite-amp
 
 ## Milestone 6.7: Dealiased projected primitive tangent oracle
 
-- [ ] Complete — blocking spectral-convergence gate
+- [x] Complete — `nonconvergent-projected` result resolved by Milestone 6.8
 
 ### Purpose
 
@@ -1513,9 +1513,151 @@ closes below \(10^{-10}\), classify the oracle as `exact-projected`.
 - A nonconvergent trusted-band result is a genuine blocker and keeps Milestone 7 inactive.
 - The complete repository suite and `checkcode` pass.
 
+### Implementation result
+
+The public oracle is:
+
+```matlab
+audit = problem.auditDealiasedProjectedPrimitiveTangent( ...
+    trustedModeBounds=[1 0], ...
+    supportModeBounds=[1 1;1 2;1 3], ...
+    polynomialDegrees=[4;8;12], ...
+    paddingFactors=[2;3]);
+```
+
+It retains the unmodified primitive weak forms and applies one common Fourier prolongation, terrain multiplication, and adjoint restriction to the primitive forms, APV map, and bottom row. The deterministic divergence-free coordinate construction makes the retained coefficient basis independent of padding.
+
+The structural gates pass:
+
+| Test | Maximum defect |
+|---|---:|
+| Prolongation/restriction and exact convolution | `1.19e-15` |
+| Analytic versus centered tangent | `6.10e-10` |
+| Primitive weak evolution | `9.98e-15` |
+| Physical energy | `4.57e-15` |
+| Projected bottom evolution | `3.15e-12` |
+| Fourier conjugacy | `2.37e-15` |
+| Padding factors two versus three | `4.39e-12` |
+
+The trusted-band refinement result is:
+
+| Vertical degree and support | APV defect | Potential-enstrophy defect |
+|---|---:|---:|
+| `4`, `[1 1]` | `5.45e-4` | `3.34e-4` |
+| `8`, `[1 2]` | `1.85e-4` | `1.12e-4` |
+| `12`, `[1 3]` | `1.01e-4` | `6.08e-5` |
+
+The successive APV reduction factors are `2.95` and `1.84`; the potential-enstrophy factors are `2.97` and `1.85`. Increasing horizontal support alone leaves the finest-degree trusted defects unchanged, showing that the first terrain sidebands already lie in the guard band. External edge sidebands remain nonzero, with maximum discarded terrain-multiplication norm `8.33e-3`, but exact convolution and the padding comparison show that they are discarded rather than aliased into the retained equations.
+
+The result is therefore `nonconvergent-projected`. The ordinary dealiased projection removes the earlier false Fourier-edge obstruction, but it does not restore stationary trusted-band APV for this primitive discretization at the required rate or tolerance. No replacement rows, empirical correction, symmetrization, or APV-nullspace projection were applied.
+
+The complete repository suite passes 125 tests with zero failures, and `checkcode` reports no issues in the repository MATLAB source.
+
 ### Stopping condition
 
-Stop after recording `exact-projected`, `convergent-projected`, or `nonconvergent-projected`. Do not construct finite-amplitude terrain modes or alter the generator to obtain a preferred classification.
+This result stopped finite-amplitude work and motivated the continuous weak-eigenproblem derivation. Do not begin Milestone 7 from the Milestone-6.7 fixed-test construction alone.
+
+## Milestone 6.8: Boundary-complete weak terrain eigenproblem
+
+- [x] Complete — passing tangent oracle
+
+### Purpose
+
+Return to the continuous primitive weak equations and derive the terrain-dependent stationary geostrophic test states that make volume APV a consequence of those same equations. Test the resulting compatible weak sequence before any finite-amplitude terrain construction.
+
+### Dependencies
+
+Milestone 6.7 and the continuous derivation in `finite-terrain-weak-eigenproblem.tex`. Retain the unmodified primitive \(H_0,H_1,J_0,J_1\), the complete bottom coordinate, and the common dealiased terrain projection.
+
+### Deliverables
+
+- Construct the exact mapped geostrophic test state generated by a scalar \(\phi\), including its \(O(h)\) changes in \(\hat u,\hat v,\hat w,\hat\eta\).
+- Use scalar tests satisfying
+
+```math
+\phi_b=0,
+\qquad
+\partial_\xi\phi(0)=0,
+```
+
+so the APV Green identity has no boundary term.
+- Hold a trusted scalar vertical space fixed while independently enriching the primitive support space.
+- Construct \(G_0\) and \(G_1\), the flat and first-terrain coefficients of the geostrophic inclusion into the primitive coefficient space.
+- Verify the discrete Green identities
+
+```math
+G_0^*H_0=-M_0Q_0,
+```
+
+```math
+G_1^*H_0+G_0^*H_1
+=
+-M_1Q_0-M_0Q_1,
+```
+
+and the stationary-row identities
+
+```math
+G_0^*J_0=0,
+\qquad
+G_1^*J_0+G_0^*J_1=0.
+```
+
+- Evaluate the APV moments independently from the strong mapped APV diagnostic and require agreement with the energy pairing.
+- Solve the tangent generalized eigenproblem without deleting modes or projecting the generator. Classify nonzero-frequency modes only after solving for \(\omega\), and test energy orthogonality, weak APV, and the first-order bottom relation.
+
+### Automated acceptance
+
+- Scalar bottom values and upper derivatives close below \(10^{-12}\).
+- The trusted terrain-dependent geostrophic test states are represented below \(10^{-10}\).
+- Flat and first-terrain Green identities and stationary rows close below \(10^{-10}\).
+- Weak APV moments, independently evaluated strong APV moments, and their evolution agree below \(10^{-10}\).
+- Primitive physical energy, projected bottom evolution, and Fourier conjugacy retain their Milestone-6.7 tolerances.
+- Tangent eigenproblem residuals and signed-frequency orthogonality identities close below \(10^{-10}\).
+- Nonzero-frequency modes have weak volume APV below \(10^{-8}\), while modes with bottom participation are retained.
+- Arbitrary stationary stratification converges when the primitive vertical support is enriched around a fixed trusted scalar space.
+- The complete repository suite and `checkcode` pass.
+
+### Implementation result
+
+The public oracle is:
+
+```matlab
+audit = problem.auditBoundaryCompleteWeakEigenproblem( ...
+    trustedModeBounds=[1 0], ...
+    supportModeBounds=[1 2], ...
+    polynomialDegrees=[4;8;12], ...
+    paddingFactor=2);
+```
+
+For constant stratification and a single meridional terrain harmonic, the result is `compatible-boundary-complete-weak-oracle`. The finest degree-twelve diagnostics are:
+
+| Test | Defect |
+|---|---:|
+| Scalar boundary conditions | `1.73e-16` |
+| Trusted geostrophic-state representation | `4.51e-13` |
+| Flat APV Green identity | `5.65e-15` |
+| First-terrain APV Green identity | `8.01e-15` |
+| Flat stationary geostrophic row | `2.02e-17` |
+| First-terrain stationary geostrophic row | `6.63e-14` |
+| Weak APV evolution | `7.03e-14` |
+| Independent strong APV evolution | `1.11e-13` |
+| Weak/strong APV agreement | `7.19e-14` |
+| Physical energy | `4.28e-15` |
+| Projected bottom evolution | `2.47e-12` |
+| Fourier conjugacy | `2.01e-15` |
+| Tangent eigenproblem | `9.49e-17` |
+| Nonzero-frequency weak APV | `2.58e-11` |
+
+The apparent slow APV convergence in Milestone 6.7 came from applying a fixed flat test space to a terrain-dependent Green identity. Once the geostrophic inclusion is differentiated consistently, the APV moments follow from the same primitive weak rows at roundoff. The construction does not replace primitive rows, modify the generator, symmetrize any operator, project into an APV nullspace, or delete modes.
+
+For variable stratification, holding the scalar test degree fixed while increasing the primitive support from degrees two to four to eight reduces the geostrophic-state representation error spectrally and restores the Green and stationary identities. This confirms that vertical support enrichment, rather than a new conservation row, supplies the required product space.
+
+The complete repository suite passes 130 tests with zero failures, and `checkcode` reports no issues in the repository MATLAB source.
+
+### Stopping condition
+
+Milestone 6.8 passes, but this goal stops here. Do not begin Milestone 7 or finite-amplitude terrain until that increment is separately planned and authorized.
 
 ## Milestone 7: Finite-amplitude projected primitive dense gate
 
@@ -1523,16 +1665,17 @@ Stop after recording `exact-projected`, `convergent-projected`, or `nonconvergen
 
 ### Purpose
 
-Extend the validated Milestone-6.7 primitive projection to finite-amplitude periodic terrain and determine whether the trusted physical dynamics converge.
+Extend the validated Milestone-6.7 projection and Milestone-6.8 boundary-complete weak sequence to finite-amplitude periodic terrain.
 
 ### Dependencies
 
-Milestone 6.7 with status `exact-projected` or `convergent-projected`.
+Milestone 6.8 with status `compatible-boundary-complete-weak-oracle` or a documented convergent weak-sequence classification.
 
 ### Deliverables
 
 - Extend the unmodified projected primitive construction to periodic sinusoidal terrain.
 - Use the validated support, trusted-band, padding, and adjoint-restriction conventions from Milestone 6.7.
+- Construct the finite-amplitude terrain-dependent geostrophic inclusion and its APV Green map from Milestone 6.8.
 - Assemble the dense reference system without replacement APV rows, empirical correction, minimum-change closure, or post hoc skew-symmetrization.
 - Require the exact finite-dimensional identities
 
@@ -1542,9 +1685,8 @@ L^*E_\gamma+E_\gamma L=0,
 BL=R_{h,N},
 ```
 
-- Test projected APV and potential enstrophy according to the Milestone-6.7 classification:
-  - require exact closure for `exact-projected`;
-  - require trusted-band convergence for `convergent-projected`.
+- Compare the APV moments derived from the energy pairing with an independently evaluated strong mapped APV diagnostic.
+- Require exact closure of the finite weak APV moments or documented convergence under independent scalar, primitive, support, padding, and vertical refinement.
 - Report unprojected external sidebands separately.
 - Recover pressure only as a strong-equation diagnostic after the projected primitive generator has been constructed.
 
@@ -1552,8 +1694,7 @@ BL=R_{h,N},
 
 - Flat and uniform-depth cases pass exact applicable identities within \(10^{-12}\).
 - Sinusoidal terrain passes primitive weak consistency, physical energy, projected bottom evolution, and Fourier conjugacy within \(10^{-10}\).
-- In the `exact-projected` branch, projected APV and projected potential enstrophy close within \(10^{-10}\).
-- In the `convergent-projected` branch, their trusted-band residuals decrease under independent support, vertical, and oversampling refinement and reach \(10^{-8}\).
+- Finite-amplitude APV Green, stationary-row, and weak/strong APV agreement defects close within \(10^{-10}\), or their trusted-band residuals decrease under independent refinement and reach \(10^{-8}\).
 - Trusted-band results from padding factors two and three agree within \(10^{-10}\).
 - Strong momentum, continuity, and physical bottom residuals decrease under refinement.
 - Failure stops the roadmap before modal construction.
@@ -1578,7 +1719,7 @@ Milestone 7.
   - **P — physical-energy mixed branch:** retain physical $E_\gamma$ as the evolution norm and use the active bottom equation to resolve the zero-APV boundary sector.
 - If a separately conserved generalized boundary enstrophy was derived, include it. Otherwise retain physical volume potential enstrophy and resolve its zero-APV degeneracy through the dynamics.
 - Preserve physical energy as an independently verified invariant.
-- Preserve the Milestone-6.7 projected-APV classification and its trusted-band convergence requirements.
+- Preserve the Milestone-6.8 boundary-complete APV Green identity and its trusted-band convergence requirements.
 - Keep the bottom equation as an explicit dynamical row.
 - Label every generalized invariant separately from the physical invariants.
 - Select branch H when a positive derived form exists, branch K when the required form is only signed, and branch P when no separate boundary metric exists but the physical mixed system passes.
@@ -1587,7 +1728,7 @@ Milestone 7.
 
 - The implemented branch matches the Milestone-6 classification and Milestone-7 compatibility results.
 - Its metric, adjoint, nullspace, and branch-specific signature tests close within the tolerances established by the dense gates.
-- Physical energy and bottom evolution remain exact finite identities. Projected APV and physical potential enstrophy retain the exact or convergent classification established by Milestones 6.7–7.
+- Physical energy and bottom evolution remain exact finite identities. Weak APV and physical potential enstrophy retain the exact or convergent classification established by Milestones 6.8–7.
 - No unused alternative branch or empirical metric is introduced into the evolution path.
 
 ## Milestone 9: Dense terrain modes and boundary-mode classification
@@ -1746,6 +1887,7 @@ Milestone 12.
 | **D1.4 — Periodic coupled-PV closure oracle** | 6.5 | Test exact projected periodic QG closure, including Fourier-edge inputs, and stop before constructing a hybrid primitive/PV descriptor. |
 | **D1.5 — Hybrid primitive–PV oracle** | 6.6 | Replace stationary primitive rows by projected APV and bottom rows in one fixed-zonal block; stop if the complete descriptor is not weakly equivalent to the primitive equations. |
 | **D1.6 — Projected primitive spectral oracle** | 6.7 | Establish one common padded Galerkin projection and verify exact energy and bottom identities plus trusted-band APV convergence. Do not begin finite-amplitude terrain. |
+| **D1.7 — Boundary-complete weak oracle** | 6.8 | Derive and discretize the terrain-dependent geostrophic test sequence, verify APV as a primitive weak consequence, and stop before finite-amplitude terrain. |
 | **D2 — Periodic scientific gate** | 7 | Extend the validated projected primitive construction to finite-amplitude sinusoidal terrain. Stop if physical energy, bottom evolution, or trusted-band APV does not meet its branch gate. |
 | **D3 — Selected branch and dense modes** | 8–9 | Implement only the selected branch and establish the dense terrain-mode oracle. Do not implement enrichment. |
 | **E1 — Selective modes** | 10 | Implement residual enrichment and validate it exclusively against the dense oracle. |

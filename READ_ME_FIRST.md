@@ -2,9 +2,9 @@
 
 ## Current status
 
-**This research direction is paused before Milestone 6.7, a defined dealiased projected-primitive tangent experiment.** Milestone 6.5 shows that a rigorously projected QG volume–boundary PV state handles discarded Fourier sidebands correctly. Milestone 6.6 shows that replacing primitive stationary rows by those projected conservation rows is not equivalent to the unmodified primitive weak equations. The next experiment will therefore keep the primitive energy and exchange rows and apply one common padded Galerkin projection to the primitive forms, APV diagnostic, and bottom equation.
+**This branch is at a passing Milestone-6.8 tangent checkpoint.** Milestone 6.7 showed that a fixed flat test space does not recover the trusted-band APV cancellation even under a common padded projection. Milestone 6.8 returns to the continuous Green identity and includes the terrain derivative of the stationary geostrophic test states. The resulting primitive weak APV moments, physical energy, projected bottom evolution, and tangent eigenproblem pass without replacement APV rows or corrections. Milestone 7 and finite-amplitude terrain have not begun.
 
-The authoritative completed numerical checkpoint is commit [`d5ab18f`](https://github.com/JeffreyEarly/topographic-forcing/tree/d5ab18f) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The matching mathematics is maintained in `finite-terrain-projection-problem.tex` and `terrain-energy-galerkin.tex` in the `ape-apv-bottom-topography` literature repository.
+The pre-Milestone-6.7 checkpoint is commit [`d5ab18f`](https://github.com/JeffreyEarly/topographic-forcing/tree/d5ab18f) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The current branch contains the completed projected and boundary-complete weak oracles. The matching mathematics is maintained in `finite-terrain-projection-problem.tex`, `finite-terrain-weak-eigenproblem.tex`, and `terrain-energy-galerkin.tex` in the `ape-apv-bottom-topography` literature repository.
 
 The objective was to construct a flow-linear system, exact in the resolved stationary terrain, that satisfies the continuum requirements
 
@@ -64,7 +64,49 @@ Milestone 6.6 combines flat primitive wave rows with independent projected-volum
 
 The complete repository suite now contains 120 passing tests, including the Milestone-6.6 blocker audit.
 
-This establishes that the Fourier edge is not an obstruction to a rigorously projected coupled-PV law. It also shows why the next experiment must retain the unmodified primitive weak evolution instead of substituting projected PV rows.
+Milestone 6.7 performs that next experiment without replacing any primitive row. For trusted bounds `[1 0]`, supports `[1 1;1 2;1 3]`, vertical degrees `[4;8;12]`, and padding factors two and three, its structural defects are:
+
+| Test | Maximum defect |
+|---|---:|
+| Prolongation/restriction and exact convolution | `1.19e-15` |
+| Analytic versus centered terrain tangent | `6.10e-10` |
+| Primitive weak evolution | `9.98e-15` |
+| Physical energy | `4.57e-15` |
+| Projected bottom evolution | `3.15e-12` |
+| Fourier conjugacy | `2.37e-15` |
+| Padding factors two versus three | `4.39e-12` |
+
+The trusted-band APV defects are `5.45e-4`, `1.85e-4`, and `1.01e-4`; the potential-enstrophy defects are `3.34e-4`, `1.12e-4`, and `6.08e-5`. Their successive reduction factors are approximately `(2.95,1.84)` and `(2.97,1.85)`, rather than the required factor four, and their finest values remain far above `1e-8`. Increasing horizontal support alone does not change the finest-degree trusted result.
+
+This establishes that the earlier `4.14e-1` Fourier-edge value was not the decisive obstruction: a common dealiased projection handles and separately reports those external sidebands. Milestone 6.8 then establishes that the remaining trusted-band defect was caused by omitting the terrain derivative of the geostrophic test inclusion.
+
+For every scalar test with \(\phi_b=0\) and \(\partial_\xi\phi(0)=0\), the exact terrain-dependent geostrophic state belongs to the primitive test space and satisfies
+
+```math
+2\rho_0
+\langle\Psi_{\mathrm g}[\phi],\psi\rangle_{H_\gamma}
+=
+-\frac{\rho_0}{A}
+\int\gamma\phi^*q_\gamma\,dV.
+```
+
+Its first terrain coefficient supplies \(G_1\), which was absent from the fixed-basis Milestone-6.7 audit. The verified tangent identities are
+
+```math
+G_1^*H_0+G_0^*H_1
+=
+-M_1Q_0-M_0Q_1,
+```
+
+```math
+G_1^*J_0+G_0^*J_1=0.
+```
+
+At vertical degree twelve, the APV Green-identity defect is `8.01e-15`, the stationary-row defect is `6.63e-14`, independently evaluated APV evolution is `1.11e-13`, physical energy is `4.28e-15`, and projected bottom evolution is `2.47e-12`. The tangent eigenproblem has residual `9.49e-17`, and its nonzero-frequency modes have weak volume APV `2.58e-11`.
+
+This result changes the interpretation of Milestone 6.7: ordinary padding was necessary but not sufficient because the correct weak scalar-to-primitive inclusion is itself terrain dependent. Once that inclusion and its vertical support are represented, APV follows from the original primitive weak equations rather than being imposed as a replacement row.
+
+The complete repository suite now contains 130 passing tests, including the Milestone-6.8 constant- and variable-stratification weak-sequence and eigenproblem audits.
 
 ## What the spectral-edge audit means
 
@@ -75,13 +117,13 @@ The APV defect separates into two parts:
 
 The edge value is an expected truncation residual when an unprojected oversampled product is compared with a finite state. A finite Fourier space is not required to be closed under multiplication. Zero-padding computes the external sideband without aliasing, and adjoint restriction removes it from the retained equations.
 
-The still-unresolved question is whether the projected coefficient identity
+The fixed-test projected coefficient identity
 
 ```math
 Q_{0,N}L_1+Q_{1,N}L_0=0
 ```
 
-closes for the unmodified primitive Galerkin operator or converges on a trusted band. The existing `representation-blocker` status records the historical unprojected audit; it is not the classification of the new projected experiment.
+does not close exactly for the unmodified primitive Galerkin operator and does not satisfy the approved trusted-band convergence gate. The historical `representation-blocker` status belongs to the unprojected audit; the common projected experiment is classified `nonconvergent-projected`.
 
 ## What the investigation ruled out
 
@@ -93,14 +135,15 @@ The sequence of independent audits removed the following explanations:
 4. An independent polynomial primitive oracle showed that hydrostatic `F`–`G` coordinates and the public modal reconstruction were not the sole causes.
 5. The frozen constant-slope approximation introduced an analytic cross-slope APV source. Restoring the globally varying terrain coefficients removed that approximation and recovered the correct Fourier selection.
 6. Increasing vertical polynomial degree reduced the interior error; the unchanged Fourier-edge value was subsequently recognized as discarded external support.
+7. Retaining the terrain derivative of the geostrophic test inclusion restores the APV Green identity and stationary primitive rows at roundoff.
 
-Changing the bottom basis alone, changing a quadratic norm without a derived invariant, or tuning the existing truncation therefore does not address the remaining issue.
+Changing the bottom basis alone, changing a quadratic norm without a derived invariant, or merely enlarging a fixed flat test space does not reproduce the derived weak sequence.
 
 ## Do not resume by
 
 Do not proceed by:
 
-- starting Milestone 7 before the Milestone-6.7 projected tangent gate;
+- starting Milestone 7 without carrying the Milestone-6.8 terrain-dependent geostrophic test sequence into the finite-amplitude construction;
 - projecting the generator into an APV nullspace;
 - empirically symmetrizing the generator;
 - fitting a minimum-change closure;
@@ -110,19 +153,11 @@ Do not proceed by:
 
 Those operations either answer a different dynamical question or hide the diagnosed incompatibility.
 
-## Conditions for resuming
+## Conditions for continuing
 
-Resume with Milestone 6.7, which must:
+Milestone 6.8 supplies the derived primitive representation that Milestone 6.7 lacked. The next increment may test finite-amplitude terrain only by constructing the terrain-dependent geostrophic inclusion and APV Green map at the same amplitude as the primitive \(H_\gamma,J_\gamma\) forms. It must retain exact physical energy and projected bottom evolution, compare the energy-derived APV moments with an independent strong APV diagnostic, and refine the trusted scalar and primitive support spaces independently.
 
-1. retain the unmodified primitive `E_0,E_1,J_0,J_1` construction;
-2. use one zero-pad, multiply, and adjoint-restrict operation for every terrain product;
-3. separate a trusted physical band from an evolved outer support band;
-4. reproduce exact Fourier convolution with the oversampled pseudospectral calculation below `1e-12`;
-5. retain weak evolution, physical energy, bottom evolution, and conjugacy below `1e-11`;
-6. make padding factors two and three agree on the trusted band within `1e-10`; and
-7. either close projected APV below `1e-10` or reduce its trusted-band residual by at least a factor of four per refinement to below `1e-8`.
-
-External sidebands must be reported separately. No corrected generator, fitted closure, empirical symmetrization, or APV-nullspace projection is permitted.
+External sidebands must remain separately reported. No corrected generator, fitted closure, empirical symmetrization, replacement APV rows, APV-nullspace projection, or mode deletion is permitted.
 
 ## Reproducing the numerical result
 
@@ -142,11 +177,16 @@ The periodic projected oracle is exposed by [`auditPeriodicCoupledPVOracle`](<@W
 
 The hybrid primitive–PV oracle is exposed by [`auditHybridPrimitivePVOracle`](<@WVTerrainEnergyGalerkin/auditHybridPrimitivePVOracle.m>), tested by [`TestWVTerrainEnergyHybridPrimitivePVOracle`](UnitTests/TestWVTerrainEnergyHybridPrimitivePVOracle.m), and recorded in [Milestone 6.6](milestones.md#milestone-66-hybrid-primitivepv-commuting-oracle).
 
+The common projected primitive oracle is exposed by [`auditDealiasedProjectedPrimitiveTangent`](<@WVTerrainEnergyGalerkin/auditDealiasedProjectedPrimitiveTangent.m>), tested by [`TestWVTerrainEnergyDealiasedProjectedPrimitiveTangent`](UnitTests/TestWVTerrainEnergyDealiasedProjectedPrimitiveTangent.m), and recorded in [Milestone 6.7](milestones.md#milestone-67-dealiased-projected-primitive-tangent-oracle).
+
+The boundary-complete weak oracle is exposed by [`auditBoundaryCompleteWeakEigenproblem`](<@WVTerrainEnergyGalerkin/auditBoundaryCompleteWeakEigenproblem.m>), tested by [`TestWVTerrainEnergyBoundaryCompleteWeakEigenproblem`](UnitTests/TestWVTerrainEnergyBoundaryCompleteWeakEigenproblem.m), and recorded in [Milestone 6.8](milestones.md#milestone-68-boundary-complete-weak-terrain-eigenproblem).
+
 ## Mathematical sources
 
 The mathematical repository is `ape-apv-bottom-topography`. Its relevant sources and equation labels are:
 
 - `main.tex`: `eq:finite-terrain-linear-displacement-boundaries`, `eq:finite-terrain-linear-total-energy`, `eq:finite-terrain-linear-apv`, `eq:finite-terrain-linear-potential-enstrophy`, and `eq:finite-terrain-pressure-free-weak-equation`;
+- `finite-terrain-weak-eigenproblem.tex`: `eq:terrain-weak-apv-green-identity`, `eq:terrain-weak-volume-apv-conservation`, and `eq:terrain-weak-discrete-green-commutation`;
 - `terrain-energy-galerkin.tex`: `eq:galerkin-linear-apv`, `eq:galerkin-discrete-compatibility-identities`, `eq:galerkin-boundary-descriptor-pencil`, and `eq:galerkin-first-order-conservation-identities`;
 - `boundary-energy-enstrophy.tex`: the exact energy, potential-enstrophy, bottom-Casimir, and complete zero-APV state-space derivations.
 
