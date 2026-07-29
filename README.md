@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Paused research branch:** Milestone 6.4 validates the local coupled volume–boundary PV dynamics, but terrain-energy Galerkin development remains paused at the global Milestone-6.3 representation blocker. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before using the prototypes or continuing the roadmap. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Paused research branch:** Milestone 6.5 validates a rigorously projected periodic QG volume–boundary PV system, but terrain-energy Galerkin development remains paused before the full primitive periodic problem. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before using the prototypes or continuing the roadmap. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -69,7 +69,32 @@ audit = problem.auditCoupledPVFrequencyOracle( ...
 
 The direct $L^2\oplus\mathbb C$ volume–boundary inversion conserves physical energy and the applicable signed pseudoenstrophy at roundoff. Its leading physical frequencies agree with an independent Chebyshev discretization of Yassin's eigenvalue-dependent endpoint problem to `4.82e-11`. The $f$-plane limit contains an active bottom mode with zero volume APV, and the existing balanced-plus-bottom Galerkin basis represents the leading modes with a residual that decreases under vertical refinement.
 
-This passing local oracle does not repair the global Fourier-edge APV defect. The project therefore remains paused before Milestone 7; the next required object is still a rigorously closed horizontal representation for periodic terrain.
+This passing local oracle does not repair the global Fourier-edge APV defect in the primitive representation. Milestone 6.5 isolates the horizontal issue by evolving volume and boundary PV directly.
+
+## Periodic coupled volume–boundary PV oracle
+
+Milestone 6.5 applies the coupled-PV formulation to periodic terrain:
+
+```matlab
+audit = problem.auditPeriodicCoupledPVOracle( ...
+    polynomialDegree=12);
+```
+
+For the resting $f$-plane problem it evolves
+
+```math
+\partial_tq=0,
+\qquad
+\partial_tr_b=-\mathcal P J(\psi_b,fh),
+\qquad
+\psi=\mathcal G[q,r_b],
+```
+
+where $\mathcal P$ is the orthogonal projection onto the retained signed Fourier layout. The exact mode-number convolution agrees with an independently oversampled pseudospectral Jacobian below `8e-16`. Physical energy, stationary volume APV, physical potential enstrophy, projected bottom evolution, and Fourier conjugacy close at roundoff for both interior and Fourier-edge inputs.
+
+Edge inputs still produce nonzero sidebands outside the retained state. Those sidebands are explicitly measured and discarded by the Galerkin projection rather than aliased back into the state or counted as an internal APV defect. The existing balanced-plus-bottom basis represents the active topographic modes increasingly accurately under simultaneous oracle and vertical refinement.
+
+This establishes a closed periodic QG oracle and identifies an explicit PV-coordinate formulation as the promising horizontal representation. It does not establish the required hybrid primitive/PV descriptor, so Milestone 7 remains inactive.
 
 ## Terrain-energy Galerkin flat oracle
 

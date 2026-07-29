@@ -23,6 +23,7 @@ classdef WVTerrainEnergyGalerkin < handle
     % - Topic: Audit boundary-dynamical evolution
     % - Topic: Audit the boundary Green identity
     % - Topic: Audit coupled PV dynamics
+    % - Topic: Audit periodic coupled PV closure
     % - Topic: Audit the Branch-P discrete oracle
     % - Topic: Audit terrain compatibility
     % - Topic: Audit constrained evolution

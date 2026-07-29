@@ -2,7 +2,7 @@
 
 ## Current status
 
-**This research direction is paused at a scientific representation blocker.** The project is not abandoned, but Milestone 7 must not begin from the current finite primitive representation.
+**This research direction is paused before the full primitive periodic problem.** Milestone 6.5 resolves the Fourier-edge issue for a rigorously projected QG volume–boundary PV state, but the project does not yet have the hybrid primitive/PV representation required to begin Milestone 7.
 
 The authoritative global numerical checkpoint is commit [`060560a`](https://github.com/JeffreyEarly/topographic-forcing/tree/060560a) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The matching mathematical checkpoint is commit `7527984` in the `ape-apv-bottom-topography` literature repository.
 
@@ -60,7 +60,9 @@ The last complete repository verification at checkpoint `060560a` passed 101 tes
 
 Milestone 6.4 subsequently validates the coupled volume–boundary PV frequency problem in a local single-wavenumber QG oracle. The direct $L^2\oplus\mathbb C$ system and an independent discretization of Yassin's endpoint problem agree to `4.82e-11` in the leading resolved frequencies, while physical energy and signed pseudoenstrophy close at roundoff. The $f$-plane boundary mode has zero volume APV and active bottom PV, and its representation in the existing balanced-plus-bottom basis converges with vertical resolution. The complete suite now contains 108 passing tests.
 
-This is positive evidence for the boundary-dynamical formulation, but it does not alter the global Milestone-6.3 blocker: the periodic finite Fourier state remains unclosed under the terrain convolution required by the volume-APV cancellation.
+Milestone 6.5 then constructs the periodic QG state directly from volume APV and bottom PV. Its exact projected terrain convolution and an independent oversampled pseudospectral Jacobian agree below `8e-16`. Physical energy, stationary volume APV, physical potential enstrophy, projected bottom evolution, and Fourier conjugacy close at roundoff, including for inputs whose unprojected terrain sidebands leave the retained Fourier state. The complete suite now contains 115 passing tests.
+
+This establishes that the Fourier edge is not an obstruction to a rigorously projected coupled-PV law. It does not alter the Milestone-6.3 result for the current primitive representation: that representation still lacks a commuting connection to the closed PV state.
 
 ## The blocker
 
@@ -69,13 +71,13 @@ The APV defect separates into two parts:
 - For horizontally interior input modes, whose first-order sidebands remain in the state, the normalized defect decreases from `4.44e-3` at polynomial degree two to `5.38e-4` at degree six.
 - For Fourier-edge inputs, the defect remains near `4.14e-1` because terrain multiplication creates sidebands outside the retained prognostic state.
 
-Thus vertical refinement improves the interior approximation but cannot make a fixed finite horizontal Fourier state closed under terrain convolution. The cancellation required by
+Thus vertical refinement improves the interior approximation but cannot make the current fixed finite primitive state and its sampled APV range closed under terrain convolution. The cancellation required by
 
 ```math
 Q_0L_1+Q_1L_0=0
 ```
 
-cannot be represented at the spectral edge by the current state and APV range. The oracle classifies this result as `representation-blocker`.
+cannot be represented at the spectral edge by the current primitive state and APV range. The oracle classifies this result as `representation-blocker`. Milestone 6.5 shows that an orthogonally projected coupled-PV state closes instead; the missing object is now the primitive/PV commuting representation.
 
 This conclusion is finite-dimensional. It is not evidence that stationary APV is incompatible with topography in the continuous equations.
 
@@ -108,10 +110,10 @@ Those operations either answer a different dynamical question or hide the diagno
 
 ## Conditions for resuming
 
-Resume this direction only after deriving one of the following:
+Resume the full primitive direction only after deriving one of the following:
 
-- a finite horizontal state closed under the terrain products required by both the tendency and APV maps;
-- a rigorously projected discrete APV law whose state, range, and quadratic invariant use the same truncation; or
+- a hybrid primitive/PV state whose reconstruction, tendency, and APV maps commute with the Milestone-6.5 projected law;
+- a finite primitive horizontal state closed under the terrain products required by both the tendency and APV maps; or
 - a different compatible discretization, such as an enriched mixed or exact-sequence formulation, that preserves the continuum identities without empirical correction.
 
 Before finite-amplitude terrain or modal construction resumes, the replacement must:
@@ -135,6 +137,8 @@ audit = problem.auditGlobalSmallTerrainPrimitive( ...
 The acceptance tests are in [`TestWVTerrainEnergyGlobalSmallTerrainPrimitive`](UnitTests/TestWVTerrainEnergyGlobalSmallTerrainPrimitive.m), and the full numerical record is in [Milestone 6.3](milestones.md#milestone-63-global-small-terrain-primitive-compatibility-oracle).
 
 The local coupled-PV oracle is exposed by [`auditCoupledPVFrequencyOracle`](<@WVTerrainEnergyGalerkin/auditCoupledPVFrequencyOracle.m>), tested by [`TestWVTerrainEnergyCoupledPVFrequencyOracle`](UnitTests/TestWVTerrainEnergyCoupledPVFrequencyOracle.m), and recorded in [Milestone 6.4](milestones.md#milestone-64-coupled-volumeboundary-pv-frequency-oracle).
+
+The periodic projected oracle is exposed by [`auditPeriodicCoupledPVOracle`](<@WVTerrainEnergyGalerkin/auditPeriodicCoupledPVOracle.m>), tested by [`TestWVTerrainEnergyPeriodicCoupledPVOracle`](UnitTests/TestWVTerrainEnergyPeriodicCoupledPVOracle.m), and recorded in [Milestone 6.5](milestones.md#milestone-65-periodic-coupled-volumeboundary-pv-oracle).
 
 ## Mathematical sources
 

@@ -1,6 +1,6 @@
 # Terrain-energy Galerkin milestones
 
-> **Paused after Milestone 6.3:** the current finite primitive representation is not closed under the terrain convolution required for stationary APV at the retained Fourier edge. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before interpreting this roadmap. Milestones 7–13 are inactive prospective work and must not begin from the current representation.
+> **Paused after Milestone 6.5:** a rigorously projected periodic QG volume–boundary PV state closes at the retained Fourier edge, but the current finite primitive representation does not. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before interpreting this roadmap. Milestones 7–13 are inactive prospective work and require a hybrid primitive/PV representation that has not yet been constructed.
 
 ## Objective
 
@@ -25,7 +25,7 @@ The implementation will use ordinary hydrostatic modes as economical vertical co
 
 The completed mean-depth generator and scattering implementation is retained as reusable engineering infrastructure. Its scientific roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md). Neither existing forcing is used as the terrain-energy evolution operator.
 
-The completed dense finite-terrain forms remain a volume-only diagnostic oracle. Milestones 4.5 and 4.6 are retained as completed negative results: neither pointwise-APV nor quadratic-enstrophy minimum-change closure can reconcile the strong bottom equation with the displacement-only bottom coordinate. Milestones 4.7 and 4.8 replace that coordinate with a complete balanced bottom-inversion reconstruction but show that the projected volume generator is still incompatible with the strong bottom evolution and pointwise APV. Milestones 5–6 then retain pressure and the bottom equation in an augmented local descriptor. Milestone 6.1 independently confirms that an eta-only polynomial coordinate and the coupled Branch-P energy weak form recover energy and bottom kinematics, but not pointwise APV or potential enstrophy. No constrained surrogate advances beyond the historical closure audits, and periodic terrain remains blocked pending an APV-compatible primitive discretization.
+The completed dense finite-terrain forms remain a volume-only diagnostic oracle. Milestones 4.5 and 4.6 are retained as completed negative results: neither pointwise-APV nor quadratic-enstrophy minimum-change closure can reconcile the strong bottom equation with the displacement-only bottom coordinate. Milestones 4.7 and 4.8 replace that coordinate with a complete balanced bottom-inversion reconstruction but show that the projected volume generator is still incompatible with the strong bottom evolution and pointwise APV. Milestones 5–6 then retain pressure and the bottom equation in an augmented local descriptor. Milestone 6.1 independently confirms that an eta-only polynomial coordinate and the coupled Branch-P energy weak form recover energy and bottom kinematics, but not pointwise APV or potential enstrophy. Milestones 6.4–6.5 show that coupled volume and boundary PV provide a closed local and periodic QG representation. No constrained surrogate advances beyond the historical closure audits, and the full primitive periodic problem remains blocked pending a commuting primitive/PV discretization.
 
 ## Fixed conventions and boundaries
 
@@ -1141,7 +1141,7 @@ Milestone 6.3 takes the **representation-blocker** exit. Retaining global terrai
 
 ## Milestone 6.4: Coupled volume–boundary PV frequency oracle
 
-- [x] Complete — passed local dynamical gate; periodic terrain remains blocked
+- [x] Complete — passed local dynamical gate; primitive periodic terrain remains blocked
 
 ### Purpose
 
@@ -1238,6 +1238,105 @@ Milestone 6.4 therefore validates the coupled volume–boundary PV interpretatio
 ### Stopping condition
 
 A passing local oracle validates the boundary-dynamical interpretation and identifies the current balanced basis as an admissible representation of the known QG modes. It does not resolve the Milestone-6.3 horizontal-convolution blocker and does not activate Milestone 7. Any classified blocker is recorded without modifying the governing equations or fitting a correction.
+
+## Milestone 6.5: Periodic coupled volume–boundary PV oracle
+
+- [x] Complete — passed projected QG closure gate; primitive periodic terrain remains blocked
+
+### Purpose
+
+Determine whether the Fourier-edge failure in Milestone 6.3 is intrinsic to periodic terrain or belongs to the chosen primitive state and APV range. Evolve volume APV and bottom PV as explicit coordinates and use an orthogonal Fourier projection defined before discretization.
+
+### Dependencies
+
+Milestones 6.3–6.4 and the existing complete signed horizontal layout. This milestone uses the verified volume–boundary inversion from Milestone 6.4 but does not use or alter the blocked primitive generator.
+
+### Deliverables
+
+- Add `auditPeriodicCoupledPVOracle` on every retained nonzero signed horizontal mode.
+- Use
+
+```math
+\boldsymbol{\mathcal Q}_{\boldsymbol K}
+=
+\begin{pmatrix}
+q_{\boldsymbol K}\\
+r_{b,\boldsymbol K}
+\end{pmatrix},
+\qquad
+r_b=-f\eta_b,
+\qquad
+\psi_{\boldsymbol K}
+=\mathcal G_{\boldsymbol K}[q_{\boldsymbol K},r_{b,\boldsymbol K}].
+```
+
+- Assemble the resting-$f$-plane dynamics
+
+```math
+\partial_tq=0,
+\qquad
+\partial_tr_b=-\mathcal P J(\psi_b,fh),
+```
+
+where $\mathcal P$ is the orthogonal projection onto the retained signed Fourier state.
+- Construct the exact, non-aliased mode-number convolution
+
+```math
+\left[\partial_tr_b\right]_{\boldsymbol K}
+=
+f\sum_{\boldsymbol P+\boldsymbol Q=\boldsymbol K}
+(P_xQ_y-P_yQ_x)
+\psi_{b,\boldsymbol P}\widehat h_{\boldsymbol Q}.
+```
+
+- Compare it with an independent oversampled pseudospectral Jacobian and reject material terrain Nyquist coefficients.
+- Assemble and test physical energy, stationary volume APV, physical potential enstrophy, projected bottom evolution, and Fourier conjugacy.
+- Separate interior inputs from edge inputs. Report discarded external sidebands explicitly without aliasing them into the retained state or treating them as an internal APV defect.
+- Reconstruct geostrophic velocity, displacement, and pressure and project the active modes into the existing `A0` plus bottom-coordinate subspace without changing the public coefficient layout.
+- Classify the result as `passed`, `inversion-blocker`, `exact-convolution-blocker`, `pseudospectral-blocker`, or `basis-bridge-blocker`.
+
+### Automated acceptance
+
+- The volume–boundary inversion and Green identities close below $10^{-12}$ and the physical-energy form is positive.
+- The exact projected generator satisfies
+
+```math
+L_{\rm PV}^*E_{\rm PV}+E_{\rm PV}L_{\rm PV}=0,
+\qquad
+Q_{\rm PV}L_{\rm PV}=0,
+\qquad
+B_{\rm PV}L_{\rm PV}=R_h,
+```
+
+and the physical-potential-enstrophy identity below $10^{-12}$.
+- Exact convolution and oversampled pseudospectral application agree below $10^{-11}$.
+- The mean bottom tendency, disallowed Fourier leakage, and conjugacy defects are below $10^{-12}$.
+- A sinusoidal terrain component produces only its analytically selected neighboring Fourier blocks.
+- At least one edge input has a nonzero discarded sideband while all projected identities remain at roundoff.
+- Physical frequencies are real to $10^{-11}$ and every nonzero-frequency mode has negligible volume APV.
+- Flat terrain produces a zero generator.
+- The basis bridge reproduces the bottom value exactly and converges under simultaneous Legendre-oracle and WaveVortex vertical refinement.
+- Constant and exponential stratification, both antialias settings, oversampling factors two and three, the complete repository suite, and static analysis pass.
+
+### Outcome
+
+The periodic QG oracle passes. For constant $N^2$, resolution `[6 6 9]`, terrain $20\cos(2\pi y/L_y)\ {\rm m}$, polynomial degree 12, and horizontal oversampling factor two, the maximum inversion and Green-identity defects are
+
+```text
+3.11e-16, 2.22e-16.
+```
+
+The physical-energy and frequency-imaginary defects are `2.05e-16` and `1.26e-16`. Stationary volume APV, physical potential enstrophy, projected bottom evolution, and Fourier conjugacy close to the reported numerical zero. The exact mode-number convolution and independent pseudospectral Jacobian agree to `7.25e-16`, and the mean bottom tendency is below `4e-17` on its normalized scale.
+
+Fourteen horizontal inputs retain every sinusoidal sideband and ten are edge inputs with at least one discarded sideband. The largest discarded coupling coefficient is `1.70e-10`, while the projected APV defect remains zero. Thus the external sideband is removed by the declared Galerkin projection rather than cyclically aliased or included in the internal conservation audit.
+
+The active modes have zero volume APV and are represented by the existing balanced-plus-bottom coordinates with a `4.0e-3` energy-norm defect at the reference settings. Under simultaneous vertical and Legendre refinement, the resolved defects decrease from approximately `5.5e-3` to `7e-4` to `1e-4`, with the bottom value reproduced exactly. Constant and exponential stratification and both antialias settings pass. The complete repository suite passes 115 tests with zero failures, and `checkcode` reports no issues in the new source.
+
+Milestone 6.5 establishes that periodic terrain admits a closed finite QG volume–boundary PV projection even though the current primitive state and sampled APV range fail at the Fourier edge. The next missing object is a hybrid primitive/PV representation with a commuting reconstruction and tendency map. This result does not activate Milestone 7.
+
+### Stopping condition
+
+A passing result identifies the projected coupled-PV law as the horizontal closure oracle for a future hybrid representation. No full primitive periodic descriptor, finite-amplitude terrain, or modal construction is attempted in this milestone.
 
 ## Milestone 7: Periodic-terrain augmented dense compatibility gate
 
@@ -1469,6 +1568,7 @@ Milestone 12.
 | **D1.1 — Primitive repair oracle** | 6.1 | Compare an independent eta-only polynomial discretization with the F–G descriptor. Stop without repair if the primitive physical identities do not all converge. |
 | **D1.2 — Global first-order oracle** | 6.2–6.3 | Diagnose the frozen-slope APV source, restore global terrain coupling, and stop if the complete finite state remains incompatible with stationary APV. |
 | **D1.3 — Coupled PV frequency oracle** | 6.4 | Validate the single-wavenumber volume–boundary PV dynamics, Yassin endpoint equivalence, and current-basis representation. Do not begin periodic terrain. |
+| **D1.4 — Periodic coupled-PV closure oracle** | 6.5 | Test exact projected periodic QG closure, including Fourier-edge inputs, and stop before constructing a hybrid primitive/PV descriptor. |
 | **D2 — Periodic scientific gate** | 7 | Test the selected augmented formulation on sinusoidal terrain. Stop immediately if physical energy, APV, or bottom evolution does not converge. |
 | **D3 — Selected branch and dense modes** | 8–9 | Implement only the selected branch and establish the dense terrain-mode oracle. Do not implement enrichment. |
 | **E1 — Selective modes** | 10 | Implement residual enrichment and validate it exclusively against the dense oracle. |
