@@ -2,9 +2,9 @@
 
 ## Current status
 
-**This research direction is paused before the full primitive periodic problem.** Milestone 6.5 resolves the Fourier-edge issue for a rigorously projected QG volume–boundary PV state. Milestone 6.6 then constructs the corresponding complete hybrid wave–projected-APV–bottom coordinate system, but shows that replacing primitive stationary rows by the projected conservation rows is not equivalent to the unmodified primitive weak equations. The project therefore still lacks the representation required to begin Milestone 7.
+**This research direction is paused before Milestone 6.7, a defined dealiased projected-primitive tangent experiment.** Milestone 6.5 shows that a rigorously projected QG volume–boundary PV state handles discarded Fourier sidebands correctly. Milestone 6.6 shows that replacing primitive stationary rows by those projected conservation rows is not equivalent to the unmodified primitive weak equations. The next experiment will therefore keep the primitive energy and exchange rows and apply one common padded Galerkin projection to the primitive forms, APV diagnostic, and bottom equation.
 
-The authoritative global numerical checkpoint is commit [`060560a`](https://github.com/JeffreyEarly/topographic-forcing/tree/060560a) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The matching mathematical checkpoint is commit `7527984` in the `ape-apv-bottom-topography` literature repository.
+The authoritative completed numerical checkpoint is commit [`d5ab18f`](https://github.com/JeffreyEarly/topographic-forcing/tree/d5ab18f) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The matching mathematics is maintained in `finite-terrain-projection-problem.tex` and `terrain-energy-galerkin.tex` in the `ape-apv-bottom-topography` literature repository.
 
 The objective was to construct a flow-linear system, exact in the resolved stationary terrain, that satisfies the continuum requirements
 
@@ -18,25 +18,23 @@ The objective was to construct a flow-linear system, exact in the resolved stati
 \boldsymbol u_{H,b}\boldsymbol{\cdot}\nabla_H h.
 ```
 
-For a discrete generator `L_gamma`, energy matrix `E_gamma`, APV map `Q_gamma`, bottom extraction `B`, and bottom-kinematic map `R_h`, the corresponding tests are
+For a retained state, the standard terrain multiplication is
+
+```math
+\mathcal M_{h,N}
+=
+P_{M\to N}\mathcal M_hI_{N\to M},
+```
+
+where `I_N->M` zero-pads into an oversampled evaluation space and `P_M->N` is its quadrature adjoint. The mandatory finite identities are
 
 ```math
 L_\gamma^*E_\gamma+E_\gamma L_\gamma=0,
 \qquad
-Q_\gamma L_\gamma=0,
-\qquad
-BL_\gamma=R_h.
+BL_\gamma=R_{h,N}.
 ```
 
-Pointwise APV conservation implies the quadratic potential-enstrophy identity
-
-```math
-L_\gamma^*Z_\gamma+Z_\gamma L_\gamma=0,
-\qquad
-Z_\gamma=Q_\gamma^*Q_\gamma.
-```
-
-The continuous equations satisfy these requirements simultaneously. The blocker described here belongs to the current finite representation, not to the physical conservation laws.
+Projected APV is tested with `Q_gamma,N = P_q,N Q_gamma I_N->M`. Exact closure `Q_gamma,N L_gamma = 0` is the strongest result. Otherwise its residual and the corresponding potential-enstrophy residual must converge on a fixed trusted physical band under independent support, padding, and vertical refinement.
 
 ## What is established
 
@@ -62,28 +60,28 @@ Milestone 6.4 subsequently validates the coupled volume–boundary PV frequency 
 
 Milestone 6.5 then constructs the periodic QG state directly from volume APV and bottom PV. Its exact projected terrain convolution and an independent oversampled pseudospectral Jacobian agree below `8e-16`. Physical energy, stationary volume APV, physical potential enstrophy, projected bottom evolution, and Fourier conjugacy close at roundoff, including for inputs whose unprojected terrain sidebands leave the retained Fourier state. The complete suite now contains 115 passing tests.
 
-Milestone 6.6 combines flat primitive wave rows with independent projected-volume-APV and bottom rows. The resulting descriptor is square, full rank, and well enough conditioned; it recovers the flat primitive generator and satisfies all three selected row families at roundoff. It nevertheless fails the complete primitive weak equation by approximately `1.26e-3`, physical energy by `1.49e-3`, and full sampled APV by `2.34e-1` at the reference resolution. The full APV defect is at roundoff for interior horizontal inputs and approximately `4.14e-1` at both meridional spectral edges. Vertical refinement reduces the weak and energy residuals but does not reduce the APV edge defect.
+Milestone 6.6 combines flat primitive wave rows with independent projected-volume-APV and bottom rows. The resulting descriptor is square, full rank, and well enough conditioned; it recovers the flat primitive generator and satisfies all three selected row families at roundoff. It nevertheless fails the complete primitive weak equation by approximately `1.26e-3` and physical energy by `1.49e-3`. Those are genuine row-equivalence failures. Its `4.14e-1` full-grid APV value at the meridional edges is instead the norm of an external unprojected sideband.
 
 The complete repository suite now contains 120 passing tests, including the Milestone-6.6 blocker audit.
 
-This establishes that the Fourier edge is not an obstruction to a rigorously projected coupled-PV law. It does not alter the Milestone-6.3 result for the current primitive representation: that representation still lacks a commuting connection to the closed PV state.
+This establishes that the Fourier edge is not an obstruction to a rigorously projected coupled-PV law. It also shows why the next experiment must retain the unmodified primitive weak evolution instead of substituting projected PV rows.
 
-## The blocker
+## What the spectral-edge audit means
 
 The APV defect separates into two parts:
 
 - For horizontally interior input modes, whose first-order sidebands remain in the state, the normalized defect decreases from `4.44e-3` at polynomial degree two to `5.38e-4` at degree six.
-- For Fourier-edge inputs, the defect remains near `4.14e-1` because terrain multiplication creates sidebands outside the retained prognostic state.
+- For Fourier-edge inputs, the full-grid defect remains near `4.14e-1` because terrain multiplication creates sidebands outside the retained prognostic state.
 
-Thus vertical refinement improves the interior approximation but cannot make the current fixed finite primitive state and its sampled APV range closed under terrain convolution. The cancellation required by
+The edge value is an expected truncation residual when an unprojected oversampled product is compared with a finite state. A finite Fourier space is not required to be closed under multiplication. Zero-padding computes the external sideband without aliasing, and adjoint restriction removes it from the retained equations.
+
+The still-unresolved question is whether the projected coefficient identity
 
 ```math
-Q_0L_1+Q_1L_0=0
+Q_{0,N}L_1+Q_{1,N}L_0=0
 ```
 
-cannot be represented at the spectral edge by the current primitive state and APV range. The oracle classifies this result as `representation-blocker`. Milestone 6.5 shows that an orthogonally projected coupled-PV state closes instead. Milestone 6.6 shows that simply substituting those projected APV and bottom rows into an otherwise primitive descriptor changes the primitive weak dynamics. The missing object is therefore a primitive/PV representation that is both commuting and weakly equivalent.
-
-This conclusion is finite-dimensional. It is not evidence that stationary APV is incompatible with topography in the continuous equations.
+closes for the unmodified primitive Galerkin operator or converges on a trusted band. The existing `representation-blocker` status records the historical unprojected audit; it is not the classification of the new projected experiment.
 
 ## What the investigation ruled out
 
@@ -94,7 +92,7 @@ The sequence of independent audits removed the following explanations:
 3. Retaining pressure and the independent bottom row in a primitive descriptor showed that premature pressure elimination was not the only problem.
 4. An independent polynomial primitive oracle showed that hydrostatic `F`–`G` coordinates and the public modal reconstruction were not the sole causes.
 5. The frozen constant-slope approximation introduced an analytic cross-slope APV source. Restoring the globally varying terrain coefficients removed that approximation and recovered the correct Fourier selection.
-6. Increasing vertical polynomial degree reduced the interior error but left the Fourier-edge failure unchanged.
+6. Increasing vertical polynomial degree reduced the interior error; the unchanged Fourier-edge value was subsequently recognized as discarded external support.
 
 Changing the bottom basis alone, changing a quadratic norm without a derived invariant, or tuning the existing truncation therefore does not address the remaining issue.
 
@@ -102,31 +100,29 @@ Changing the bottom basis alone, changing a quadratic norm without a derived inv
 
 Do not proceed by:
 
-- starting Milestone 7 with the current representation;
+- starting Milestone 7 before the Milestone-6.7 projected tangent gate;
 - projecting the generator into an APV nullspace;
 - empirically symmetrizing the generator;
 - fitting a minimum-change closure;
 - adding an endpoint energy or enstrophy term without an exact closure identity;
-- deleting failing balanced or spectral-edge states; or
+- deleting failing balanced states or hiding external sidebands; or
 - interpreting energy conservation alone as validation of the state tendency.
 
 Those operations either answer a different dynamical question or hide the diagnosed incompatibility.
 
 ## Conditions for resuming
 
-Resume the full primitive direction only after deriving one of the following:
+Resume with Milestone 6.7, which must:
 
-- a hybrid primitive/PV state whose reconstruction, tendency, and APV maps commute with the Milestone-6.5 projected law **and** whose test equations are derived as an equivalent primitive weak formulation;
-- a finite primitive horizontal state closed under the terrain products required by both the tendency and APV maps; or
-- a different compatible discretization, such as an enriched mixed or exact-sequence formulation, that preserves the continuum identities without empirical correction.
+1. retain the unmodified primitive `E_0,E_1,J_0,J_1` construction;
+2. use one zero-pad, multiply, and adjoint-restrict operation for every terrain product;
+3. separate a trusted physical band from an evolved outer support band;
+4. reproduce exact Fourier convolution with the oversampled pseudospectral calculation below `1e-12`;
+5. retain weak evolution, physical energy, bottom evolution, and conjugacy below `1e-11`;
+6. make padding factors two and three agree on the trusted band within `1e-10`; and
+7. either close projected APV below `1e-10` or reduce its trusted-band residual by at least a factor of four per refinement to below `1e-8`.
 
-Before finite-amplitude terrain or modal construction resumes, the replacement must:
-
-1. reproduce the analytic first terrain coefficient independently;
-2. satisfy weak evolution, physical energy, pointwise APV, strong bottom evolution, and conjugacy on the complete retained state;
-3. reduce both interior and Fourier-edge APV defects below `1e-10`;
-4. converge under independent horizontal, vertical, quadrature, and oversampling refinement; and
-5. pass without post hoc projection or symmetrization.
+External sidebands must be reported separately. No corrected generator, fitted closure, empirical symmetrization, or APV-nullspace projection is permitted.
 
 ## Reproducing the numerical result
 
@@ -148,7 +144,7 @@ The hybrid primitive–PV oracle is exposed by [`auditHybridPrimitivePVOracle`](
 
 ## Mathematical sources
 
-The mathematical repository is `ape-apv-bottom-topography` at checkpoint `7527984`. Its relevant sources and equation labels are:
+The mathematical repository is `ape-apv-bottom-topography`. Its relevant sources and equation labels are:
 
 - `main.tex`: `eq:finite-terrain-linear-displacement-boundaries`, `eq:finite-terrain-linear-total-energy`, `eq:finite-terrain-linear-apv`, `eq:finite-terrain-linear-potential-enstrophy`, and `eq:finite-terrain-pressure-free-weak-equation`;
 - `terrain-energy-galerkin.tex`: `eq:galerkin-linear-apv`, `eq:galerkin-discrete-compatibility-identities`, `eq:galerkin-boundary-descriptor-pencil`, and `eq:galerkin-first-order-conservation-identities`;

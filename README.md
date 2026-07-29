@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Paused research branch:** Milestone 6.6 constructs a complete hybrid wave–projected-APV–bottom descriptor, but shows that it is not equivalent to the unmodified primitive weak equations and does not conserve physical energy. Terrain-energy Galerkin development therefore remains paused before the full primitive periodic problem. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before using the prototypes or continuing the roadmap. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Paused before Milestone 6.7:** Milestone 6.6 shows that replacing primitive rows with projected APV and bottom rows is not equivalent to the primitive weak equations and does not conserve physical energy. The previously reported Fourier-edge APV residual is now recognized as an unprojected external sideband, not a fundamental spectral blocker. The next planned experiment retains the unmodified primitive weak forms and applies one common padded Galerkin projection. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -53,7 +53,7 @@ audit = problem.auditGlobalSmallTerrainPrimitive( ...
 
 The audit retains pressure until continuity and the bottom equation have been imposed. It constructs the first terrain coefficient analytically and compares it with centered differences of the unexpanded mapped equations. For sinusoidal terrain, the two constructions agree below `3e-10`, the weak equation, physical energy, bottom evolution, and conjugacy close near roundoff, and coupling is confined to the expected neighboring Fourier blocks.
 
-The unmodified finite primitive representation still gives `audit.status="representation-blocker"`. At the reference resolution its normalized pointwise-APV defect is approximately `2.34e-1`. For horizontally interior inputs the defect decreases from `4.44e-3` to `5.38e-4` as the polynomial degree increases from two to six, while Fourier-edge inputs remain near `4.14e-1`. No APV projection, energy symmetrization, or fitted correction is applied. The complete evidence is recorded in [Milestone 6.3](milestones.md#milestone-63-global-small-terrain-primitive-compatibility-oracle).
+The historical audit gives `audit.status="representation-blocker"`. At the reference resolution its normalized full-grid APV defect is approximately `2.34e-1`. For horizontally interior inputs the defect decreases from `4.44e-3` to `5.38e-4` as the polynomial degree increases from two to six, while Fourier-edge inputs remain near `4.14e-1`. The edge value is an external sideband on the oversampled grid and does not test a consistently restricted APV law. No APV projection, energy symmetrization, or fitted correction is applied. The complete evidence is recorded in [Milestone 6.3](milestones.md#milestone-63-global-small-terrain-primitive-compatibility-oracle).
 
 ## Coupled volume–boundary PV frequency oracle
 
@@ -69,7 +69,7 @@ audit = problem.auditCoupledPVFrequencyOracle( ...
 
 The direct $L^2\oplus\mathbb C$ volume–boundary inversion conserves physical energy and the applicable signed pseudoenstrophy at roundoff. Its leading physical frequencies agree with an independent Chebyshev discretization of Yassin's eigenvalue-dependent endpoint problem to `4.82e-11`. The $f$-plane limit contains an active bottom mode with zero volume APV, and the existing balanced-plus-bottom Galerkin basis represents the leading modes with a residual that decreases under vertical refinement.
 
-This passing local oracle does not repair the global Fourier-edge APV defect in the primitive representation. Milestone 6.5 isolates the horizontal issue by evolving volume and boundary PV directly.
+This passing local oracle does not establish the projected primitive APV law. Milestone 6.5 isolates the horizontal projection by evolving volume and boundary PV directly.
 
 ## Periodic coupled volume–boundary PV oracle
 
@@ -103,7 +103,7 @@ audit = problem.auditHybridPrimitivePVOracle( ...
     zonalMode=1,polynomialDegree=4);
 ```
 
-The wave, projected-volume-APV, and bottom rows form a complete coordinate system and close at roundoff. Nevertheless, the resulting first-order generator fails the unmodified primitive weak equation, physical energy, and full sampled APV. The error is confined to meridional Fourier-edge inputs and persists under vertical refinement. The oracle therefore classifies the result as `primitive-equivalence-blocker`: using projected APV as a replacement coordinate is not by itself an equivalent discretization of the primitive equations.
+The wave, projected-volume-APV, and bottom rows form a complete coordinate system and close at roundoff. Nevertheless, the resulting first-order generator fails the unmodified primitive weak equation and physical energy. The full sampled APV audit also contains external meridional sidebands. The oracle therefore classifies the result as `primitive-equivalence-blocker`: using projected APV as a replacement coordinate is not by itself an equivalent discretization of the primitive equations. Milestone 6.7 will instead retain the primitive energy and exchange rows and test the common dealiased projection on a trusted physical band.
 
 ## Terrain-energy Galerkin flat oracle
 

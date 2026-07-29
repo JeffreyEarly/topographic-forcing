@@ -1,10 +1,10 @@
 # Terrain-energy Galerkin milestones
 
-> **Paused after Milestone 6.6:** a complete hybrid wave–projected-APV–bottom descriptor can be constructed and retains the Milestone-6.5 projected QG closure, but it is not equivalent to the unmodified primitive weak equations and does not conserve physical energy. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before interpreting this roadmap. Milestones 7–13 are inactive prospective work and require a primitive/PV representation that is both commuting and weakly equivalent; that representation has not yet been constructed.
+> **Paused before Milestone 6.7:** a complete hybrid wave–projected-APV–bottom descriptor can be constructed, but replacing primitive rows by projected conservation rows is not equivalent to the primitive weak equations and does not conserve physical energy. The previously reported Fourier-edge APV residual is an unprojected external sideband rather than a fundamental spectral blocker. Milestone 6.7 now defines the standard dealiased projected-primitive experiment. Milestones 7–13 remain inactive until that gate passes.
 
 ## Objective
 
-Develop `WVTerrainEnergyGalerkin`, a boundary-dynamical Galerkin system for the linear rotating Boussinesq equations over stationary bottom topography. The formulation is linear in flow amplitude and exact in the resolved terrain. The immediate goal is to determine whether a mixed volume–bottom descriptor can conserve physical energy and quadratic potential enstrophy, preserve pointwise APV, and enforce the resolved bottom evolution simultaneously. Pressure remains a Lagrange multiplier during construction and is removed only from the validated reduced evolution.
+Develop `WVTerrainEnergyGalerkin`, a boundary-dynamical Galerkin system for the linear rotating Boussinesq equations over stationary bottom topography. The formulation is linear in flow amplitude and exact in the resolved terrain. The immediate goal is to construct one adjoint-consistent Fourier–Galerkin projection that conserves physical energy, enforces projected bottom evolution, and either conserves projected APV exactly or converges to stationary APV on a trusted physical band. Pressure remains a Lagrange multiplier during construction and is removed only from the validated reduced evolution.
 
 The augmented state begins with
 
@@ -25,7 +25,7 @@ The implementation will use ordinary hydrostatic modes as economical vertical co
 
 The completed mean-depth generator and scattering implementation is retained as reusable engineering infrastructure. Its scientific roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md). Neither existing forcing is used as the terrain-energy evolution operator.
 
-The completed dense finite-terrain forms remain a volume-only diagnostic oracle. Milestones 4.5 and 4.6 are retained as completed negative results: neither pointwise-APV nor quadratic-enstrophy minimum-change closure can reconcile the strong bottom equation with the displacement-only bottom coordinate. Milestones 4.7 and 4.8 replace that coordinate with a complete balanced bottom-inversion reconstruction but show that the projected volume generator is still incompatible with the strong bottom evolution and pointwise APV. Milestones 5–6 then retain pressure and the bottom equation in an augmented local descriptor. Milestone 6.1 independently confirms that an eta-only polynomial coordinate and the coupled Branch-P energy weak form recover energy and bottom kinematics, but not pointwise APV or potential enstrophy. Milestones 6.4–6.5 show that coupled volume and boundary PV provide a closed local and periodic QG representation. Milestone 6.6 shows that simply using projected APV and bottom PV as replacement coordinates yields a complete descriptor but not one equivalent to the primitive weak dynamics. No constrained surrogate advances beyond the historical closure audits, and the full primitive periodic problem remains blocked pending a commuting and weakly equivalent primitive/PV discretization.
+The completed dense finite-terrain forms remain diagnostic oracles. Milestones 4.5–6.3 record the successive bottom-state, pressure-ordering, local-slope, and primitive-coordinate audits. Milestones 6.4–6.5 show that coupled volume and boundary PV provide a closed local and periodic QG representation. Milestone 6.6 shows that simply using projected APV and bottom PV as replacement coordinates yields a complete descriptor but not one equivalent to the primitive weak dynamics. Its row-equivalence and physical-energy failures remain decisive. The full-grid Fourier-edge APV residual from Milestones 6.3 and 6.6 is now interpreted correctly as discarded external support. Milestone 6.7 therefore returns to the unmodified primitive energy and exchange forms and tests one common padded projection before finite-amplitude terrain is attempted.
 
 ## Fixed conventions and boundaries
 
@@ -1135,9 +1135,9 @@ The pointwise-APV and quadratic-potential-enstrophy defects are instead
 2.34e-1, 3.28e-4.
 ```
 
-The failure has two distinguishable pieces. For horizontally interior input modes, the APV cancellation defect decreases from `4.44e-3` at polynomial degree two to `5.38e-4` at degree six. Fourier-edge inputs remain near `4.14e-1` because multiplication by the terrain creates sidebands outside the retained prognostic state. Increasing vertical degree therefore improves the interior approximation but cannot close the complete finite horizontal state under terrain convolution.
+The APV residual has two distinguishable pieces. For horizontally interior input modes, it decreases from `4.44e-3` at polynomial degree two to `5.38e-4` at degree six. Fourier-edge inputs remain near `4.14e-1` because multiplication by the terrain creates sidebands outside the retained prognostic state. That edge value is an unprojected external-sideband diagnostic; a finite Fourier support is not required to be closed under multiplication.
 
-Milestone 6.3 takes the **representation-blocker** exit. Retaining global terrain variation removes the analytic frozen-slope objection and produces the correct Fourier selection, but the current finite primitive Galerkin state does not satisfy stationary pointwise APV exactly. This does not invalidate the continuous conservation law. It identifies the next missing object: an APV-compatible global representation or a rigorously projected discrete APV law whose state, range, and invariant are closed under the same truncation. Finite-amplitude periodic terrain and modal construction remain blocked.
+Milestone 6.3 historically takes the `representation-blocker` exit because that was the classification implemented by the audit. Retaining global terrain variation removes the analytic frozen-slope objection and produces the correct Fourier selection, but the audit does not apply a common restriction to its primitive and APV products. The later interpretation is therefore narrower: the trusted interior residual must be retested under refinement, while the edge residual must be reported as discarded support. Finite-amplitude terrain remains inactive until Milestone 6.7 performs that test.
 
 ## Milestone 6.4: Coupled volume–boundary PV frequency oracle
 
@@ -1237,7 +1237,7 @@ Milestone 6.4 therefore validates the coupled volume–boundary PV interpretatio
 
 ### Stopping condition
 
-A passing local oracle validates the boundary-dynamical interpretation and identifies the current balanced basis as an admissible representation of the known QG modes. It does not resolve the Milestone-6.3 horizontal-convolution blocker and does not activate Milestone 7. Any classified blocker is recorded without modifying the governing equations or fitting a correction.
+A passing local oracle validates the boundary-dynamical interpretation and identifies the current balanced basis as an admissible representation of the known QG modes. It does not determine whether the primitive APV law closes or converges under one common dealiased projection, and it does not activate Milestone 7. Any classified blocker is recorded without modifying the governing equations or fitting a correction.
 
 ## Milestone 6.5: Periodic coupled volume–boundary PV oracle
 
@@ -1332,7 +1332,7 @@ Fourteen horizontal inputs retain every sinusoidal sideband and ten are edge inp
 
 The active modes have zero volume APV and are represented by the existing balanced-plus-bottom coordinates with a `4.0e-3` energy-norm defect at the reference settings. Under simultaneous vertical and Legendre refinement, the resolved defects decrease from approximately `5.5e-3` to `7e-4` to `1e-4`, with the bottom value reproduced exactly. Constant and exponential stratification and both antialias settings pass. The complete repository suite passes 115 tests with zero failures, and `checkcode` reports no issues in the new source.
 
-Milestone 6.5 establishes that periodic terrain admits a closed finite QG volume–boundary PV projection even though the current primitive state and sampled APV range fail at the Fourier edge. The next missing object is a hybrid primitive/PV representation with a commuting reconstruction and tendency map. This result does not activate Milestone 7.
+Milestone 6.5 establishes that periodic terrain admits a closed finite QG volume–boundary PV projection even when terrain multiplication generates Fourier coefficients outside the retained state. Its external edge sidebands are discarded by the declared projection rather than treated as internal residuals. The next experiment at that point was a hybrid primitive/PV representation with a commuting reconstruction and tendency map. This result does not activate Milestone 7.
 
 ### Stopping condition
 
@@ -1444,59 +1444,118 @@ The complete primitive identities do not close:
 | full sampled volume APV | \(2.34\times10^{-1}\) |
 | quadratic potential enstrophy | \(1.04\times10^{-14}\) |
 
-The small enstrophy defect does not rescue the construction: it is an aggregate quadratic audit and does not imply the pointwise APV identity or the primitive weak equation. Per-horizontal-mode APV diagnostics isolate the failure at the two meridional spectral edges: the three interior modes close at roundoff, while both edge modes retain a defect near \(4.14\times10^{-1}\). Increasing the vertical polynomial degree from 2 to 6 reduces the weak and energy defects but leaves the full APV defect near \(2.34\times10^{-1}\), confirming that the decisive error is horizontal closure rather than unresolved vertical structure.
+The small enstrophy defect does not rescue the construction: it is an aggregate quadratic audit and does not imply the primitive weak equation. Per-horizontal-mode APV diagnostics are at roundoff for the three interior modes, while both edge modes contain an external sideband with defect near \(4.14\times10^{-1}\). That edge value is an unprojected truncation residual, not a failure of the projected QG law. The decisive hybrid defects are the complete primitive weak equation and physical energy, which remain nonzero under vertical refinement.
 
-The result is classified `primitive-equivalence-blocker`. Projected APV and bottom PV are valid coordinates, and they retain the QG closure, but replacing primitive stationary test equations by those coordinate rows changes the primitive dynamics. A future representation must supply a commuting horizontal projection that is also derived as an equivalent primitive weak formulation; enforcing the desired coordinate tendencies alone is insufficient.
+The result remains classified `primitive-equivalence-blocker`. Projected APV and bottom PV are valid coordinates, and they retain the QG closure, but replacing primitive stationary test equations by those coordinate rows changes the primitive dynamics. Milestone 6.7 therefore keeps the unmodified primitive rows and changes only the shared spectral evaluation and diagnostic projection.
 
 The focused oracle tests and complete repository suite pass 120 tests with zero failures. `checkcode` reports no issues in the repository MATLAB source.
 
 ### Stopping condition
 
-Milestone 7 remains inactive. Do not extend this hybrid descriptor to finite-amplitude periodic primitive terrain, construct terrain modes from it, or repair its residuals empirically.
+Milestone 7 remains inactive. Do not extend this hybrid descriptor to finite-amplitude periodic primitive terrain, construct terrain modes from it, or repair its residuals empirically. Proceed only through the dealiased projected-primitive tangent oracle in Milestone 6.7.
 
-## Milestone 7: Periodic-terrain augmented dense compatibility gate
+## Milestone 6.7: Dealiased projected primitive tangent oracle
+
+- [ ] Complete — blocking spectral-convergence gate
+
+### Purpose
+
+Test the ordinary Fourier–Galerkin construction that the earlier full-grid APV audit did not test. Retain the unmodified primitive weak forms while evaluating every terrain product with one zero-pad, multiply, and adjoint-restrict operation. Determine whether projected APV closes exactly or converges on a trusted physical band when the outer retained modes are treated as numerical support.
+
+### Dependencies
+
+Milestones 6.3, 6.5, and 6.6. Reuse the verified analytic primitive tangent, the exact projected QG convolution, and the hybrid row-equivalence diagnosis. Do not reuse the hybrid replacement rows.
+
+### Deliverables
+
+- Retain the primitive matrices \(H_0,H_1,J_0,J_1\) and construct
+
+```math
+L_0=H_0^{-1}J_0,
+\qquad
+L_1=H_0^{-1}(J_1-H_1L_0).
+```
+
+- Define a retained support space, an oversampled evaluation space, and a fixed trusted physical band.
+- Implement one adjoint pair \(I_{N\to M}\), \(P_{M\to N}\) and evaluate every terrain multiplication as
+
+```math
+\mathcal M_{h,N}
+=
+P_{M\to N}\mathcal M_hI_{N\to M}.
+```
+
+- Use the same projection in the primitive weak forms, projected APV map, and bottom map.
+- Compare exact mode-number convolution with the independently oversampled pseudospectral action.
+- Report separately:
+  - projected residuals on the complete retained support;
+  - residuals restricted to the trusted physical band; and
+  - discarded external sidebands before restriction.
+- Preserve the existing public coefficient layout and Fourier conjugacy maps.
+- Apply no APV-nullspace projection, replacement conservation rows, corrected generator, empirical symmetrization, or fitted closure.
+
+### Automated acceptance
+
+- Prolongation/restriction adjointness and exact-convolution agreement are below \(10^{-12}\).
+- The analytic tangent and centered differences of the identically projected finite-terrain system agree below \(10^{-9}\).
+- Primitive weak evolution, physical energy, projected bottom evolution, and Fourier conjugacy close below \(10^{-11}\).
+- Padding factors two and three give trusted-band actions and residuals agreeing below \(10^{-10}\).
+- Trusted-band APV and potential-enstrophy defects decrease across at least three independent horizontal and vertical refinements and reach \(10^{-8}\) or better.
+- Discarded external sidebands are nonzero in an edge test, are not aliased into the retained state, and are excluded from the internal APV residual.
+- If
+
+```math
+Q_{0,N}L_1+Q_{1,N}L_0=0
+```
+
+closes below \(10^{-10}\), classify the oracle as `exact-projected`.
+- Otherwise classify it as `convergent-projected` only if the trusted-band APV and potential-enstrophy defects decrease by at least a factor of four per refinement and satisfy the final \(10^{-8}\) tolerance.
+- A nonconvergent trusted-band result is a genuine blocker and keeps Milestone 7 inactive.
+- The complete repository suite and `checkcode` pass.
+
+### Stopping condition
+
+Stop after recording `exact-projected`, `convergent-projected`, or `nonconvergent-projected`. Do not construct finite-amplitude terrain modes or alter the generator to obtain a preferred classification.
+
+## Milestone 7: Finite-amplitude projected primitive dense gate
 
 - [ ] Complete — principal blocking gate
 
 ### Purpose
 
-Determine whether the selected augmented descriptor remains physically compatible when periodic terrain couples horizontal Fourier coefficients globally.
+Extend the validated Milestone-6.7 primitive projection to finite-amplitude periodic terrain and determine whether the trusted physical dynamics converge.
 
 ### Dependencies
 
-An APV-compatible global representation that resolves the Milestone-6.3 finite-state blocker while preserving the verified first-order energy and strong bottom evolution. The current primitive representation does not satisfy this dependency.
+Milestone 6.7 with status `exact-projected` or `convergent-projected`.
 
 ### Deliverables
 
-- Extend the augmented descriptor to periodic sinusoidal terrain.
-- Assemble the dense reference system without empirical correction, minimum-change closure, or post hoc skew-symmetrization.
-- Include terrain multiplication and the strong bottom row before eliminating pressure and constraints through the complete augmented saddle-point system.
-- Test the physical identities
+- Extend the unmodified projected primitive construction to periodic sinusoidal terrain.
+- Use the validated support, trusted-band, padding, and adjoint-restriction conventions from Milestone 6.7.
+- Assemble the dense reference system without replacement APV rows, empirical correction, minimum-change closure, or post hoc skew-symmetrization.
+- Require the exact finite-dimensional identities
 
 ```math
 L^*E_\gamma+E_\gamma L=0,
 \qquad
-Q_\gamma L=0,
-\qquad
-BL=R_h,
+BL=R_{h,N},
 ```
 
-and the implied quadratic potential-enstrophy identity
-
-```math
-L^*Z_\gamma+Z_\gamma L=0.
-```
-
-- If Milestone 6 identifies a generalized invariant, test it separately from physical energy and physical volume potential enstrophy.
-- Report the rank and nullity of $Q_\gamma$ and verify that the generator range lies in $\ker Q_\gamma$.
+- Test projected APV and potential enstrophy according to the Milestone-6.7 classification:
+  - require exact closure for `exact-projected`;
+  - require trusted-band convergence for `convergent-projected`.
+- Report unprojected external sidebands separately.
+- Recover pressure only as a strong-equation diagnostic after the projected primitive generator has been constructed.
 
 ### Automated acceptance
 
-- Flat and uniform-depth cases pass all applicable identities within $10^{-12}$.
-- Weak sinusoidal terrain passes physical energy, pointwise APV, bottom evolution, quadratic potential enstrophy, and Fourier conjugacy within $10^{-10}$.
-- Residuals decrease under independent horizontal, vertical, and oversampling refinement.
-- The generator range lies in $\ker Q_\gamma$, with its rank and nullity reported explicitly.
-- The augmented formulation materially improves the Milestone-4.8 defects without altering the governing equations.
+- Flat and uniform-depth cases pass exact applicable identities within \(10^{-12}\).
+- Sinusoidal terrain passes primitive weak consistency, physical energy, projected bottom evolution, and Fourier conjugacy within \(10^{-10}\).
+- In the `exact-projected` branch, projected APV and projected potential enstrophy close within \(10^{-10}\).
+- In the `convergent-projected` branch, their trusted-band residuals decrease under independent support, vertical, and oversampling refinement and reach \(10^{-8}\).
+- Trusted-band results from padding factors two and three agree within \(10^{-10}\).
+- Strong momentum, continuity, and physical bottom residuals decrease under refinement.
 - Failure stops the roadmap before modal construction.
 
 ## Milestone 8: Implement the selected invariant branch
@@ -1519,7 +1578,7 @@ Milestone 7.
   - **P — physical-energy mixed branch:** retain physical $E_\gamma$ as the evolution norm and use the active bottom equation to resolve the zero-APV boundary sector.
 - If a separately conserved generalized boundary enstrophy was derived, include it. Otherwise retain physical volume potential enstrophy and resolve its zero-APV degeneracy through the dynamics.
 - Preserve physical energy as an independently verified invariant.
-- Preserve stationary physical pointwise APV.
+- Preserve the Milestone-6.7 projected-APV classification and its trusted-band convergence requirements.
 - Keep the bottom equation as an explicit dynamical row.
 - Label every generalized invariant separately from the physical invariants.
 - Select branch H when a positive derived form exists, branch K when the required form is only signed, and branch P when no separate boundary metric exists but the physical mixed system passes.
@@ -1528,7 +1587,7 @@ Milestone 7.
 
 - The implemented branch matches the Milestone-6 classification and Milestone-7 compatibility results.
 - Its metric, adjoint, nullspace, and branch-specific signature tests close within the tolerances established by the dense gates.
-- Physical energy, pointwise APV, bottom evolution, and physical potential enstrophy remain independently verified.
+- Physical energy and bottom evolution remain exact finite identities. Projected APV and physical potential enstrophy retain the exact or convergent classification established by Milestones 6.7–7.
 - No unused alternative branch or empirical metric is introduced into the evolution path.
 
 ## Milestone 9: Dense terrain modes and boundary-mode classification
@@ -1563,7 +1622,7 @@ as an eigenproblem row rather than as a diagnostic constraint.
 
 - Frequencies are real to $10^{-10}$ under the physical positive-energy evolution.
 - Distinct-frequency modes are orthogonal under physical energy and, where applicable, the generalized metric.
-- Nonzero-frequency modes have negligible APV.
+- Nonzero-frequency modes have projected APV below the exact gate or a trusted-band residual converging at the validated rate.
 - The complete state and all physical and generalized invariants reconstruct to $10^{-10}$.
 - Strong momentum, continuity, and bottom residuals decrease under refinement.
 - New boundary or topographic modes are identifiable by their bottom participation and converge with resolution.
@@ -1592,7 +1651,7 @@ Milestone 9.
 
 - One correction reduces weak nonresonant $O(h)$ residuals to $O(h^2)$.
 - Repeated enrichment reproduces dense eigenvalues and invariant subspaces within $10^{-9}$.
-- Bottom, APV, physical-energy, and branch-specific identities remain satisfied after every accepted enrichment.
+- Bottom and physical-energy identities remain exact after every accepted enrichment; projected APV retains the validated exact or convergent behavior.
 - Resonant calculations converge only when the complete coupled boundary and volume block is retained.
 
 ## Milestone 11: Matrix-free augmented operators
@@ -1620,7 +1679,7 @@ Milestone 10.
 - Physical and generalized adjoint identities close within $10^{-12}$.
 - No diagnostic pressure solve occurs during a reduced operator application.
 - Bottom coefficients remain explicit throughout packing, application, and reconstruction.
-- Matrix-free APV, bottom-evolution, energy, and modal diagnostics reproduce the dense results.
+- Matrix-free projected-APV, bottom-evolution, energy, and modal diagnostics reproduce the dense results and their trusted-band classification.
 
 ## Milestone 12: Energy-preserving evolution and scientific examples
 
@@ -1645,7 +1704,7 @@ Milestone 11.
 
 - Dense exponentiation, phase evolution, and Cayley evolution agree at reference resolution.
 - Physical energy is conserved to solver tolerance.
-- APV remains stationary and bottom evolution closes.
+- Projected APV remains stationary in the exact branch or converges at the validated trusted-band rate; bottom evolution closes.
 - Generalized invariants, when present, are conserved independently.
 - Example errors converge with time step and spatial resolution.
 
@@ -1686,7 +1745,8 @@ Milestone 12.
 | **D1.3 — Coupled PV frequency oracle** | 6.4 | Validate the single-wavenumber volume–boundary PV dynamics, Yassin endpoint equivalence, and current-basis representation. Do not begin periodic terrain. |
 | **D1.4 — Periodic coupled-PV closure oracle** | 6.5 | Test exact projected periodic QG closure, including Fourier-edge inputs, and stop before constructing a hybrid primitive/PV descriptor. |
 | **D1.5 — Hybrid primitive–PV oracle** | 6.6 | Replace stationary primitive rows by projected APV and bottom rows in one fixed-zonal block; stop if the complete descriptor is not weakly equivalent to the primitive equations. |
-| **D2 — Periodic scientific gate** | 7 | Test the selected augmented formulation on sinusoidal terrain. Stop immediately if physical energy, APV, or bottom evolution does not converge. |
+| **D1.6 — Projected primitive spectral oracle** | 6.7 | Establish one common padded Galerkin projection and verify exact energy and bottom identities plus trusted-band APV convergence. Do not begin finite-amplitude terrain. |
+| **D2 — Periodic scientific gate** | 7 | Extend the validated projected primitive construction to finite-amplitude sinusoidal terrain. Stop if physical energy, bottom evolution, or trusted-band APV does not meet its branch gate. |
 | **D3 — Selected branch and dense modes** | 8–9 | Implement only the selected branch and establish the dense terrain-mode oracle. Do not implement enrichment. |
 | **E1 — Selective modes** | 10 | Implement residual enrichment and validate it exclusively against the dense oracle. |
 | **E2 — Matrix-free production core** | 11 | Replace dense actions while preserving every Milestone-7 and Milestone-9 identity. |
@@ -1699,7 +1759,7 @@ Use one focused commit per completed milestone and retain acceptance evidence in
 
 ## Definition of done
 
-The augmented scientific proof of concept is established when Milestones 5–9 pass: the boundary coordinate is independently dynamical, the Green identity selects a justified invariant branch, the periodic descriptor simultaneously satisfies physical energy, pointwise APV, bottom evolution, and physical potential enstrophy, and the complete dense modes include converged boundary or topographic modes.
+The augmented scientific proof of concept is established when Milestones 5–9 pass: the boundary coordinate is independently dynamical, the Green identity selects a justified invariant branch, the projected primitive system conserves physical energy and bottom kinematics exactly, projected APV is either exact or demonstrably convergent on the trusted band, and the complete dense modes include converged boundary or topographic modes.
 
 The efficient research implementation is established when Milestones 10–12 pass: residual enrichment reproduces the dense oracle, matrix-free actions preserve every augmented identity, and energy-preserving evolution produces convergent constant-slope, sinusoidal-terrain, and Gaussian-ridge examples.
 
