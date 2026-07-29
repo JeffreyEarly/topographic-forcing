@@ -4,7 +4,7 @@
 
 **This branch is at a passing Milestone-6.8 tangent checkpoint.** Milestone 6.7 showed that a fixed flat test space does not recover the trusted-band APV cancellation even under a common padded projection. Milestone 6.8 returns to the continuous Green identity and includes the terrain derivative of the stationary geostrophic test states. The resulting primitive weak APV moments, physical energy, projected bottom evolution, and tangent eigenproblem pass without replacement APV rows or corrections. Milestone 7 and finite-amplitude terrain have not begun.
 
-The pre-Milestone-6.7 checkpoint is commit [`d5ab18f`](https://github.com/JeffreyEarly/topographic-forcing/tree/d5ab18f) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The current branch contains the completed projected and boundary-complete weak oracles. The matching mathematics is maintained in `finite-terrain-projection-problem.tex`, `finite-terrain-weak-eigenproblem.tex`, and `terrain-energy-galerkin.tex` in the `ape-apv-bottom-topography` literature repository.
+The pre-Milestone-6.7 checkpoint is commit [`d5ab18f`](https://github.com/JeffreyEarly/topographic-forcing/tree/d5ab18f) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The current branch contains the completed projected and boundary-complete weak oracles. The matching mathematics is maintained in `finite-terrain-projection-problem.tex` and `terrain-energy-galerkin.tex` in the `ape-apv-bottom-topography` literature repository.
 
 The objective was to construct a flow-linear system, exact in the resolved stationary terrain, that satisfies the continuum requirements
 
@@ -186,7 +186,7 @@ The boundary-complete weak oracle is exposed by [`auditBoundaryCompleteWeakEigen
 The mathematical repository is `ape-apv-bottom-topography`. Its relevant sources and equation labels are:
 
 - `main.tex`: `eq:finite-terrain-linear-displacement-boundaries`, `eq:finite-terrain-linear-total-energy`, `eq:finite-terrain-linear-apv`, `eq:finite-terrain-linear-potential-enstrophy`, and `eq:finite-terrain-pressure-free-weak-equation`;
-- `finite-terrain-weak-eigenproblem.tex`: `eq:terrain-weak-apv-green-identity`, `eq:terrain-weak-volume-apv-conservation`, and `eq:terrain-weak-discrete-green-commutation`;
+- `finite-terrain-projection-problem.tex`: `eq:terrain-projection-apv-green-identity`, `eq:terrain-projection-volume-apv-weak-conservation`, and `eq:terrain-projection-discrete-green-commutation`;
 - `terrain-energy-galerkin.tex`: `eq:galerkin-linear-apv`, `eq:galerkin-discrete-compatibility-identities`, `eq:galerkin-boundary-descriptor-pencil`, and `eq:galerkin-first-order-conservation-identities`;
 - `boundary-energy-enstrophy.tex`: the exact energy, potential-enstrophy, bottom-Casimir, and complete zero-APV state-space derivations.
 

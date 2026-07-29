@@ -1567,7 +1567,7 @@ Return to the continuous primitive weak equations and derive the terrain-depende
 
 ### Dependencies
 
-Milestone 6.7 and the continuous derivation in `finite-terrain-weak-eigenproblem.tex`. Retain the unmodified primitive \(H_0,H_1,J_0,J_1\), the complete bottom coordinate, and the common dealiased terrain projection.
+Milestone 6.7 and the continuous derivation in `finite-terrain-projection-problem.tex`. Retain the unmodified primitive \(H_0,H_1,J_0,J_1\), the complete bottom coordinate, and the common dealiased terrain projection.
 
 ### Deliverables
 
