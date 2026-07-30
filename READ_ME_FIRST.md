@@ -2,7 +2,7 @@
 
 ## Current status
 
-**This branch is at a passing Milestone-8 stationary-space checkpoint.** Milestone 7 constructs the terrain-dependent geostrophic test states and primitive energy and exchange forms at the same finite terrain amplitude. Milestone 8 extends that family to nonzero bottom values, enforces bottom tangency, and identifies the complete trusted stationary balanced space without removing the non-tangent bottom directions. Physical energy, APV Green identities, stationary primitive rows, and bottom tangency close at roundoff without replacement APV rows or corrections. Terrain-mode construction, Milestone 9, and time integration have not begun.
+**This branch is paused at a Milestone-9 modal-classification blocker.** Milestones 7 and 8 still provide a passing finite-amplitude primitive weak oracle and a tangency-defined stationary balanced sector. Milestone 9 preserves that sector, retains every non-tangent bottom direction, and produces a numerically accurate physical-energy eigensystem. The resulting modes do not yet satisfy the complete physical classification gates: additional backward-error zero directions remain outside the declared stationary sector, and the resolved bottom-dominated candidates fail APV, bottom-evolution, and strong primitive-equation tests. No active bottom-mode frequency is claimed, and Milestone 10 must not begin.
 
 The pre-Milestone-6.7 checkpoint is commit [`d5ab18f`](https://github.com/JeffreyEarly/topographic-forcing/tree/d5ab18f) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The current branch contains the completed projected, tangent boundary-complete, and finite-amplitude weak oracles. The matching mathematics is maintained in `finite-terrain-projection-problem.tex` and `terrain-energy-galerkin.tex` in the `ape-apv-bottom-topography` literature repository.
 
@@ -155,11 +155,17 @@ f\hat\eta_b+v_bh_x-u_bh_y.
 
 For the constant-stratification sinusoidal reference calculation, the geostrophic representation, complete Green identity, stationary row, projected bottom tangency, strong trusted bottom tangency, conjugacy, and padding defects are respectively `1.29e-17`, `1.15e-14`, `1.39e-13`, `1.44e-17`, `2.77e-17`, `6.57e-14`, and `9.37e-13`. Six non-tangent bottom-streamfunction directions remain in the full primitive state.
 
-The raw energy-scaled exchange form contains active topographic boundary directions with singular values near `1e-14 s^-1`. A hard SVD nullspace is therefore ill-conditioned even when the physically derived stationary rows close. The Milestone-8 tangency construction, not a numerical frequency threshold, defines the stationary sector. This distinction preserves the time-dependent Yassin-like boundary branch for Milestone 9.
+The raw energy-scaled exchange form contains active topographic boundary directions with singular values near `1e-14 s^-1`. A hard SVD nullspace is therefore ill-conditioned even when the physically derived stationary rows close. The Milestone-8 tangency construction, not a numerical frequency threshold, therefore defines the stationary sector in the Milestone-9 audit.
 
 Milestone 8 is classified `complete-stationary-space-oracle`. Flat and uniform-depth controls pass, variable stratification converges, and ordinary and antialiased layouts preserve the common projection and Fourier conjugacy.
 
-The complete repository suite contains 147 passing tests, and static analysis reports no issues in all 72 MATLAB files.
+Milestone 9 solves the Cholesky-scaled physical-energy pencil without modifying \(H_\gamma\) or \(J_\gamma\). For constant stratification, the eigen-residual, energy orthogonality, Fourier conjugacy, and retention of all non-tangent bottom directions close below `2e-13`, `5e-15`, `7e-15`, and `3e-15`. Flat and uniform-depth wave frequencies converge below `1e-10` relative error.
+
+That numerical eigensolve is not sufficient to establish physical terrain modes. The backward-error zero-frequency projector contains directions outside the Milestone-8 tangency sector. Four bottom-dominated candidates are spectrally resolved—the smallest ratio of frequency to backward uncertainty exceeds $10^{12}$—but their trusted APV, bottom, and strong-equation defects are approximately `1.60e-1`, `4.19e-6`, and `3.67e-1`. No candidate passes all physical gates, so no active bottom frequency is claimed. The constant-stratification reference is classified `dense-modal-classification-blocker`; a variable-stratification control also fails the full-space eigen-residual gate.
+
+All candidates, unresolved zero directions, and non-tangent bottom coordinates remain in the returned basis. They are reported as unclassified rather than reassigned by a frequency cutoff, projected into an APV nullspace, or deleted.
+
+The complete repository suite contains 154 passing tests, including seven Milestone-9 structure, retention, backward-error, reference-limit, and blocker tests. Static analysis reports no issues in all 76 MATLAB files.
 
 ## What the spectral-edge audit means
 
@@ -196,7 +202,7 @@ Changing the bottom basis alone, changing a quadratic norm without a derived inv
 
 Do not proceed by:
 
-- starting terrain-mode construction, Milestone 9, or time integration without a separate approved increment;
+- starting Milestone 10, residual enrichment, matrix-free mode construction, or time integration while the Milestone-9 modal gate is blocked;
 - projecting the generator into an APV nullspace;
 - empirically symmetrizing the generator;
 - fitting a minimum-change closure;
@@ -208,9 +214,9 @@ Those operations either answer a different dynamical question or hide the diagno
 
 ## Conditions for continuing
 
-Milestones 7 and 8 supply the finite-amplitude dense weak oracle and the trusted stationary balanced space. Any terrain-mode increment must use the unmodified \(H_\gamma,J_\gamma\) pair and start from the tangency-defined stationary space. It must preserve physical energy, weak APV, bottom convergence, adjoint-consistent padded products, and the independent strong diagnostics established here. A hard zero-frequency cutoff is not an acceptable substitute because active boundary modes may have frequencies arbitrarily close to zero.
+Milestones 7 and 8 supply the finite-amplitude dense weak oracle and the trusted stationary balanced space. Milestone 9 shows that a clean energy eigensolve alone does not complete the construction. Any resumed modal work must explain the extra backward-error zero directions without expanding the stationary sector beyond the Milestone-8 tangency construction, and must reduce the APV, bottom, and strong-equation residuals of the bottom-dominated candidates under independent refinement. A hard zero-frequency cutoff is not an acceptable substitute because active boundary modes may have frequencies arbitrarily close to zero.
 
-External sidebands must remain separately reported. No corrected generator, fitted closure, empirical symmetrization, replacement APV rows, APV-nullspace projection, or mode deletion is permitted. Terrain-mode construction and evolution require separate planning and authorization.
+Every claimed active bottom frequency must remain at least $10^3$ times its backward uncertainty. External sidebands must remain separately reported. No corrected generator, fitted closure, empirical symmetrization, replacement APV rows, APV-nullspace projection, or mode deletion is permitted. Milestone 10 and evolution require a new scientific result and separate authorization.
 
 ## Reproducing the numerical result
 
@@ -237,6 +243,8 @@ The boundary-complete weak oracle is exposed by [`auditBoundaryCompleteWeakEigen
 The finite-amplitude weak oracle is exposed by [`auditFiniteAmplitudeBoundaryCompleteWeakSystem`](<@WVTerrainEnergyGalerkin/auditFiniteAmplitudeBoundaryCompleteWeakSystem.m>), tested by [`TestWVTerrainEnergyFiniteAmplitudeBoundaryCompleteWeakSystem`](UnitTests/TestWVTerrainEnergyFiniteAmplitudeBoundaryCompleteWeakSystem.m), and recorded in [Milestone 7](milestones.md#milestone-7-finite-amplitude-projected-primitive-dense-gate).
 
 The complete stationary-space oracle is exposed by [`auditCompleteStationaryBalancedSpace`](<@WVTerrainEnergyGalerkin/auditCompleteStationaryBalancedSpace.m>), tested by [`TestWVTerrainEnergyCompleteStationaryBalancedSpace`](UnitTests/TestWVTerrainEnergyCompleteStationaryBalancedSpace.m), and recorded in [Milestone 8](milestones.md#milestone-8-complete-finite-terrain-stationary-balanced-space).
+
+The dense modal gate is exposed by [`auditDensePhysicalEnergyTerrainModes`](<@WVTerrainEnergyGalerkin/auditDensePhysicalEnergyTerrainModes.m>), tested by [`TestWVTerrainEnergyDensePhysicalEnergyTerrainModes`](UnitTests/TestWVTerrainEnergyDensePhysicalEnergyTerrainModes.m), and recorded in [Milestone 9](milestones.md#milestone-9-dense-physical-energy-terrain-modes). Its blocked status is an expected, tested scientific outcome; it does not authorize Milestone 10.
 
 ## Mathematical sources
 

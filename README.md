@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Checkpoint after Milestone 8:** the finite-amplitude primitive weak oracle and the complete trusted stationary balanced-space construction pass for flat, uniform-depth, constant-stratification, and variable-stratification cases. The complete APV Green identity, stationary primitive rows, and bottom tangency close at roundoff, while non-tangent bottom directions remain available for active boundary modes. Milestone 9 terrain-mode classification and time integration have not begun. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Milestone-9 scientific checkpoint:** the dense physical-energy pencil is numerically well resolved, preserves every non-tangent bottom direction, and recovers flat and uniform-depth wave frequencies. It does not yet define a valid terrain-mode basis. The backward-error zero-frequency projector is larger than the Milestone-8 tangency sector, while the resolved bottom-dominated candidates fail independent APV, bottom-evolution, and strong primitive-equation tests. No active bottom-mode frequency is claimed and Milestone 10 remains inactive. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -197,9 +197,39 @@ f\hat\eta_b+v_bh_x-u_bh_y,
 
 and returns `complete-stationary-space-oracle`. At the reduced constant-stratification reference resolution, geostrophic representation, the complete Green identity, stationary rows, trusted bottom tangency, conjugacy, and padding agreement are all below `1.4e-13`. Six non-tangent bottom-streamfunction directions remain in the full state for dynamical classification.
 
-The raw exchange matrix contains extremely low-frequency active boundary directions next to its exact stationary kernel. Consequently, a hard SVD or frequency threshold is not used to define the physical stationary space. Milestone 9 must start from the tangency-defined Milestone-8 space and diagonalize its physical-energy complement, retaining the low-frequency topographic boundary modes.
+The raw exchange matrix contains extremely low-frequency active boundary directions next to its exact stationary kernel. Consequently, the Milestone-9 audit starts from the tangency-defined Milestone-8 space rather than a hard SVD or frequency cutoff, and retains the complete physical-energy complement.
 
 The complete repository suite passes 147 tests with zero failures.
+
+## Dense physical-energy terrain-mode audit
+
+Milestone 9 uses the Milestone-8 tangency construction at every vertical refinement, retains every non-tangent bottom direction, and solves
+
+```math
+iJ_\gamma\boldsymbol c_n
+=
+\omega_nH_\gamma\boldsymbol c_n
+```
+
+by a Cholesky-scaled dense eigensolve:
+
+```matlab
+audit = problem.auditDensePhysicalEnergyTerrainModes( ...
+    trustedModeBounds=[1 0], ...
+    supportModeBounds=[1 2;1 3;1 4], ...
+    stationaryPolynomialDegree=2, ...
+    primitivePolynomialDegrees=[2;3;4], ...
+    paddingFactors=[2;3], ...
+    terrainScales=1);
+```
+
+For the constant-stratification sinusoidal reference, the generalized eigen-residual, physical-energy orthogonality, Fourier-conjugacy defect, and non-tangent-bottom retention defect are respectively below `2e-13`, `5e-15`, `7e-15`, and `3e-15`. Flat and uniform-depth first-mode frequencies converge below `1e-10` relative error.
+
+The modal gate nevertheless blocks. The physical-energy complement contains backward-error-indistinguishable zero-frequency directions outside the declared Milestone-8 stationary sector. Four bottom-dominated candidates have frequencies resolved by more than $10^{12}$ times their backward uncertainty, but their maximum trusted APV, bottom, and strong-equation defects are approximately `1.60e-1`, `4.19e-6`, and `3.67e-1`. Consequently, none is claimed as a physical active bottom mode. Every candidate and every unclassified direction remains in the returned eigensystem; none is added to the stationary sector, projected away, or deleted.
+
+The audit returns `dense-modal-classification-blocker` for the constant-stratification terrain reference. A variable-stratification control also fails the full-space eigen-residual gate. This establishes a Milestone-9 blocker under the approved representation and leaves Milestone 10 inactive.
+
+The complete repository suite passes 154 tests with zero failures, and `checkcode` reports no issues in all 76 MATLAB files.
 
 ## Terrain-energy Galerkin flat oracle
 

@@ -334,8 +334,9 @@ L = c.N'*xDot;
 R = coefficients.bottomTendencyFull*c.N;
 Q = coefficients.Q*c.N;
 QProjected = c.Pq*Q;
-E = c.N'*coefficients.Efull*c.N;
-J = c.N'*coefficients.Jfull*c.N;
+[E,J] = projectedPhysicalForms(c,coefficients);
+projectedE = c.N'*coefficients.Efull*c.N;
+projectedJ = c.N'*coefficients.Jfull*c.N;
 Z = c.N'*(coefficients.Q'*(coefficients.apvWeight.*coefficients.Q))*c.N;
 gammaMultiplication = eye(c.nK)-delta*c.terrainMultiplication.H;
 gammaAction = kron(speye(c.nZ),gammaMultiplication)*QProjected;
@@ -354,6 +355,31 @@ direction.diagnostics.apvDefect = norm(Q*L,"fro") ...
 direction.diagnostics.bottomDefect = productDefect(B*L-R,{B*L,R});
 direction.diagnostics.enstrophyDefect = norm(L'*Z+Z*L,"fro") ...
     /max(norm(Z,"fro")*norm(L,"fro"),realmin);
+direction.diagnostics.energyAssemblyDefect = ...
+    norm(E-projectedE,"fro")/max(norm(E,"fro"),realmin);
+direction.diagnostics.exchangeAssemblyDefect = ...
+    norm(J-projectedJ,"fro")/max(norm(J,"fro"),realmin);
+end
+
+function [E,J] = projectedPhysicalForms(c,a)
+% Assemble the derived physical Gram and paired exchange forms directly.
+state = c.N;
+uHat = c.Ru*state;
+vHat = c.Rv*state;
+eta = c.Reta*state;
+uEnergy = sqrt(c.volumeWeight./a.gamma).*uHat;
+vEnergy = sqrt(c.volumeWeight./a.gamma).*vHat;
+wEnergy = sqrt(c.volumeWeight.*a.gamma).*(a.Wphysical*state);
+etaEnergy = sqrt(c.volumeWeight.*a.gammaN2).*eta;
+E = c.wvt.rho0*(uEnergy'*uEnergy+vEnergy'*vEnergy ...
+    +wEnergy'*wEnergy+etaEnergy'*etaEnergy);
+
+horizontalExchange = c.wvt.f ...
+    *(uHat'*(c.volumeWeight.*(a.V*state)));
+verticalExchange = eta' ...
+    *(c.volumeWeight.*(a.gammaN2.*(a.Wphysical*state)));
+J = c.wvt.rho0*((horizontalExchange-horizontalExchange') ...
+    +(verticalExchange-verticalExchange'));
 end
 
 function analytic = analyticTangent(c,flat)

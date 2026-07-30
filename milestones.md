@@ -1913,12 +1913,41 @@ as an independent modal residual rather than a replacement eigenproblem row.
 - Frequencies are real and generalized eigen-residuals close within $10^{-10}$.
 - Distinct-frequency modes are orthogonal under physical finite-terrain energy within $10^{-10}$.
 - The Milestone-8 stationary basis has eigen-residual below $10^{-10}$, and the physical-energy complement is orthogonal to it within $10^{-10}$.
-- Stationary and low-frequency boundary subspaces remain stable when the numerical frequency threshold is varied; no active mode may be reclassified or deleted solely because its frequency is close to zero.
+- The stationary sector is defined exclusively by the Milestone-8 tangency construction. A mode is distinguishable from zero only when its absolute frequency exceeds its backward-error uncertainty; no active mode may be reclassified or deleted solely because its frequency is close to zero.
+- Every claimed active bottom-mode frequency exceeds its numerical uncertainty by at least a factor of $10^3$.
 - Nonzero-frequency modes have negligible projected volume APV at the validated exact or trusted-band convergence gate.
 - Flat and uniform-depth frequencies reproduce the established nonhydrostatic solutions, and mode counts remain stable under refinement.
 - Bottom participation and the internal-wave versus topographic-boundary-wave classification converge under refinement.
 - Strong momentum, continuity, pressure, surface, and bottom residuals decrease under independent horizontal, vertical, support, and padding refinement.
 - Failure of the modal classification or convergence tests blocks Milestone 10.
+
+### Numerical outcome
+
+The dense physical-energy implementation is complete, but the blocking scientific gate does not pass.
+
+The implementation:
+
+- builds $H_\gamma$ and $J_\gamma$ directly from the unmodified primitive energy and Coriolis--buoyancy exchange forms;
+- uses a Cholesky-scaled dense eigensolve without empirical symmetrization;
+- defines the stationary sector only through the Milestone-8 tangency construction at each vertical refinement;
+- retains every non-tangent bottom direction in the energy-orthogonal complement;
+- diagnoses pressure, APV, bottom evolution, and the strong primitive equations only after the eigensolve; and
+- assigns a backward-error uncertainty to every computed frequency.
+
+For the constant-stratification sinusoidal reference, the generalized eigen-residual, physical-energy orthogonality, Fourier-conjugacy defect, and non-tangent-bottom retention defect are below approximately `2e-13`, `5e-15`, `7e-15`, and `3e-15`. Flat and uniform-depth first-mode frequencies converge below `1e-10` relative error. These results verify the dense energy eigensolver and the reference limits.
+
+Two independent classification failures remain:
+
+1. The physical-energy complement contains backward-error-indistinguishable zero-frequency directions outside the declared Milestone-8 stationary sector. They remain in the returned eigensystem as unclassified directions; they are not added to the stationary sector or deleted.
+2. Four bottom-dominated candidates have a minimum frequency-to-uncertainty ratio above $10^{12}$, comfortably exceeding the required $10^3$, but their maximum trusted volume-APV, bottom-evolution, and strong-equation defects are approximately `1.60e-1`, `4.19e-6`, and `3.67e-1`. No candidate is therefore claimed as a physical active bottom mode.
+
+A variable-stratification control additionally fails the full-space eigen-residual gate at approximately `9.88e-7`, even though energy orthogonality, conjugacy, and bottom-direction retention remain accurate.
+
+The reference status is `dense-modal-classification-blocker`. This is a genuine Milestone-9 scientific/numerical blocker under the approved representation and restrictions, not a low-frequency resolution failure. Milestone 10 remains inactive.
+
+### Stopping condition
+
+Stop at Milestone 9. Do not begin residual enrichment, matrix-free operators, or time integration until a separately justified construction explains the extra zero-frequency directions and makes the bottom-dominated candidates converge in APV, bottom evolution, and the strong primitive equations without changing the Milestone-8 stationary definition or deleting modes.
 
 ## Milestone 10: Residual-enriched terrain modes
 

@@ -97,16 +97,16 @@ audit.nextScope = "milestone-9-only-if-compatible-and-separately-authorized";
 end
 
 function result = stationarySpaceAudit(c,direction,trustedBounds,scalarDegree)
-fullScalar = stationaryScalarSpace(c,scalarDegree,true(c.nK,1));
-[GfullRaw,fullRepresentation] = projectGeostrophicState(c,fullScalar);
-[~,fullScalar,fullOrthogonalization] = energyOrthonormalize( ...
-    GfullRaw,fullScalar,direction.E);
-trustedHorizontal = abs(c.horizontalLayout.kMode) <= trustedBounds(1) ...
-    & abs(c.horizontalLayout.lMode) <= trustedBounds(2);
-scalar = stationaryScalarSpace(c,scalarDegree,trustedHorizontal);
-[GtestRaw,representation] = projectGeostrophicState(c,scalar);
-[Gtest,scalar,orthogonalization] = energyOrthonormalize( ...
-    GtestRaw,scalar,direction.E);
+stationary = constructCompleteStationarySpace( ...
+    c,direction,trustedBounds,scalarDegree,scalarDegree,1);
+Gfull = stationary.fullBasis;
+Gtest = stationary.trustedBasis;
+fullScalar = stationary.fullScalar;
+scalar = stationary.trustedScalar;
+fullRepresentation = stationary.fullRepresentation;
+representation = stationary.trustedRepresentation;
+fullOrthogonalization = stationary.fullOrthogonalization;
+orthogonalization = stationary.trustedOrthogonalization;
 
 H3 = repmat(c.H,c.nZ,1);
 gamma = 1-H3;
@@ -186,6 +186,8 @@ end
 
 result = struct;
 result.stationaryBasis = Gtest;
+result.fullStationaryBasis = Gfull;
+result.bottomSeedBasis = stationary.bottomSeedBasis;
 result.geostrophicTestBasis = Gtest;
 result.stationaryEnergyProjector = geostrophicTestProjector;
 result.geostrophicTestEnergyProjector = geostrophicTestProjector;
@@ -262,177 +264,7 @@ result.exactConvolutionDefect = c.projectionDiagnostics.maximumExactConvolutionD
 result.bottomStreamfunctionByHorizontalMode = bottomStreamfunction;
 result.bottomStreamfunctionProjector = subspaceProjector(bottomStreamfunction);
 result.horizontalLayout = c.horizontalLayout;
-end
-
-function scalar = stationaryScalarSpace(c,degree,horizontalMask)
-n = (0:degree)';
-topDerivative = n.*(n+1)/c.wvt.Lz;
-[~,singularMatrix,V] = svd(topDerivative.');
-singularValues = diag(singularMatrix);
-tolerance = max(size(topDerivative.'))*eps(max(singularValues));
-rankTop = nnz(singularValues > tolerance);
-topBasis = canonicalColumnPhases(V(:,rankTop+1:end));
-verticalCoefficients = zeros(c.nF,size(topBasis,2));
-verticalCoefficients(1:degree+1,:) = topBasis;
-S = c.spaces.F*verticalCoefficients;
-Sxi = c.spaces.Fxi*verticalCoefficients;
-bottomValue = (-1).^(0:degree);
-Sb = bottomValue*topBasis;
-nVertical = size(S,2);
-selectedHorizontal = find(horizontalMask);
-nSelected = numel(selectedHorizontal);
-nRaw = nSelected*nVertical;
-nGrid = c.nXY*c.nZ;
-values = zeros(nGrid,nRaw);
-valuesXi = zeros(nGrid,nRaw);
-valuesX = zeros(nGrid,nRaw);
-valuesY = zeros(nGrid,nRaw);
-bottomValues = zeros(c.nXY,nRaw);
-bottomX = zeros(c.nXY,nRaw);
-bottomY = zeros(c.nXY,nRaw);
-for iSelected = 1:nSelected
-    iK = selectedHorizontal(iSelected);
-    columns = (iSelected-1)*nVertical+(1:nVertical);
-    values(:,columns) = kron(S,c.phase(:,iK));
-    valuesXi(:,columns) = kron(Sxi,c.phase(:,iK));
-    valuesX(:,columns) = 1i*c.horizontalLayout.k(iK)*values(:,columns);
-    valuesY(:,columns) = 1i*c.horizontalLayout.l(iK)*values(:,columns);
-    bottomValues(:,columns) = c.phase(:,iK)*Sb;
-    bottomX(:,columns) = 1i*c.horizontalLayout.k(iK)*bottomValues(:,columns);
-    bottomY(:,columns) = 1i*c.horizontalLayout.l(iK)*bottomValues(:,columns);
-end
-
-tangency = bottomX.*c.hY-bottomY.*c.hX;
-projectedTangency = c.Pxy*tangency;
-zeroK = find(c.horizontalLayout.kMode == 0 & c.horizontalLayout.lMode == 0,1);
-zeroSelected = find(selectedHorizontal == zeroK,1);
-if isempty(zeroSelected)
-    error("WVTerrainEnergyGalerkin:StationaryScalarMissingGauge", ...
-        "The stationary scalar support must include the zero horizontal mode.")
-end
-constantVertical = topBasis\eye(degree+1,1);
-gauge = zeros(nRaw,1);
-gauge((zeroSelected-1)*nVertical+(1:nVertical)) = constantVertical;
-gauge = gauge/norm(gauge);
-if norm(projectedTangency,"fro") > 0
-    constraint = [projectedTangency/norm(projectedTangency,2);gauge'];
-else
-    constraint = gauge';
-end
-[~,singularMatrix,V] = svd(constraint);
-singularValues = diag(singularMatrix);
-nominalTolerance = max(size(constraint))*eps(max(singularValues))*100;
-rankValues = arrayfun(@(factor)nnz(singularValues > factor*nominalTolerance), ...
-    [0.1 1 10]);
-rankConstraint = rankValues(2);
-stationaryBasis = canonicalColumnPhases(V(:,rankConstraint+1:end));
-
-values = values*stationaryBasis;
-valuesXi = valuesXi*stationaryBasis;
-valuesX = valuesX*stationaryBasis;
-valuesY = valuesY*stationaryBasis;
-bottomValues = bottomValues*stationaryBasis;
-tangencyResidual = tangency*stationaryBasis;
-projectedTangencyResidual = projectedTangency*stationaryBasis;
-bottomScale = norm(bottomX,"fro")*norm(c.hY) ...
-    +norm(bottomY,"fro")*norm(c.hX);
-
-selectedLayout = c.horizontalLayout(selectedHorizontal,:);
-horizontalConjugate = conjugateHorizontalIndex(selectedLayout);
-C = kron(sparse((1:nSelected)',horizontalConjugate,1,nSelected,nSelected),eye(nVertical));
-P = stationaryBasis*stationaryBasis';
-conjugacyDefect = norm(P*C-C*conj(P),"fro")/max(2*norm(P,"fro"),realmin);
-diagnostics = struct("scalarDegree",degree, ...
-    "numberOfHorizontalModes",nSelected, ...
-    "numberOfRawScalarCoordinates",nRaw, ...
-    "numberOfStationaryScalarCoordinates",size(stationaryBasis,2), ...
-    "topConstraintRank",rankTop,"bottomTangencyRank",rankConstraint-1, ...
-    "constraintSingularValues",singularValues, ...
-    "constraintTolerance",nominalTolerance,"constraintRanks",rankValues, ...
-    "rankStable",all(rankValues == rankConstraint), ...
-    "surfaceDerivativeDefect",norm(topDerivative.'*topBasis,"fro") ...
-        /max(norm(topDerivative)*norm(topBasis,"fro"),realmin), ...
-    "bottomTangencyDefect",norm(tangencyResidual,"fro") ...
-        /max(bottomScale,realmin), ...
-    "projectedBottomTangencyDefect",norm(projectedTangencyResidual,"fro") ...
-        /max(norm(projectedTangency,"fro")*norm(stationaryBasis,"fro"),realmin), ...
-    "scalarConjugacyDefect",conjugacyDefect);
-scalar = struct("values",values,"valuesXi",valuesXi,"valuesX",valuesX, ...
-    "valuesY",valuesY,"bottomValues",bottomValues, ...
-    "bottomValuesByHorizontalMode",c.Pxy*bottomValues, ...
-    "coefficientBasis",stationaryBasis,"diagnostics",diagnostics);
-end
-
-function [G,diagnostics] = projectGeostrophicState(c,scalar)
-H3 = repmat(c.H,c.nZ,1);
-HX3 = repmat(c.HX,c.nZ,1);
-HY3 = repmat(c.HY,c.nZ,1);
-gamma = 1-H3;
-gammaX = -HX3;
-gammaY = -HY3;
-N2 = c.wvt.N2Function(gamma.*c.xiGrid);
-if isscalar(N2)
-    N2 = repmat(N2,size(c.xiGrid));
-end
-N2 = N2(:);
-u = -gamma.*scalar.valuesY+c.xiGrid.*gammaY.*scalar.valuesXi;
-v = gamma.*scalar.valuesX-c.xiGrid.*gammaX.*scalar.valuesXi;
-w = c.xiGrid.*(gammaX.*scalar.valuesY-gammaY.*scalar.valuesX);
-eta = -c.wvt.f*scalar.valuesXi./(gamma.*N2);
-
-[uColumns,vColumns,wColumns,etaColumns] = componentColumns(c);
-raw = zeros(c.nX,size(u,2));
-raw(uColumns,:) = weightedProject(c.Ru(:,uColumns),c.volumeWeight,u);
-raw(vColumns,:) = weightedProject(c.Rv(:,vColumns),c.volumeWeight,v);
-raw(wColumns,:) = weightedProject(c.Rwh(:,wColumns),c.volumeWeight,w);
-raw(etaColumns,:) = weightedProject(c.Reta(:,etaColumns),c.volumeWeight,eta);
-G = c.N'*raw;
-representedRaw = c.N*G;
-represented = [c.Ru*representedRaw,c.Rv*representedRaw, ...
-    c.Rwh*representedRaw,c.Reta*representedRaw];
-targets = [u,v,w,eta];
-diagnostics = struct("rawCoordinateDefect",blockDefect(representedRaw,raw), ...
-    "maximumDefect",blockDefect(represented,targets), ...
-    "continuityDefect",norm(c.continuity*representedRaw,"fro") ...
-        /max(norm(c.continuity,"fro")*norm(representedRaw,"fro"),realmin));
-end
-
-function coefficients = weightedProject(reconstruction,weight,values)
-mass = reconstruction'*(weight.*reconstruction);
-coefficients = mass\(reconstruction'*(weight.*values));
-end
-
-function [G,scalar,diagnostics] = energyOrthonormalize(G,scalar,E)
-gram = (G'*E*G);
-gram = (gram+gram')/2;
-[R,flag] = chol(gram);
-if flag ~= 0
-    error("WVTerrainEnergyGalerkin:StationaryEnergyRankFailure", ...
-        "The represented stationary geostrophic states are not independent in physical energy.")
-end
-G = G/R;
-scalar.values = scalar.values/R;
-scalar.valuesXi = scalar.valuesXi/R;
-scalar.valuesX = scalar.valuesX/R;
-scalar.valuesY = scalar.valuesY/R;
-scalar.bottomValues = scalar.bottomValues/R;
-diagnostics = struct("energyOrthogonalityDefect", ...
-    norm(G'*E*G-eye(size(G,2)),"fro")/sqrt(size(G,2)), ...
-    "gramReciprocalConditionNumber",rcond(gram));
-end
-
-function [uColumns,vColumns,wColumns,etaColumns] = componentColumns(c)
-uColumns = zeros(c.nK*c.nF,1);
-vColumns = zeros(c.nK*c.nF,1);
-wColumns = zeros(c.nK*c.nG,1);
-etaColumns = zeros(c.nK*c.nH,1);
-for iK = 1:c.nK
-    block = (iK-1)*c.nXBlock;
-    uColumns((iK-1)*c.nF+(1:c.nF)) = block+(1:c.nF);
-    vColumns((iK-1)*c.nF+(1:c.nF)) = block+c.nF+(1:c.nF);
-    wColumns((iK-1)*c.nG+(1:c.nG)) = block+2*c.nF+(1:c.nG);
-    etaColumns((iK-1)*c.nH+(1:c.nH)) = block+2*c.nF+c.nG+(1:c.nH);
-end
+result.completeStationaryDiagnostics = stationary.diagnostics;
 end
 
 function diagnostics = convergenceDiagnostics(results)
@@ -527,30 +359,6 @@ end
 tolerance = max(size(values))*eps(max(singularValues))*100;
 rankValue = nnz(singularValues > tolerance);
 projector = U(:,1:rankValue)*U(:,1:rankValue)';
-end
-
-function values = canonicalColumnPhases(values)
-for iColumn = 1:size(values,2)
-    [~,pivot] = max(abs(values(:,iColumn)));
-    if values(pivot,iColumn) ~= 0
-        values(:,iColumn) = values(:,iColumn)*conj(values(pivot,iColumn)) ...
-            /abs(values(pivot,iColumn));
-    end
-end
-end
-
-function conjugateIndex = conjugateHorizontalIndex(horizontalLayout)
-nK = height(horizontalLayout);
-conjugateIndex = zeros(nK,1);
-for iK = 1:nK
-    partner = find(horizontalLayout.kMode == -horizontalLayout.kMode(iK) ...
-        & horizontalLayout.lMode == -horizontalLayout.lMode(iK),1);
-    if isempty(partner)
-        error("WVTerrainEnergyGalerkin:IncompleteStationaryHorizontalConjugacy", ...
-            "The retained stationary scalar layout is missing a Fourier conjugate.")
-    end
-    conjugateIndex(iK) = partner;
-end
 end
 
 function layout = retainedLayout(problem,bounds)
