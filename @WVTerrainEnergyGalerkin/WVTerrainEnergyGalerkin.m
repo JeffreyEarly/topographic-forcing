@@ -30,6 +30,7 @@ classdef WVTerrainEnergyGalerkin < handle
     % - Topic: Audit a finite-amplitude boundary-complete weak system
     % - Topic: Audit the complete stationary balanced space
     % - Topic: Audit dense physical-energy terrain modes
+    % - Topic: Audit converged physical terrain subspaces
     % - Topic: Audit the Branch-P discrete oracle
     % - Topic: Audit terrain compatibility
     % - Topic: Audit constrained evolution

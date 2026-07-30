@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Milestone-9.1 scientific checkpoint:** the dense physical-energy pencil is numerically well resolved, preserves every non-tangent bottom direction, and contains convergent internal-wave branches. The complete eigensystem also contains unresolved zero-frequency directions and an improving but not yet converged subinertial bottom branch. Milestone 9.1 will separate converged physical spectral subspaces from this retained algebraic completion; Milestone 10 remains inactive. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Milestone-9.1 scientific checkpoint:** the complete dense eigensystem has now been separated into a converged stationary balanced space, one validated conjugate-closed internal-wave subspace, and an explicitly retained unresolved algebraic completion. The leading topographic-boundary candidate remains unresolved and no direction is deleted or labelled numerical. Milestone 10 is authorized scientifically but remains unimplemented pending a separate work increment. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -232,6 +232,40 @@ A fixed-support degree-\(4,6,8\) study shows that a tracked internal branch near
 The audit retains the historical status `dense-modal-classification-blocker`. Milestone 9.1 replaces the all-mode interpretation with nested physical-energy spectral-projector convergence and an explicit unresolved remainder. Milestone 10 remains inactive until that gate passes.
 
 The complete repository suite passes 154 tests with zero failures, and `checkcode` reports no issues in all 76 MATLAB files.
+
+## Converged physical-subspace classification
+
+Milestone 9.1 compares complete conjugate-closed spectral subspaces rather than individual eigenvectors:
+
+```matlab
+audit = problem.auditConvergedPhysicalSubspaces( ...
+    trustedModeBounds=[1 0], ...
+    supportModeBounds=[1 2;1 3;1 4], ...
+    stationaryPolynomialDegree=4, ...
+    primitivePolynomialDegrees=[4;6;8], ...
+    paddingFactors=[2;3], ...
+    terrainScales=[0.125;0.25;0.5;1]);
+```
+
+For the \(2.5\ {\rm m}\) constant-stratification sinusoidal terrain control, the nine-dimensional stationary projector has a final nested principal sine of `1.78e-12`; its independent fixed-degree guard and padding defects are `1.67e-12` and `7.82e-13`.
+
+One four-dimensional internal-wave subspace near \(4.4283f\) is validated. At degrees four, six, and eight its strong residual decreases from `1.78e-3` to `2.75e-5` to `2.42e-7`; its final APV and bottom defects are `1.07e-10` and `1.46e-13`. Its independent guard and padding defects are `5.21e-9` and `1.58e-13`.
+
+The topographic-boundary candidate is not promoted to a physical mode: its final guard defect remains `2.10e-2`. It stays in the unresolved projector along with every other unvalidated direction. The finest decomposition is
+
+```math
+\dim\mathcal V_N=703,
+\qquad
+\dim\mathcal G_N=9,
+\qquad
+\dim\mathcal W_N=4,
+\qquad
+\dim\mathcal R_N=690.
+```
+
+The three projectors are physical-energy orthogonal, Fourier-conjugate closed, and complete within `3.1e-13`. The oracle returns `physical-subspace-classification-oracle`; Milestone 10 remains a separate, unimplemented residual-enrichment step.
+
+The complete repository suite passes 162 tests with zero failures, and `checkcode` reports no issues in all 79 MATLAB files.
 
 ## Terrain-energy Galerkin flat oracle
 

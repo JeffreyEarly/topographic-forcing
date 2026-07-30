@@ -1968,7 +1968,7 @@ Proceed only to Milestone 9.1. Do not begin residual enrichment, matrix-free ope
 
 ## Milestone 9.1: Converged physical-subspace classification
 
-- [ ] Complete — blocking physical-subspace gate
+- [x] Complete — physical stationary and internal-wave subspaces validated; topographic-boundary candidates remain unresolved
 
 ### Purpose
 
@@ -2027,9 +2027,43 @@ Here $\mathcal R_N$ is the retained unresolved algebraic completion. A direction
 - Modes that do not pass remain unresolved. The `demonstrated-numerical` label requires nonconvergence under independent horizontal, vertical, support, and padding refinement.
 - Failure to establish a converged $\mathcal G_N$ and at least one converged dynamical subspace blocks Milestone 10.
 
+### Numerical outcome
+
+The public `auditConvergedPhysicalSubspaces` oracle preserves the complete dense eigensystem and compares conjugate-closed, nearly degenerate eigenspaces through physical-energy projectors. Spectral blocks are formed from complete positive- and negative-frequency eigenspaces rather than individual conjugate partners, which are not unique inside a degenerate block. Exact nested maps preserve the raw state, bottom value, and Fourier conjugacy below `2e-16`.
+
+For constant stratification and weak sinusoidal terrain \(h=2.5\cos(2\pi y/L_y)\ {\rm m}\), the reference calculation uses trusted bounds `[1 0]`, nested supports `[1 2;1 3;1 4]`, primitive degrees `[4;6;8]`, padding factors two and three, and terrain scales `[0.125;0.25;0.5;1]`. The nine-dimensional stationary projector converges with successive principal sines `1.60e-9` and `1.78e-12`; its fixed-degree guard and padding defects are `1.67e-12` and `7.82e-13`. The APV split has stable rank nine, so this reference stationary family is entirely APV bearing.
+
+One four-dimensional, conjugate-closed internal-wave subspace near \(4.4283f\) passes every physical gate:
+
+| Degree | Principal sine | Relative frequency change | APV defect | Bottom defect | Strong residual |
+|---:|---:|---:|---:|---:|---:|
+| 4 | — | — | `1.10e-7` | `1.46e-11` | `1.78e-3` |
+| 6 | `3.91e-3` | `6.91e-6` | `4.82e-9` | `9.73e-14` | `2.75e-5` |
+| 8 | `5.91e-5` | `1.62e-9` | `1.07e-10` | `1.46e-13` | `2.42e-7` |
+
+Its independent fixed-degree guard defect is `5.21e-9`, padding defect is `1.58e-13`, and minimum frequency-to-backward-uncertainty ratio exceeds \(3.6\times10^{13}\). The strong residual decreases by factors of approximately 65 and 113.
+
+No topographic-boundary-wave subspace is claimed. Its leading candidate improves in APV, bottom evolution, and strong residual, but its final guard defect is `2.10e-2`; it therefore remains unresolved. No direction is labelled demonstrated numerical.
+
+At the finest level,
+
+```math
+\dim\mathcal V_N=703,
+\qquad
+\dim\mathcal G_N=9,
+\qquad
+\dim\mathcal W_N=4,
+\qquad
+\dim\mathcal R_N=690.
+```
+
+The stationary, wave, and unresolved projectors are physical-energy orthogonal, Fourier-conjugate closed, and complete within `3.1e-13`. The unresolved space contains 168 zero-frequency and 522 nonzero-frequency algebraic directions; all remain in the returned eigensystem. The oracle returns `physical-subspace-classification-oracle`.
+
+The focused Milestone-9.1 tests and complete repository suite pass 162 tests with zero failures. Static analysis reports no issues in all 79 MATLAB files.
+
 ### Stopping condition
 
-Stop at Milestone 9.1. Do not begin residual enrichment until the physical-subspace and unresolved-energy reports pass this gate.
+Milestone 9.1 passes and this goal stops here. Milestone 10, residual enrichment, matrix-free operators, and time integration require separate authorization. A later topographic-boundary-wave claim must still satisfy the independent Milestone-9.1 convergence gates.
 
 ## Milestone 10: Residual-enriched terrain modes
 

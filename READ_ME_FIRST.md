@@ -2,7 +2,7 @@
 
 ## Current status
 
-**This branch is paused before the Milestone-9.1 physical-subspace classification gate.** Milestones 7 and 8 provide a passing finite-amplitude primitive weak oracle and a tangency-defined stationary balanced sector. Milestone 9 preserves that sector, retains every non-tangent bottom direction, and produces a numerically accurate and algebraically complete physical-energy eigensystem. A fixed-support convergence study identifies convergent internal-wave branches, while additional zero-frequency directions and the subinertial bottom-dominated branch remain unresolved. Milestone 10 must not begin until converged physical spectral subspaces have been separated from the retained algebraic completion.
+**This branch is paused after the passing Milestone-9.1 physical-subspace classification gate.** Milestones 7 and 8 provide a passing finite-amplitude primitive weak oracle and a tangency-defined stationary balanced sector. Milestone 9 preserves that sector, retains every non-tangent bottom direction, and produces a numerically accurate and algebraically complete physical-energy eigensystem. Milestone 9.1 now identifies a converged stationary projector and one conjugate-closed internal-wave projector while retaining every unvalidated direction in an explicit unresolved projector. The topographic-boundary candidate remains unresolved. Milestone 10 is the next prospective increment, but it has not begun.
 
 The pre-Milestone-6.7 checkpoint is commit [`d5ab18f`](https://github.com/JeffreyEarly/topographic-forcing/tree/d5ab18f) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The current branch contains the completed projected, tangent boundary-complete, and finite-amplitude weak oracles. The matching mathematics is maintained in `finite-terrain-projection-problem.tex` and `terrain-energy-galerkin.tex` in the `ape-apv-bottom-topography` literature repository.
 
@@ -189,6 +189,26 @@ where `G_N` is the validated stationary balanced space, `W_N` contains converged
 
 The complete repository suite contains 154 passing tests, including seven Milestone-9 structure, retention, backward-error, reference-limit, and blocker tests. Static analysis reports no issues in all 76 MATLAB files.
 
+Milestone 9.1 implements the required projector-level classification. For weak sinusoidal terrain \(h=2.5\cos(2\pi y/L_y)\ {\rm m}\), nested supports `[1 2;1 3;1 4]`, vertical degrees `[4;6;8]`, and padding factors two and three, the nine-dimensional stationary projector has final nested, fixed-degree guard, and padding defects `1.78e-12`, `1.67e-12`, and `7.82e-13`.
+
+One four-dimensional internal-wave subspace near \(4.4283f\) passes. Its final principal sine, relative frequency change, APV defect, bottom defect, and strong residual are `5.91e-5`, `1.62e-9`, `1.07e-10`, `1.46e-13`, and `2.42e-7`. The principal sine and strong residual decrease by factors greater than four at both refinement steps. Independent guard and padding defects are `5.21e-9` and `1.58e-13`.
+
+The leading topographic-boundary candidate is retained but unresolved because its fixed-degree guard defect is `2.10e-2`. The finest physical-energy dimensions are
+
+```math
+\dim\mathcal V_N=703,
+\qquad
+\dim\mathcal G_N=9,
+\qquad
+\dim\mathcal W_N=4,
+\qquad
+\dim\mathcal R_N=690.
+```
+
+The physical and remainder projectors are mutually energy orthogonal, Fourier-conjugate closed, and complete within `3.1e-13`. The remainder contains 168 unresolved-zero and 522 unresolved-nonzero directions. No direction is labelled demonstrated numerical.
+
+The complete repository suite now contains 162 passing tests. Static analysis reports no issues in all 79 MATLAB files.
+
 ## What the spectral-edge audit means
 
 The APV defect separates into two parts:
@@ -224,7 +244,7 @@ Changing the bottom basis alone, changing a quadratic norm without a derived inv
 
 Do not proceed by:
 
-- starting Milestone 10, residual enrichment, matrix-free mode construction, or time integration before Milestone 9.1 passes;
+- starting Milestone 10 or later work without separate authorization, or without preserving the Milestone-9.1 stationary, validated-wave, and unresolved projectors;
 - projecting the generator into an APV nullspace;
 - empirically symmetrizing the generator;
 - fitting a minimum-change closure;
@@ -236,9 +256,9 @@ Those operations either answer a different dynamical question or hide the diagno
 
 ## Conditions for continuing
 
-Milestones 7 and 8 supply the finite-amplitude dense weak oracle and the trusted stationary balanced space. Milestone 9 supplies the complete dense eigensystem and shows that at least one internal-wave branch converges. Milestone 9.1 must compare nested spectral subspaces through physical-energy projectors and principal angles, preserve the Milestone-8 stationary definition, and quantify every unresolved direction and its energy.
+Milestones 7–9.1 now supply the finite-amplitude dense weak oracle, trusted stationary balanced space, complete dense eigensystem, one validated internal-wave projector, and a quantified unresolved remainder. Milestone 10 may use only the validated stationary and internal-wave projectors as physical seeds. The complete unresolved algebraic space must remain available during construction.
 
-Every claimed active bottom frequency must remain at least $10^3$ times its backward uncertainty and must converge together with APV, bottom, strong-equation, and bottom-participation diagnostics. External sidebands and unresolved energy must remain separately reported. A direction is called numerical only after independent refinement demonstrates nonconvergence. No corrected generator, fitted closure, empirical symmetrization, replacement APV rows, APV-nullspace projection, or mode deletion is permitted. Milestone 10 and evolution require Milestone 9.1 to pass and separate authorization.
+The unresolved topographic-boundary candidate must not be presented as a physical mode unless a later independent refinement study satisfies every Milestone-9.1 frequency, projector, APV, bottom, strong-equation, guard, padding, and bottom-participation gate. A direction is called numerical only after independent refinement demonstrates nonconvergence. No corrected generator, fitted closure, empirical symmetrization, replacement APV rows, APV-nullspace projection, or mode deletion is permitted. Milestone 10 and all later work require separate authorization.
 
 ## Reproducing the numerical result
 
@@ -267,6 +287,8 @@ The finite-amplitude weak oracle is exposed by [`auditFiniteAmplitudeBoundaryCom
 The complete stationary-space oracle is exposed by [`auditCompleteStationaryBalancedSpace`](<@WVTerrainEnergyGalerkin/auditCompleteStationaryBalancedSpace.m>), tested by [`TestWVTerrainEnergyCompleteStationaryBalancedSpace`](UnitTests/TestWVTerrainEnergyCompleteStationaryBalancedSpace.m), and recorded in [Milestone 8](milestones.md#milestone-8-complete-finite-terrain-stationary-balanced-space).
 
 The dense modal gate is exposed by [`auditDensePhysicalEnergyTerrainModes`](<@WVTerrainEnergyGalerkin/auditDensePhysicalEnergyTerrainModes.m>), tested by [`TestWVTerrainEnergyDensePhysicalEnergyTerrainModes`](UnitTests/TestWVTerrainEnergyDensePhysicalEnergyTerrainModes.m), and recorded in [Milestone 9](milestones.md#milestone-9-dense-physical-energy-terrain-modes). Its historical all-mode blocker status motivates [Milestone 9.1](milestones.md#milestone-91-converged-physical-subspace-classification); it does not authorize Milestone 10.
+
+The physical-subspace classifier is exposed by [`auditConvergedPhysicalSubspaces`](<@WVTerrainEnergyGalerkin/auditConvergedPhysicalSubspaces.m>), tested by [`TestWVTerrainEnergyConvergedPhysicalSubspaces`](UnitTests/TestWVTerrainEnergyConvergedPhysicalSubspaces.m), and recorded in [Milestone 9.1](milestones.md#milestone-91-converged-physical-subspace-classification). Its passing result completes the dense classification gate but does not itself implement Milestone 10.
 
 ## Mathematical sources
 
