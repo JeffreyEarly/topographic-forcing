@@ -1,6 +1,6 @@
 # Terrain-energy Galerkin milestones
 
-> **Checkpoint after Milestone 9.1:** the finite-amplitude primitive oracle preserves physical energy, derives stationary APV through the boundary-complete Green identity, closes bottom evolution under refinement, and contains converged stationary and internal-wave physical subspaces. The leading topographic-boundary candidate remains unresolved. Milestone 9.2 now tests whether fixed-\(\kappa\) waves, Robin APV modes, and an explicit zero-APV bottom inversion provide a substantially smaller vertical representation before residual enrichment begins.
+> **Checkpoint after Milestone 9.2:** the finite-amplitude primitive oracle remains the validated reference and preferred Milestone-10 seed. A boundary-complete family of fixed-\(\kappa\) waves, Robin APV modes, explicit zero-APV bottom inversions, and the mean sector approaches the validated internal-wave projector, but it does not close bottom evolution or remove its Robin-parameter sensitivity before its stationary completion consumes nearly the full primitive dimension. Milestone 9.2 is therefore complete with classification `modal-incompatible`. The leading topographic-boundary candidate remains unresolved.
 
 ## Objective
 
@@ -2067,7 +2067,7 @@ Milestone 9.1 passes and its goal stops here. Milestone 9.2 is the next separate
 
 ## Milestone 9.2: Boundary-complete vertical-mode compression oracle
 
-- [ ] Complete
+- [x] Complete — `modal-incompatible`
 
 ### Purpose
 
@@ -2173,9 +2173,37 @@ to be compared with $3p+2$ admissible primitive coordinates at polynomial degree
 
 The milestone completes after recording one of these outcomes. Only `modal-acceleration` becomes the preferred Milestone-10 seed. Otherwise Milestone 10 retains the primitive polynomial seed. A topographic boundary branch remains unresolved unless it independently passes the Milestone-9.1 classification gates.
 
+### Outcome
+
+The audit uses the unchanged Milestone-9.1 classification at primitive degrees four, six, and eight, embeds its validated internal-wave projector into one degree-12 primitive comparison space, and retains that comparison space's complete eigensystem. This avoids rebuilding a full degree-12 refinement sequence while preserving the primitive reference and public coefficient ordering.
+
+The isolated `internal-modes-evp` checkout remains at `InternalModesEVP` commit `df86687e91faa31bf65941299062d125a96904b1`. Two provider qualifications were required without modifying that checkout:
+
+- basis evaluation is performed in descending physical `z`, matching the provider's native Chebyshev ordering, and restored to the caller's ordering afterward;
+- the Robin EVP is divided by its common factor \(f^2\), giving the equivalent but well-scaled coefficients \(p=1/N^2\) and \(r=1/g\).
+
+Orders 96 and 192 return a spurious enormous negative Robin eigenvalue and are rejected. Orders 128 and 256 return the same physical Robin spectrum, including the single negative root for each negative \(\ell_b\). The remaining maximum order-to-order profile and endpoint defects are `1.02e-10` and `1.23e-10`. These narrowly miss the requested `1e-11` provider tolerance, but are far too small to explain the independent finite-terrain defects below.
+
+For the primary \(\ell_b=-D/4\), padding factor two, and degree-12 primitive comparison, the count sweep is:
+
+| \(J_{\mathrm w}=J_{\mathrm g}\) | Completed dimension | Compression factor | Internal projector defect | Frequency defect | Bottom-evolution defect | Internal APV defect | Strong residual |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 450 | `2.2822` | `2.50e-3` | `1.22e-6` | `6.14e-1` | `2.41e-9` | `5.80e-2` |
+| 2 | 528 | `1.9451` | `2.90e-4` | `1.59e-8` | `8.97e-1` | `2.30e-7` | `6.29e-3` |
+| 4 | 680 | `1.5103` | `2.76e-5` | `2.87e-10` | `8.93e-1` | `1.60e-6` | `6.82e-4` |
+| 8 | 941 | `1.0914` | `7.86e-7` | `3.84e-13` | `3.10e-3` | `7.31e-11` | `4.36e-6` |
+
+The primitive state dimension is 1026. The explicit stationary completion accounts for every missing stationary direction rather than deleting it; at count eight this leaves 941 coordinates and only a `1.0914` compression factor. The degree-8 to degree-12 nested primitive transfer closes to `2.51e-16`. Physical-energy and exchange structure remain at roundoff, and the trusted stationary representation is accurate to approximately `2.3e-12`.
+
+Padding factors two and three change the internal projector by `1.58e-9`, which passes the padding gate. Changing the Robin length from \(-D/4\) produces projector changes between `1.39e-5` and `2.87e-5`, which fails the required `1e-8` independence. No topographic-boundary-wave claim is made.
+
+The result is therefore **`modal-incompatible` for the tested compression strategy**. The reference modes themselves are useful coordinates—the frequency, APV, and strong residual improve substantially—but the required stationary completion removes essentially all compression before the internal projector and bottom identity reach their tolerances. Milestone 10, if separately authorized, must retain the primitive polynomial seed. No mode was removed, merged, or classified by a frequency cutoff, and no APV row or generator was altered.
+
+The six focused Milestone-9.2 tests and the complete repository suite pass 168 tests with zero failures. Static analysis reports no issues in all 83 MATLAB files.
+
 ### Stopping condition
 
-Stop after selecting or rejecting the boundary-complete modal seed. Do not begin residual enrichment, matrix-free operators, or time integration.
+Milestone 9.2 stops with the boundary-complete modal seed rejected and the primitive polynomial seed retained. Residual enrichment, matrix-free operators, and time integration have not begun.
 
 ## Milestone 10: Residual-enriched terrain modes
 

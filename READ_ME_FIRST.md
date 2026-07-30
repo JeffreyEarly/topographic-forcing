@@ -2,7 +2,7 @@
 
 ## Current status
 
-**This branch is paused after the passing Milestone-9.1 physical-subspace classification gate.** Milestones 7 and 8 provide a passing finite-amplitude primitive weak oracle and a tangency-defined stationary balanced sector. Milestone 9 preserves that sector, retains every non-tangent bottom direction, and produces a numerically accurate and algebraically complete physical-energy eigensystem. Milestone 9.1 now identifies a converged stationary projector and one conjugate-closed internal-wave projector while retaining every unvalidated direction in an explicit unresolved projector. The topographic-boundary candidate remains unresolved. Milestone 10 is the next prospective increment, but it has not begun.
+**This branch is paused after completing Milestone 9.2 with classification `modal-incompatible`.** Milestones 7 and 8 provide a passing finite-amplitude primitive weak oracle and a tangency-defined stationary balanced sector. Milestones 9 and 9.1 preserve that sector, construct the complete physical-energy eigensystem, and identify a converged stationary projector and one conjugate-closed internal-wave projector while retaining every unvalidated direction in an explicit unresolved projector. Milestone 9.2 tests whether fixed-\(\kappa\) waves, Robin APV modes, and explicit zero-APV bottom inversions provide a substantially smaller vertical representation. They do not meet the physical-projector, bottom-evolution, or Robin-independence gates before stationary completion consumes nearly the full primitive dimension. The primitive polynomial representation therefore remains the validated reference and preferred seed. The topographic-boundary candidate remains unresolved, and Milestone 10 has not begun.
 
 The pre-Milestone-6.7 checkpoint is commit [`d5ab18f`](https://github.com/JeffreyEarly/topographic-forcing/tree/d5ab18f) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The current branch contains the completed projected, tangent boundary-complete, and finite-amplitude weak oracles. The matching mathematics is maintained in `finite-terrain-projection-problem.tex` and `terrain-energy-galerkin.tex` in the `ape-apv-bottom-topography` literature repository.
 
@@ -209,6 +209,16 @@ The physical and remainder projectors are mutually energy orthogonal, Fourier-co
 
 The complete repository suite now contains 162 passing tests. Static analysis reports no issues in all 79 MATLAB files.
 
+Milestone 9.2 embeds an independently generated boundary-complete vertical family into a degree-12 primitive reference space. The family contains fixed-\(\kappa\) nonhydrostatic waves, signed-Robin APV-bearing geostrophic modes, one explicit zero-APV bottom inversion per retained nonzero horizontal coefficient, and the complete mean sector. The Robin and wave eigenproblems are evaluated with the isolated `internal-modes-evp` checkout at commit `df86687e91faa31bf65941299062d125a96904b1`; the WaveVortexModel dependency remains the main InternalModes checkout.
+
+At the primary Robin length \(\ell_b=-D/4\), increasing the retained wave and geostrophic counts from one to eight improves the internal-wave projector defect from `2.50e-3` to `7.86e-7`, the frequency defect from `1.22e-6` to `3.84e-13`, and the strong primitive residual from `5.80e-2` to `4.36e-6`. The bottom-evolution defect reaches `3.10e-3`, however, and the completed modal dimension grows from 450 to 941 compared with the 1026-dimensional primitive reference. The finest compression factor is therefore only `1.09`.
+
+Padding factors two and three agree to `1.58e-9`, but changing \(\ell_b/D\) over `[-1/8,-1/4,-1/2,Inf]` changes the accepted projector by as much as `2.87e-5`, rather than the required `1e-8`. The isolated provider reproduces its physical Robin spectrum at qualified orders 128 and 256; orders 96 and 192 are rejected because that provider revision returns spurious very-large negative eigenvalues at those orders. The provider and endpoint defects near `1e-10` are far too small to explain the failed bottom and projector gates.
+
+The result is therefore `modal-incompatible` for this compression strategy, not a failure of the underlying primitive weak oracle or of the individual reference-mode ideas. No eigenvector was removed, merged, or classified by a frequency cutoff, and no evolution row or generator was altered.
+
+The complete repository suite now contains 168 passing tests. Static analysis reports no issues in all 83 MATLAB files.
+
 ## What the spectral-edge audit means
 
 The APV defect separates into two parts:
@@ -244,7 +254,7 @@ Changing the bottom basis alone, changing a quadratic norm without a derived inv
 
 Do not proceed by:
 
-- starting Milestone 10 or later work without separate authorization, or without preserving the Milestone-9.1 stationary, validated-wave, and unresolved projectors;
+- starting Milestone 10 or later work without separate authorization, or without preserving the Milestone-9.1 stationary, validated-wave, and unresolved projectors and the Milestone-9.2 selection of the primitive polynomial seed;
 - projecting the generator into an APV nullspace;
 - empirically symmetrizing the generator;
 - fitting a minimum-change closure;
@@ -256,7 +266,7 @@ Those operations either answer a different dynamical question or hide the diagno
 
 ## Conditions for continuing
 
-Milestones 7–9.1 now supply the finite-amplitude dense weak oracle, trusted stationary balanced space, complete dense eigensystem, one validated internal-wave projector, and a quantified unresolved remainder. Milestone 10 may use only the validated stationary and internal-wave projectors as physical seeds. The complete unresolved algebraic space must remain available during construction.
+Milestones 7–9.2 now supply the finite-amplitude dense weak oracle, trusted stationary balanced space, complete dense eigensystem, one validated internal-wave projector, a quantified unresolved remainder, and a controlled rejection of the proposed boundary-complete modal compression. Milestone 10 may use only the validated stationary and internal-wave projectors as physical seeds and must retain the primitive polynomial vertical representation. The complete unresolved algebraic space must remain available during construction.
 
 The unresolved topographic-boundary candidate must not be presented as a physical mode unless a later independent refinement study satisfies every Milestone-9.1 frequency, projector, APV, bottom, strong-equation, guard, padding, and bottom-participation gate. A direction is called numerical only after independent refinement demonstrates nonconvergence. No corrected generator, fitted closure, empirical symmetrization, replacement APV rows, APV-nullspace projection, or mode deletion is permitted. Milestone 10 and all later work require separate authorization.
 
@@ -289,6 +299,8 @@ The complete stationary-space oracle is exposed by [`auditCompleteStationaryBala
 The dense modal gate is exposed by [`auditDensePhysicalEnergyTerrainModes`](<@WVTerrainEnergyGalerkin/auditDensePhysicalEnergyTerrainModes.m>), tested by [`TestWVTerrainEnergyDensePhysicalEnergyTerrainModes`](UnitTests/TestWVTerrainEnergyDensePhysicalEnergyTerrainModes.m), and recorded in [Milestone 9](milestones.md#milestone-9-dense-physical-energy-terrain-modes). Its historical all-mode blocker status motivates [Milestone 9.1](milestones.md#milestone-91-converged-physical-subspace-classification); it does not authorize Milestone 10.
 
 The physical-subspace classifier is exposed by [`auditConvergedPhysicalSubspaces`](<@WVTerrainEnergyGalerkin/auditConvergedPhysicalSubspaces.m>), tested by [`TestWVTerrainEnergyConvergedPhysicalSubspaces`](UnitTests/TestWVTerrainEnergyConvergedPhysicalSubspaces.m), and recorded in [Milestone 9.1](milestones.md#milestone-91-converged-physical-subspace-classification). Its passing result completes the dense classification gate but does not itself implement Milestone 10.
+
+The boundary-complete vertical compression experiment is exposed by [`auditBoundaryCompleteVerticalModeCompression`](<@WVTerrainEnergyGalerkin/auditBoundaryCompleteVerticalModeCompression.m>), tested by [`TestWVTerrainEnergyBoundaryCompleteVerticalModeCompression`](UnitTests/TestWVTerrainEnergyBoundaryCompleteVerticalModeCompression.m), and recorded in [Milestone 9.2](milestones.md#milestone-92-boundary-complete-vertical-mode-compression-oracle). Its `modal-incompatible` classification selects the primitive polynomial representation for any separately authorized Milestone-10 work.
 
 ## Mathematical sources
 

@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Milestone-9.1 scientific checkpoint:** the complete dense eigensystem has now been separated into a converged stationary balanced space, one validated conjugate-closed internal-wave subspace, and an explicitly retained unresolved algebraic completion. The leading topographic-boundary candidate remains unresolved and no direction is deleted or labelled numerical. Milestone 10 is authorized scientifically but remains unimplemented pending a separate work increment. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Milestone-9.2 scientific checkpoint:** the primitive polynomial eigensystem remains the validated reference and preferred seed. The boundary-complete vertical-mode experiment reproduces the internal frequency increasingly well, but fails its bottom-evolution, projector, and Robin-independence gates before providing useful compression; its recorded outcome is `modal-incompatible`. Every primitive and reduced algebraic direction remains retained. The leading topographic-boundary candidate is still unresolved, and Milestone 10 has not begun. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -266,6 +266,30 @@ The topographic-boundary candidate is not promoted to a physical mode: its final
 The three projectors are physical-energy orthogonal, Fourier-conjugate closed, and complete within `3.1e-13`. The oracle returns `physical-subspace-classification-oracle`; Milestone 10 remains a separate, unimplemented residual-enrichment step.
 
 The complete repository suite passes 162 tests with zero failures, and `checkcode` reports no issues in all 79 MATLAB files.
+
+## Boundary-complete vertical-mode compression
+
+Milestone 9.2 tests a smaller vertical representation built from fixed-\(\kappa\) nonhydrostatic waves, signed-Robin APV-bearing geostrophic modes, explicit zero-APV bottom inversions, and the complete mean sector:
+
+```matlab
+audit = problem.auditBoundaryCompleteVerticalModeCompression( ...
+    trustedModeBounds=[1 0], ...
+    supportModeBounds=[1 2;1 3;1 4], ...
+    stationaryPolynomialDegree=4, ...
+    primitivePolynomialDegrees=[4;6;8], ...
+    comparisonPolynomialDegree=12, ...
+    modalCounts=[1;2;4;8], ...
+    robinLengthRatios=[-1/8;-1/4;-1/2;Inf], ...
+    paddingFactors=[2;3], ...
+    terrainScales=[0.125;0.25;0.5;1], ...
+    internalModesEVPOrders=[128;256]);
+```
+
+The one-dimensional eigenproblems come from the isolated `internal-modes-evp` checkout pinned to commit `df86687`; WaveVortexModel continues to use the main InternalModes dependency. Every candidate column is first embedded in the primitive oracle, missing stationary directions are appended by physical-energy orthogonal completion, and the reduced system uses the unchanged finite-terrain \(H_\gamma\) and \(J_\gamma\).
+
+The family converges toward the validated internal-wave projector, but at eight wave and Robin modes its projector defect is `7.86e-7`, bottom-evolution defect is `3.10e-3`, and compression factor is only `1.0914`. Robin-length changes produce projector differences up to `2.87e-5`. The audit therefore returns `modal-incompatible`; the primitive polynomial representation remains the preferred seed, every unresolved direction remains retained, and Milestone 10 has not begun.
+
+The complete repository suite passes 168 tests with zero failures, and `checkcode` reports no issues in all 83 MATLAB files.
 
 ## Terrain-energy Galerkin flat oracle
 
