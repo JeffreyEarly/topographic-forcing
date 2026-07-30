@@ -1,6 +1,6 @@
 # Terrain-energy Galerkin milestones
 
-> **Checkpoint after Milestone 6.8:** the boundary-complete weak oracle derives APV from terrain-dependent geostrophic test states inside the primitive weak space and closes the trusted tangent identities at roundoff. This resolves the Milestone-6.7 representation question without replacement APV rows or corrections. Milestones 7–13 remain inactive until separately planned.
+> **Checkpoint after Milestone 9.1:** the finite-amplitude primitive oracle preserves physical energy, derives stationary APV through the boundary-complete Green identity, closes bottom evolution under refinement, and contains converged stationary and internal-wave physical subspaces. The leading topographic-boundary candidate remains unresolved. Milestone 9.2 now tests whether fixed-\(\kappa\) waves, Robin APV modes, and an explicit zero-APV bottom inversion provide a substantially smaller vertical representation before residual enrichment begins.
 
 ## Objective
 
@@ -21,7 +21,7 @@ B\dot{\boldsymbol x}=R_h\boldsymbol x,
 
 where $\boldsymbol a$ contains the existing volume coordinates and $\boldsymbol b$ contains independent bottom coordinates. The mathematical specification begins with `terrain-energy-galerkin.tex` at commit `72c967c` in the `ape-apv-bottom-topography` literature repository. The boundary-energy and potential-enstrophy analysis in `boundary-energy-enstrophy.tex` at commit `716c216` supplies the subsequent correction to the numerical state: a nonzero bottom displacement cannot be represented as an isolated scalar lift if its dynamically associated balanced velocity, pressure, and APV structure are omitted.
 
-The implementation will use ordinary hydrostatic modes as economical vertical coordinates. The public coefficient ordering remains fixed, and the complete zero-APV balanced bottom inversion remains available for field reconstruction. The augmented descriptor will nevertheless keep the bottom coefficient independent until the volume equations, pressure constraint, and strong bottom row have been assembled together. The boundary Green identity will then determine whether the reduced problem uses a positive generalized metric, a signed metric, or physical energy alone.
+The verified dense oracle uses primitive polynomial coordinates. Milestone 9.2 compares them with a boundary-complete modal family containing fixed-\(\kappa\) nonhydrostatic waves, generalized-energy Robin APV modes, and an explicit zero-APV bottom inversion. The public coefficient ordering remains fixed, the bottom coordinate remains independent, and physical finite-terrain energy remains the evolution norm. The signed Robin length shapes only the candidate basis and must disappear from converged physical results.
 
 The completed mean-depth generator and scattering implementation is retained as reusable engineering infrastructure. Its scientific roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md). Neither existing forcing is used as the terrain-energy evolution operator.
 
@@ -2063,7 +2063,119 @@ The focused Milestone-9.1 tests and complete repository suite pass 162 tests wit
 
 ### Stopping condition
 
-Milestone 9.1 passes and this goal stops here. Milestone 10, residual enrichment, matrix-free operators, and time integration require separate authorization. A later topographic-boundary-wave claim must still satisfy the independent Milestone-9.1 convergence gates.
+Milestone 9.1 passes and its goal stops here. Milestone 9.2 is the next separately authorized compression experiment. Milestone 10, residual enrichment, matrix-free operators, and time integration remain inactive. A later topographic-boundary-wave claim must still satisfy the independent Milestone-9.1 convergence gates.
+
+## Milestone 9.2: Boundary-complete vertical-mode compression oracle
+
+- [ ] Complete
+
+### Purpose
+
+Determine whether a vertical basis built from the known flat physical solution families reaches the Milestone-9.1 physical subspaces with substantially fewer degrees of freedom than the primitive polynomial oracle.
+
+The candidate basis is
+
+```math
+\boxed{
+\text{fixed-}\kappa\text{ nonhydrostatic waves}
++
+\text{Robin APV-bearing geostrophic modes}
++
+\text{an explicit zero-APV bottom inversion}
++
+\text{the }\kappa=0\text{ MDA sector}.
+}
+```
+
+The signed Robin length is a numerical basis parameter. It does not replace physical finite-terrain energy or introduce a new invariant.
+
+### Dependencies
+
+Milestone 9.1 and the boundary-complete vertical-basis derivation in `finite-terrain-projection-problem.tex` and `terrain-energy-galerkin.tex`.
+
+### Deliverables
+
+- Add a dense audit that constructs, for every retained nonzero horizontal wavenumber:
+  - fixed-$\kappa$ nonhydrostatic wave modes;
+  - generalized-energy Robin geostrophic modes, retaining every negative eigendepth and the requested positive eigendepths;
+  - one independently normalized complete zero-APV bottom inversion.
+- Retain the compatible MDA coordinates at $\kappa=0$.
+- Represent every modal column first in the existing primitive polynomial oracle. Reuse the validated terrain quadrature, projection, $H_\gamma,J_\gamma,Q_\gamma,B_N,R_{h,N}$ forms, and Milestone-8 stationary construction without alteration.
+- Test
+
+```math
+J_{\mathrm w}=J_{\mathrm g}\in\{1,2,4,8\}.
+```
+
+- Use $\ell_b=-D/4$ as the primary signed Robin length and sweep
+
+```math
+\frac{\ell_b}{D}
+\in
+\left\{
+-\frac18,-\frac14,-\frac12,\infty
+\right\}.
+```
+
+  The $\ell_b=\infty$ ordinary-boundary family is the convergence control.
+- Use the Milestone-9.1 constant-$N$ sinusoidal terrain with trusted bounds `[1 0]`, support `[1 4]`, padding factors two and three, and a degree-12 primitive reference. Add flat, uniform-depth, variable-stratification, and small-terrain-amplitude controls.
+- Construct the terrain-dependent stationary inclusion in the modal coordinates. Append the physical-energy-orthogonal representation residual whenever the truncated flat modal span does not contain a required stationary state.
+- Solve the unmodified physical-energy eigenproblem in the resulting compatible modal space.
+- Compare:
+  - total state and vertical degrees of freedom;
+  - physical-energy spectral-projector angles;
+  - frequency errors;
+  - APV, bottom-evolution, and strong primitive residuals;
+  - stationary-space representation and Green identities;
+  - Gram-matrix conditioning;
+  - guard, padding, and Robin-length sensitivity;
+  - convergence of the unresolved Milestone-9.1 subinertial bottom candidate.
+- Preserve every direction in the primitive reference eigensystem. Do not use a frequency cutoff, replacement APV rows, empirical correction, symmetrization, APV-nullspace projection, or mode deletion.
+
+The modal coordinate count at each nonzero wavenumber is
+
+```math
+N_{\mathrm{modal}}
+=
+2J_{\mathrm w}+J_{\mathrm g}+1,
+```
+
+to be compared with $3p+2$ admissible primitive coordinates at polynomial degree $p$.
+
+### Automated acceptance
+
+- Vertical EVP, endpoint, normalization, and flat reconstruction defects are below $10^{-11}$.
+- The number of negative Robin eigendepths agrees with the inertia of the endpoint quadratic form.
+- Every explicit bottom inversion has unit bottom displacement and volume-APV defect below $10^{-11}$.
+- The modal coordinate Gram matrix is full rank without deleting or merging a physical state; its condition number and any near-dependence are reported.
+- The assembled forms satisfy
+
+```math
+\frac{\lVert H_\gamma-H_\gamma^*\rVert}{\lVert H_\gamma\rVert}
+\leq10^{-12},
+\qquad
+\frac{\lVert J_\gamma+J_\gamma^*\rVert}{\lVert J_\gamma\rVert}
+\leq10^{-12}.
+```
+
+- The stationary Green identities and bottom evolution close below $10^{-10}$.
+- Internal-wave frequencies and physical-energy projectors agree with the degree-12 primitive oracle within $10^{-8}$.
+- Accepted physical projectors are insensitive to padding, guard support, and $\ell_b$ within $10^{-8}$.
+- A topographic boundary-wave claim must pass every Milestone-9.1 APV, bottom, strong-residual, backward-error, bottom-participation, guard, and $h\to0$ gate.
+- Flat and uniform-depth calculations recover the established wave, APV-bearing geostrophic, zero-APV bottom, and MDA sectors.
+- Variable-stratification results converge under independent modal-count and primitive-reference refinement.
+
+### Outcome classification
+
+- **`modal-acceleration`:** every physical-projector gate passes with at least a factor-two reduction in admissible vertical degrees of freedom.
+- **`modal-equivalent`:** the modal family converges to the primitive physical subspaces but provides less than a factor-two reduction.
+- **`modal-incompatible`:** the compatible Green, APV, or bottom identities do not converge.
+
+The milestone completes after recording one of these outcomes. Only `modal-acceleration` becomes the preferred Milestone-10 seed. Otherwise Milestone 10 retains the primitive polynomial seed. A topographic boundary branch remains unresolved unless it independently passes the Milestone-9.1 classification gates.
+
+### Stopping condition
+
+Stop after selecting or rejecting the boundary-complete modal seed. Do not begin residual enrichment, matrix-free operators, or time integration.
 
 ## Milestone 10: Residual-enriched terrain modes
 
@@ -2075,12 +2187,14 @@ Construct selected terrain modes efficiently while preserving the complete stati
 
 ### Dependencies
 
-Milestone 9.1.
+Milestone 9.2.
 
 ### Deliverables
 
-- Use the validated Milestone-9.1 physical stationary, internal-wave, and topographic-boundary-wave subspaces as block seeds for the physical-energy eigenproblem.
+- Use the vertical representation selected by Milestone 9.2. Use the boundary-complete modal family only after a `modal-acceleration` outcome; otherwise retain the primitive polynomial seed.
+- Use the validated Milestone-9.1 physical stationary, internal-wave, and topographic-boundary-wave subspaces as the reference block projectors for the physical-energy eigenproblem.
 - Apply residual correction to complete resonant blocks while retaining every bottom coordinate, the Milestone-8 stationary subspace, and the unresolved algebraic completion needed during construction.
+- Preserve the APV-bearing Robin sector, explicit zero-APV bottom sector, stationary sector, and unresolved reference completion throughout every accepted correction.
 - Orthogonalize accepted corrections using $H_\gamma$.
 - Compare every enriched physical invariant subspace with the dense Milestone-9.1 projectors.
 
@@ -2107,8 +2221,9 @@ Milestone 10.
 
 - Replace dense $H_\gamma$, $J_\gamma$, stationary-inclusion, APV, and bottom-map matrices with field reconstruction, oversampled terrain multiplication, and adjoint projection.
 - Preserve the explicit bottom coefficients throughout packing, application, and reconstruction.
-- Use the flat physical-energy operator and complete flat stationary space as preconditioning data.
+- Use the flat physical-energy operator, complete flat stationary space, and Milestone-9.2 selected vertical representation as preconditioning data.
 - Keep diagnostic pressure recovery outside ordinary operator applications.
+- Record whether the matrix-free coordinates use the primitive polynomial or boundary-complete modal representation, together with its Robin-length convention and unresolved-energy projector.
 
 ### Automated acceptance
 
@@ -2144,6 +2259,7 @@ J_\gamma\boldsymbol A
 for broad states.
 - Add constant-slope, sinusoidal-terrain, and Gaussian-ridge examples showing wave scattering, stationary-space participation, topographic boundary-mode excitation, bottom displacement, APV, and physical energy.
 - Report the unresolved physical-energy fraction whenever an initial state has support in $\mathcal R_N$.
+- Report the selected Milestone-9.2 vertical representation and verify that observable fields are insensitive to the Robin length whenever the modal representation is used.
 - Compare dense exponentiation, modal phase evolution, and broad-state evolution at reference resolution.
 
 ### Automated acceptance
@@ -2170,7 +2286,7 @@ Milestone 12.
 
 - Add arbitrary stationary stratification, broadband terrain, resolution rebuilding, restartable output, construction and evolution profiling, and symmetry or Bloch decomposition.
 - Retain the pressure-free online path after the terrain-energy operator has been constructed.
-- Persist the physical-energy basis, stationary and wave classification, unresolved remainder, bottom-coordinate convention, basis metadata, and construction version.
+- Persist the physical-energy basis, selected vertical representation, Robin-length convention when applicable, stationary and wave classification, unresolved remainder, bottom-coordinate convention, basis metadata, and construction version.
 - Benchmark construction, memory, eigenanalysis, reconstruction, and online evolution at three resolutions.
 
 ### Automated acceptance
@@ -2196,7 +2312,8 @@ Milestone 12.
 | **D2 — Periodic scientific gate** | 7 | Extend the validated projected primitive construction to finite-amplitude sinusoidal terrain. Stop if physical energy, bottom evolution, or trusted-band APV does not meet its branch gate. |
 | **D3.1 — Complete stationary-space gate** | 8 | Construct the complete finite-terrain stationary balanced space and stop if its dimension, Green identity, or bottom tangency does not converge. Do not solve the complete terrain eigensystem. |
 | **D3.2 — Dense terrain eigensystem** | 9 | Solve the complete physical-energy eigenproblem, preserve every direction, and expose candidate physical and unresolved subspaces. |
-| **D3.3 — Physical-subspace classification** | 9.1 | Establish converged stationary and dynamical physical projectors, quantify the unresolved remainder, and stop before residual enrichment. |
+| **D3.3 — Physical-subspace classification** | 9.1 | Establish converged stationary and dynamical physical projectors, quantify the unresolved remainder, and stop before vertical compression or residual enrichment. |
+| **D3.4 — Boundary-complete modal compression** | 9.2 | Compare the Robin, zero-APV-bottom, and fixed-$\kappa$ modal coordinates with the primitive oracle, select the Milestone-10 seed, and stop before residual enrichment. |
 | **E1 — Selective modes** | 10 | Implement residual enrichment and validate it exclusively against the dense oracle. |
 | **E2 — Matrix-free production core** | 11 | Replace dense actions while preserving every Milestone-7 and Milestone-9.1 identity. |
 | **F — Evolution and examples** | 12 | Add energy-preserving evolution and the three scientific examples. |
@@ -2208,9 +2325,9 @@ Use one focused commit per completed milestone and retain acceptance evidence in
 
 ## Definition of done
 
-The scientific proof of concept is established when Milestones 5–9.1 pass: the boundary coordinate is represented as part of a complete linked state, the projected primitive system preserves physical energy, derives stationary volume APV, and converges to the strong bottom equation, the complete stationary balanced space is represented, and the physical-energy eigenproblem contains converged internal-wave and topographic-boundary-wave subspaces separated from a quantified unresolved algebraic remainder. Physical validation of every auxiliary eigenvector is not required.
+The scientific proof of concept is established when Milestones 5–9.1 pass: the boundary coordinate is represented as part of a complete linked state, the projected primitive system preserves physical energy, derives stationary volume APV, and converges to the strong bottom equation, the complete stationary balanced space is represented, and the physical-energy eigenproblem contains converged physical subspaces separated from a quantified unresolved algebraic remainder. A topographic boundary-wave claim remains subject to its independent Milestone-9.1 gates, and physical validation of every auxiliary eigenvector is not required. Milestone 9.2 selects the economical vertical coordinates without changing this physical definition.
 
-The efficient research implementation is established when Milestones 10–12 pass: residual enrichment reproduces the dense physical-energy oracle, matrix-free actions preserve its stationary-space, energy, APV, and bottom identities, and energy-preserving evolution produces convergent constant-slope, sinusoidal-terrain, and Gaussian-ridge examples.
+The efficient research implementation is established when Milestones 9.2–12 pass: the selected vertical representation reproduces the dense physical subspaces, residual enrichment reproduces the dense physical-energy oracle, matrix-free actions preserve its stationary-space, energy, APV, and bottom identities, and energy-preserving evolution produces convergent constant-slope, sinusoidal-terrain, and Gaussian-ridge examples.
 
 Milestone 13 completes research-production behavior through arbitrary stationary stratification, broadband terrain, resolution rebuilding, restartable output, symmetry decomposition, and profiling.
 
