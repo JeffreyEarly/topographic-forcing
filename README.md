@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Milestone-9 scientific checkpoint:** the dense physical-energy pencil is numerically well resolved, preserves every non-tangent bottom direction, and recovers flat and uniform-depth wave frequencies. It does not yet define a valid terrain-mode basis. The backward-error zero-frequency projector is larger than the Milestone-8 tangency sector, while the resolved bottom-dominated candidates fail independent APV, bottom-evolution, and strong primitive-equation tests. No active bottom-mode frequency is claimed and Milestone 10 remains inactive. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Milestone-9.1 scientific checkpoint:** the dense physical-energy pencil is numerically well resolved, preserves every non-tangent bottom direction, and contains convergent internal-wave branches. The complete eigensystem also contains unresolved zero-frequency directions and an improving but not yet converged subinertial bottom branch. Milestone 9.1 will separate converged physical spectral subspaces from this retained algebraic completion; Milestone 10 remains inactive. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -225,9 +225,11 @@ audit = problem.auditDensePhysicalEnergyTerrainModes( ...
 
 For the constant-stratification sinusoidal reference, the generalized eigen-residual, physical-energy orthogonality, Fourier-conjugacy defect, and non-tangent-bottom retention defect are respectively below `2e-13`, `5e-15`, `7e-15`, and `3e-15`. Flat and uniform-depth first-mode frequencies converge below `1e-10` relative error.
 
-The modal gate nevertheless blocks. The physical-energy complement contains backward-error-indistinguishable zero-frequency directions outside the declared Milestone-8 stationary sector. Four bottom-dominated candidates have frequencies resolved by more than $10^{12}$ times their backward uncertainty, but their maximum trusted APV, bottom, and strong-equation defects are approximately `1.60e-1`, `4.19e-6`, and `3.67e-1`. Consequently, none is claimed as a physical active bottom mode. Every candidate and every unclassified direction remains in the returned eigensystem; none is added to the stationary sector, projected away, or deleted.
+The original all-mode classification gate does not pass. The physical-energy complement contains backward-error-indistinguishable zero-frequency directions outside the declared Milestone-8 stationary sector. Four bottom-dominated candidates have frequencies resolved by more than $10^{12}$ times their backward uncertainty, but their reference trusted APV, bottom, and strong-equation defects are approximately `1.60e-1`, `4.19e-6`, and `3.67e-1`.
 
-The audit returns `dense-modal-classification-blocker` for the constant-stratification terrain reference. A variable-stratification control also fails the full-space eigen-residual gate. This establishes a Milestone-9 blocker under the approved representation and leaves Milestone 10 inactive.
+A fixed-support degree-\(4,6,8\) study shows that a tracked internal branch near \(4.43f\) converges to APV, bottom, and strong defects `7.56e-9`, `5.22e-10`, and `6.34e-6`. The subinertial branch near \(0.169f\) improves to APV and strong defects `6.39e-3` and `5.82e-2`, but its bottom defect remains near `5e-6`; it therefore remains unresolved rather than demonstrated numerical. Every candidate and unclassified direction remains in the returned eigensystem.
+
+The audit retains the historical status `dense-modal-classification-blocker`. Milestone 9.1 replaces the all-mode interpretation with nested physical-energy spectral-projector convergence and an explicit unresolved remainder. Milestone 10 remains inactive until that gate passes.
 
 The complete repository suite passes 154 tests with zero failures, and `checkcode` reports no issues in all 76 MATLAB files.
 

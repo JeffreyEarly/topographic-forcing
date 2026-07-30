@@ -1863,11 +1863,11 @@ Milestone 8 passes, but this goal stops here. Milestone 9, nonzero-frequency ter
 
 ## Milestone 9: Dense physical-energy terrain modes
 
-- [ ] Complete — blocking modal gate
+- [x] Complete — dense eigensystem established; physical-subspace classification continues in Milestone 9.1
 
 ### Purpose
 
-Establish the complete dense terrain-mode oracle using the physical finite-terrain energy and identify the dynamical modes supported by the complete stationary space.
+Establish the complete dense physical-energy eigensystem, preserve the Milestone-8 stationary space and every non-tangent bottom direction, and expose the candidate physical and unresolved algebraic subspaces without requiring every auxiliary eigenvector to pass the continuum physical tests at one resolution.
 
 ### Dependencies
 
@@ -1885,9 +1885,9 @@ iJ_\gamma\boldsymbol c_n
 
 - Use the positive physical-energy Gram matrix $H_\gamma$ and a Cholesky-scaled Hermitian eigensolve.
 - Use the independently constructed Milestone-8 $\mathcal G_{\gamma,N}$ as the stationary sector rather than identifying it with a hard frequency cutoff.
-- Construct its physical-energy orthogonal complement and solve the dynamical eigenproblem there; retain every nonzero eigenpair, including arbitrarily low-frequency topographic boundary modes.
-- Define $\mathcal W_{\gamma,N}$ as the span of the resulting nonzero-frequency eigenvectors.
-- Classify internal waves and topographic boundary waves using frequency, polarization, volume APV, and bottom participation; retain compatible mean-density and bottom-buoyancy states inside the stationary space.
+- Construct its physical-energy orthogonal complement and solve the dynamical eigenproblem there; retain every eigenpair, including zero-frequency completion directions and arbitrarily low-frequency topographic boundary candidates.
+- Record candidate internal-wave, topographic-boundary-wave, unresolved-zero, and unresolved-nonzero groups without treating a one-resolution label as physical validation.
+- Retain compatible mean-density and bottom-buoyancy states inside the stationary space.
 - Evaluate
 
 ```math
@@ -1905,7 +1905,7 @@ R_{h,N}\boldsymbol c_n,
 ```
 
 as an independent modal residual rather than a replacement eigenproblem row.
-- Normalize and classify modes using physical energy, volume APV, and bottom participation.
+- Normalize modes using physical energy and diagnose frequency, polarization, volume APV, bottom participation, and backward uncertainty.
 - Recover pressure only after the eigensolve and report strong momentum, continuity, surface, pressure, and bottom residuals separately.
 
 ### Automated acceptance
@@ -1913,13 +1913,12 @@ as an independent modal residual rather than a replacement eigenproblem row.
 - Frequencies are real and generalized eigen-residuals close within $10^{-10}$.
 - Distinct-frequency modes are orthogonal under physical finite-terrain energy within $10^{-10}$.
 - The Milestone-8 stationary basis has eigen-residual below $10^{-10}$, and the physical-energy complement is orthogonal to it within $10^{-10}$.
-- The stationary sector is defined exclusively by the Milestone-8 tangency construction. A mode is distinguishable from zero only when its absolute frequency exceeds its backward-error uncertainty; no active mode may be reclassified or deleted solely because its frequency is close to zero.
-- Every claimed active bottom-mode frequency exceeds its numerical uncertainty by at least a factor of $10^3$.
-- Nonzero-frequency modes have negligible projected volume APV at the validated exact or trusted-band convergence gate.
+- The stationary sector is defined exclusively by the Milestone-8 tangency construction. A mode is distinguishable from zero only when its absolute frequency exceeds its backward-error uncertainty; no direction is reclassified or deleted solely because its frequency is close to zero.
+- Every candidate active bottom-mode frequency is reported with its numerical uncertainty and frequency-to-uncertainty ratio.
+- Projected volume APV, bottom evolution, strong primitive residuals, and bottom participation are reported mode by mode for subsequent subspace-convergence testing.
 - Flat and uniform-depth frequencies reproduce the established nonhydrostatic solutions, and mode counts remain stable under refinement.
-- Bottom participation and the internal-wave versus topographic-boundary-wave classification converge under refinement.
-- Strong momentum, continuity, pressure, surface, and bottom residuals decrease under independent horizontal, vertical, support, and padding refinement.
-- Failure of the modal classification or convergence tests blocks Milestone 10.
+- Strong momentum, continuity, pressure, surface, and bottom residuals are available separately rather than hidden in the energy eigen-residual.
+- Failure to classify every auxiliary eigenvector does not invalidate a separately converged physical subspace; the required refinement and classification gate is Milestone 9.1.
 
 ### Numerical outcome
 
@@ -1936,18 +1935,101 @@ The implementation:
 
 For the constant-stratification sinusoidal reference, the generalized eigen-residual, physical-energy orthogonality, Fourier-conjugacy defect, and non-tangent-bottom retention defect are below approximately `2e-13`, `5e-15`, `7e-15`, and `3e-15`. Flat and uniform-depth first-mode frequencies converge below `1e-10` relative error. These results verify the dense energy eigensolver and the reference limits.
 
-Two independent classification failures remain:
+Two unresolved populations remain:
 
-1. The physical-energy complement contains backward-error-indistinguishable zero-frequency directions outside the declared Milestone-8 stationary sector. They remain in the returned eigensystem as unclassified directions; they are not added to the stationary sector or deleted.
-2. Four bottom-dominated candidates have a minimum frequency-to-uncertainty ratio above $10^{12}$, comfortably exceeding the required $10^3$, but their maximum trusted volume-APV, bottom-evolution, and strong-equation defects are approximately `1.60e-1`, `4.19e-6`, and `3.67e-1`. No candidate is therefore claimed as a physical active bottom mode.
+1. The physical-energy complement contains backward-error-indistinguishable zero-frequency directions outside the declared Milestone-8 stationary sector. They remain in the returned eigensystem as unresolved-zero directions; they are not added to the stationary sector or deleted.
+2. Four bottom-dominated candidates have a minimum frequency-to-uncertainty ratio above $10^{12}$, comfortably exceeding $10^3$, but their reference trusted volume-APV, bottom-evolution, and strong-equation defects are approximately `1.60e-1`, `4.19e-6`, and `3.67e-1`. They remain unresolved pending subspace convergence.
+
+A fixed-horizontal-support vertical study at polynomial degrees four, six, and eight shows that the dense result contains genuinely convergent physical branches. A tracked internal-wave branch gives:
+
+| Degree | $\omega/f$ | APV defect | Bottom defect | Strong residual |
+|---:|---:|---:|---:|---:|
+| 4 | `4.428504` | `7.07e-6` | `3.49e-10` | `1.78e-3` |
+| 6 | `4.428536` | `3.14e-7` | `4.88e-10` | `4.37e-5` |
+| 8 | `4.428536` | `7.56e-9` | `5.22e-10` | `6.34e-6` |
+
+The tracked subinertial bottom-dominated branch improves but is not yet physically classified:
+
+| Degree | $\omega/f$ | APV defect | Bottom defect | Strong residual |
+|---:|---:|---:|---:|---:|
+| 4 | `0.168758` | `1.60e-1` | `4.19e-6` | `3.67e-1` |
+| 6 | `0.169182` | `4.03e-2` | `4.74e-6` | `1.54e-1` |
+| 8 | `0.168981` | `6.39e-3` | `4.81e-6` | `5.82e-2` |
+
+The Milestone-8 geostrophic construction remains well resolved. Holding its trusted scalar degree fixed at four while enriching the primitive degree from four to eight keeps nine stationary states and two nonstationary bottom directions; representation, Green-identity, stationary-row, and strong bottom-tangency defects remain between approximately `1e-18` and `1e-14`. When the stationary polynomial degree grows with the primitive degree, the represented stationary dimension grows from 9 to 15 to 21 as expected for an increasingly rich APV space. The dense complement nevertheless contains 88, 120, and 152 additional unresolved-zero directions, respectively. Those directions are algebraic completion modes, not validated geostrophic states.
 
 A variable-stratification control additionally fails the full-space eigen-residual gate at approximately `9.88e-7`, even though energy orthogonality, conjugacy, and bottom-direction retention remain accurate.
 
-The reference status is `dense-modal-classification-blocker`. This is a genuine Milestone-9 scientific/numerical blocker under the approved representation and restrictions, not a low-frequency resolution failure. Milestone 10 remains inactive.
+The existing public audit retains the historical status `dense-modal-classification-blocker` because its original all-mode gate does not pass. The revised interpretation is narrower: the dense energy eigensystem is valid, at least one internal-wave branch converges, and the unresolved-zero and subinertial candidate subspaces require the dedicated Milestone-9.1 convergence analysis. Milestone 10 remains inactive.
 
 ### Stopping condition
 
-Stop at Milestone 9. Do not begin residual enrichment, matrix-free operators, or time integration until a separately justified construction explains the extra zero-frequency directions and makes the bottom-dominated candidates converge in APV, bottom evolution, and the strong primitive equations without changing the Milestone-8 stationary definition or deleting modes.
+Proceed only to Milestone 9.1. Do not begin residual enrichment, matrix-free operators, or time integration until the physical spectral subspaces have been separated from the unresolved algebraic completion by nested-space convergence without changing the Milestone-8 stationary definition or deleting modes.
+
+## Milestone 9.1: Converged physical-subspace classification
+
+- [ ] Complete — blocking physical-subspace gate
+
+### Purpose
+
+Separate converged physical stationary, internal-wave, and topographic-boundary-wave subspaces from the unresolved algebraic completion of the dense finite basis.
+
+### Dependencies
+
+Milestone 9.
+
+### Deliverables
+
+- Extend the dense modal audit across nested horizontal supports, vertical polynomial degrees, padding factors, and terrain amplitudes.
+- Compare degenerate and nearly degenerate eigenspaces through physical-energy spectral projectors and principal angles rather than individual eigenvector ordering.
+- Split the Milestone-8 stationary space into APV-bearing and zero-volume-APV sectors using the APV map and balanced energy--enstrophy problem.
+- Identify internal-wave subspaces through flat-limit continuation, wave polarization, frequency, and weak bottom participation.
+- Identify topographic-boundary-wave subspaces through bottom participation, boundary-PV evolution, frequency, and continuation to stationary bottom states as $h\to0$.
+- Return a conjugate-closed classification for every eigenvector: validated stationary family, validated internal-wave family, validated topographic-boundary-wave family, unresolved zero, unresolved nonzero, or demonstrated numerical.
+- Retain every unresolved direction in the complete eigensystem and report the physical-energy fraction of any input state that lies in the unresolved remainder.
+- Use constant-stratification sinusoidal terrain as the primary oracle, with flat, uniform-depth, variable-stratification, and small-terrain-amplitude controls.
+
+The finite classification must satisfy
+
+```math
+\mathcal V_N
+=
+\mathcal G_N
+\mathbin{\oplus_{H_N}}
+\mathcal W_N
+\mathbin{\oplus_{H_N}}
+\mathcal R_N,
+```
+
+and
+
+```math
+\dim\mathcal V_N
+=
+\dim\mathcal G_N+\dim\mathcal W_N+\dim\mathcal R_N.
+```
+
+Here $\mathcal R_N$ is the retained unresolved algebraic completion. A direction is called numerical only after independent refinement demonstrates nonconvergence; otherwise it remains unresolved.
+
+### Automated acceptance
+
+- Fixed smooth interior-APV and bottom-buoyancy inversions converge in physical energy, reconstructed fields, APV, and bottom tangency.
+- Stationary dimensions and energy projectors stabilize on a fixed trusted band while horizontal support and vertical resolution increase.
+- Internal-wave spectral subspaces converge in principal angle and frequency; APV and bottom defects are below $10^{-8}$, and strong residuals decrease by at least a factor of four across successive refinements with a final value below $10^{-5}$.
+- A topographic boundary branch is claimed only when:
+  - its frequency exceeds its backward uncertainty by at least $10^3$;
+  - its conjugate spectral subspace converges;
+  - APV, bottom, and strong residuals all decrease across at least three refinements;
+  - bottom participation approaches a nonzero limit; and
+  - its frequency tends continuously to zero as $h\to0$.
+- Accepted physical projectors are insensitive to padding factors two and three and to additional guard modes within $10^{-8}$.
+- Physical and remainder projectors are $H_N$-orthogonal, Fourier-conjugate closed, and account for the complete finite dimension within $10^{-10}$.
+- Modes that do not pass remain unresolved. The `demonstrated-numerical` label requires nonconvergence under independent horizontal, vertical, support, and padding refinement.
+- Failure to establish a converged $\mathcal G_N$ and at least one converged dynamical subspace blocks Milestone 10.
+
+### Stopping condition
+
+Stop at Milestone 9.1. Do not begin residual enrichment until the physical-subspace and unresolved-energy reports pass this gate.
 
 ## Milestone 10: Residual-enriched terrain modes
 
@@ -1959,20 +2041,20 @@ Construct selected terrain modes efficiently while preserving the complete stati
 
 ### Dependencies
 
-Milestone 9.
+Milestone 9.1.
 
 ### Deliverables
 
-- Use flat internal, geostrophic, bottom-buoyancy, and mean-density modes as block seeds for the physical-energy eigenproblem.
-- Apply residual correction to complete resonant blocks while retaining every bottom coordinate and preserving the Milestone-8 stationary subspace.
+- Use the validated Milestone-9.1 physical stationary, internal-wave, and topographic-boundary-wave subspaces as block seeds for the physical-energy eigenproblem.
+- Apply residual correction to complete resonant blocks while retaining every bottom coordinate, the Milestone-8 stationary subspace, and the unresolved algebraic completion needed during construction.
 - Orthogonalize accepted corrections using $H_\gamma$.
-- Compare every enriched invariant subspace with the dense terrain oracle.
+- Compare every enriched physical invariant subspace with the dense Milestone-9.1 projectors.
 
 ### Automated acceptance
 
 - One correction reduces weak nonresonant $O(h)$ residuals to $O(h^2)$.
-- Repeated enrichment reproduces dense eigenvalues and invariant subspaces within $10^{-9}$.
-- Physical-energy structure and the complete stationary subspace remain invariant after every accepted enrichment; projected APV and bottom evolution retain their validated exact or convergent behavior.
+- Repeated enrichment reproduces validated dense eigenvalues and physical invariant subspaces within $10^{-9}$.
+- Physical-energy structure, the complete stationary subspace, and the physical/remainder classification remain invariant after every accepted enrichment; projected APV and bottom evolution retain their validated exact or convergent behavior.
 - Resonant calculations converge only when the complete coupled stationary and wave block is retained.
 
 ## Milestone 11: Matrix-free terrain-energy operators
@@ -1981,7 +2063,7 @@ Milestone 9.
 
 ### Purpose
 
-Replace the dense physical-energy oracle with adjoint-consistent operator actions while preserving the complete stationary space, APV map, and bottom maps.
+Replace the dense physical-energy oracle with adjoint-consistent operator actions while preserving the complete stationary space, physical/remainder classification, APV map, and bottom maps.
 
 ### Dependencies
 
@@ -2000,7 +2082,7 @@ Milestone 10.
 - Physical-energy adjoint identities close within $10^{-12}$.
 - No diagnostic pressure solve occurs during an operator application.
 - Bottom coefficients remain explicit throughout packing, application, and reconstruction.
-- Matrix-free stationary-space, projected-APV, bottom-evolution, energy, and modal diagnostics reproduce the dense results and their trusted-band classification.
+- Matrix-free stationary-space, projected-APV, bottom-evolution, energy, physical-projector, and unresolved-energy diagnostics reproduce the dense results and their Milestone-9.1 classification.
 
 ## Milestone 12: Energy-preserving evolution and scientific examples
 
@@ -2027,6 +2109,7 @@ J_\gamma\boldsymbol A
 
 for broad states.
 - Add constant-slope, sinusoidal-terrain, and Gaussian-ridge examples showing wave scattering, stationary-space participation, topographic boundary-mode excitation, bottom displacement, APV, and physical energy.
+- Report the unresolved physical-energy fraction whenever an initial state has support in $\mathcal R_N$.
 - Compare dense exponentiation, modal phase evolution, and broad-state evolution at reference resolution.
 
 ### Automated acceptance
@@ -2034,7 +2117,7 @@ for broad states.
 - Dense exponentiation, phase evolution, and Cayley evolution agree at reference resolution.
 - Physical energy is conserved to solver tolerance.
 - Projected APV either closes exactly or converges at the validated trusted-band rate; bottom evolution closes.
-- The stationary and wave subspace projections agree with the dense Milestone-9 oracle.
+- The stationary, internal-wave, topographic-boundary-wave, and unresolved projections agree with the dense Milestone-9.1 oracle.
 - Example errors converge with time step and spatial resolution.
 
 ## Milestone 13: Research-production behavior
@@ -2053,14 +2136,14 @@ Milestone 12.
 
 - Add arbitrary stationary stratification, broadband terrain, resolution rebuilding, restartable output, construction and evolution profiling, and symmetry or Bloch decomposition.
 - Retain the pressure-free online path after the terrain-energy operator has been constructed.
-- Persist the physical-energy basis, stationary and wave classification, bottom-coordinate convention, basis metadata, and construction version.
+- Persist the physical-energy basis, stationary and wave classification, unresolved remainder, bottom-coordinate convention, basis metadata, and construction version.
 - Benchmark construction, memory, eigenanalysis, reconstruction, and online evolution at three resolutions.
 
 ### Automated acceptance
 
 - Repeated construction is deterministic and resolution rebuilding preserves conjugacy, invariant normalization, APV classification, and bottom participation.
 - Restart continuation matches uninterrupted evolution to $10^{-10}$ in invariant-normalized coefficients.
-- Broadband and variable-stratification calculations retain every applicable Milestone-7 and Milestone-9 gate.
+- Broadband and variable-stratification calculations retain every applicable Milestone-7 and Milestone-9.1 gate.
 - Benchmarks report construction time, peak stored state, operator-application time, iteration counts, and reconstruction time.
 - Ordinary reduced evolution performs no diagnostic pressure solve.
 
@@ -2078,9 +2161,10 @@ Milestone 12.
 | **D1.7 — Boundary-complete weak oracle** | 6.8 | Derive and discretize the terrain-dependent geostrophic test sequence, verify APV as a primitive weak consequence, and stop before finite-amplitude terrain. |
 | **D2 — Periodic scientific gate** | 7 | Extend the validated projected primitive construction to finite-amplitude sinusoidal terrain. Stop if physical energy, bottom evolution, or trusted-band APV does not meet its branch gate. |
 | **D3.1 — Complete stationary-space gate** | 8 | Construct the complete finite-terrain stationary balanced space and stop if its dimension, Green identity, or bottom tangency does not converge. Do not solve the complete terrain eigensystem. |
-| **D3.2 — Dense terrain-mode gate** | 9 | Solve the physical-energy eigenproblem, classify the complete stationary and wave spaces, and stop before residual enrichment. |
+| **D3.2 — Dense terrain eigensystem** | 9 | Solve the complete physical-energy eigenproblem, preserve every direction, and expose candidate physical and unresolved subspaces. |
+| **D3.3 — Physical-subspace classification** | 9.1 | Establish converged stationary and dynamical physical projectors, quantify the unresolved remainder, and stop before residual enrichment. |
 | **E1 — Selective modes** | 10 | Implement residual enrichment and validate it exclusively against the dense oracle. |
-| **E2 — Matrix-free production core** | 11 | Replace dense actions while preserving every Milestone-7 and Milestone-9 identity. |
+| **E2 — Matrix-free production core** | 11 | Replace dense actions while preserving every Milestone-7 and Milestone-9.1 identity. |
 | **F — Evolution and examples** | 12 | Add energy-preserving evolution and the three scientific examples. |
 | **G — Research production** | 13 | Add persistence, rebuilding, broadband terrain, arbitrary stratification, and profiling. |
 
@@ -2090,7 +2174,7 @@ Use one focused commit per completed milestone and retain acceptance evidence in
 
 ## Definition of done
 
-The scientific proof of concept is established when Milestones 5–9 pass: the boundary coordinate is represented as part of a complete linked state, the projected primitive system preserves physical energy, derives stationary volume APV, and converges to the strong bottom equation, the complete stationary balanced space is represented, and the physical-energy eigenproblem produces converged internal and topographic boundary modes.
+The scientific proof of concept is established when Milestones 5–9.1 pass: the boundary coordinate is represented as part of a complete linked state, the projected primitive system preserves physical energy, derives stationary volume APV, and converges to the strong bottom equation, the complete stationary balanced space is represented, and the physical-energy eigenproblem contains converged internal-wave and topographic-boundary-wave subspaces separated from a quantified unresolved algebraic remainder. Physical validation of every auxiliary eigenvector is not required.
 
 The efficient research implementation is established when Milestones 10–12 pass: residual enrichment reproduces the dense physical-energy oracle, matrix-free actions preserve its stationary-space, energy, APV, and bottom identities, and energy-preserving evolution produces convergent constant-slope, sinusoidal-terrain, and Gaussian-ridge examples.
 
