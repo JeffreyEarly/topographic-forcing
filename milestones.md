@@ -1,6 +1,6 @@
 # Terrain-energy Galerkin milestones
 
-> **Checkpoint after Milestone 9.3:** the finite-amplitude primitive polynomial oracle remains the validated reference and the Milestone-10 seed. A full trained-and-frozen sweep of hydrostatic and nonhydrostatic slope-compatible wave coordinates passes its local descriptor, frequency, APV, strong-equation, and padding checks, but the best family retains a \(4.60\times10^{-3}\) bottom-evolution defect, a \(3.25\times10^{-7}\) internal-projector defect, and only `1.075` compression. Milestone 9.3 is therefore complete with classification `per-wavenumber-slope-incompatible`. The result shows that a correct per-wavenumber active-bottom endpoint is not sufficient to compress the globally coupled periodic-terrain stationary completion. The leading topographic-boundary candidate remains unresolved, and Milestone 10 has not begun.
+> **Checkpoint after Milestone 9.4:** the global first-order terrain correction is verified as a `global-dressing-seed`. It produces the required \(O(h^2)\) weak and bottom residuals, preserves exact reduced physical-energy structure, and improves the smallest-amplitude weak and bottom residuals by factors `2.09e3` and `1.87e3`. One correction does not yet pass every finite-amplitude physical-mode gate, so the primitive polynomial eigensystem remains the ambient oracle and the dressed blocks become the approved Milestone-10 initial vectors. Every unresolved direction remains retained, the leading topographic-boundary candidates remain unresolved, and Milestone 10 has not begun.
 
 ## Objective
 
@@ -2358,6 +2358,143 @@ The five focused Milestone-9.3 tests and the complete repository suite pass 173 
 
 Milestone 9.3 stops with `per-wavenumber-slope-incompatible`. Residual enrichment, matrix-free operators, and time integration have not begun.
 
+## Milestone 9.4: Global first-order terrain-dressed block oracle
+
+- [x] Complete — `global-dressing-seed`
+
+### Purpose
+
+Determine whether the verified global terrain tangent supplies the missing efficient coordinates. Unlike Milestones 9.2–9.3, the correction is a coupled horizontal block containing the complete \(O(h)\) terrain sidebands rather than a new vertical endpoint at one wavenumber.
+
+For
+
+```math
+h=\delta\widetilde h,
+\qquad
+iJ_\gamma\boldsymbol c=\omega H_\gamma\boldsymbol c,
+```
+
+the first terrain coefficient satisfies
+
+```math
+\left(iJ_0-\omega_0H_0\right)\boldsymbol c_1
+=-
+\left(iJ_1-\omega_0H_1-\omega_1H_0\right)\boldsymbol c_0,
+```
+
+and
+
+```math
+-i\omega_0B\boldsymbol c_1-i\omega_1B\boldsymbol c_0
+=
+R_1\boldsymbol c_0.
+```
+
+The first-order construction selects coordinates only. Every finite-amplitude reduced solve continues to use the unchanged exact primitive \(H_\gamma,J_\gamma\) forms and the exact Milestone-8 stationary space.
+
+### Dependencies
+
+Milestones 6.8, 7, 8, 9.1, and 9.3. The primitive polynomial representation remains the ambient oracle. Neither InternalModes checkout participates in or may be modified by this milestone.
+
+### Deliverables
+
+- Add `auditGlobalFirstOrderTerrainDressing` with defaults:
+
+  ```matlab
+  audit = problem.auditGlobalFirstOrderTerrainDressing( ...
+      trustedModeBounds=[1 0], ...
+      supportModeBounds=[1 2;1 3;1 4], ...
+      stationaryPolynomialDegree=4, ...
+      primitivePolynomialDegrees=[4;6;8], ...
+      comparisonPolynomialDegree=12, ...
+      paddingFactors=[2;3], ...
+      terrainScales=[1/16;1/8;1/4;1/2;1], ...
+      tangentStep=1e-3);
+  ```
+
+- Reuse the analytic and independently centered \(H_1,J_1,R_1\) construction from the global primitive tangent oracle and the \(G_0,G_1\) stationary inclusion from the boundary-complete weak oracle.
+- Dress every Milestone-9.1 validated internal-wave block and the complete trusted flat zero-frequency sector containing APV-bearing stationary states, zero-APV bottom directions, and compatible MDA states.
+- Retain complete exactly degenerate or backward-error-inseparable blocks. A frequency gap smaller than \(10^3\) times the combined normwise uncertainty enlarges the block; it never deletes a direction.
+- Inside a block \(X_D\), solve
+
+  ```math
+  X_D^*(iJ_1-\omega_0H_1)X_D\boldsymbol d
+  =
+  \omega_1X_D^*H_0X_D\boldsymbol d.
+  ```
+
+- Solve the complementary correction in the complete flat physical-energy eigenbasis. Retain every correction coefficient.
+- For the zero-frequency block, solve
+
+  ```math
+  X_0^*iJ_1X_0\boldsymbol d
+  =
+  \omega_1X_0^*H_0X_0\boldsymbol d,
+  ```
+
+  while representing the tangent stationary nullspace directly by \(G_0+\delta G_1\).
+- Verify the Fourier selection rule. For one sinusoidal terrain harmonic \(\boldsymbol q\), the first correction to a seed at \(\boldsymbol K\) may occupy only \(\boldsymbol K\pm\boldsymbol q\), apart from members already retained in the complete degenerate block.
+- Form \(\boldsymbol c^{[1]}=\boldsymbol c_0+\delta\boldsymbol c_1\), insert the exact finite-terrain stationary space, project the dynamical columns into its \(H_\gamma\)-orthogonal complement, and assemble exact reduced \(H_r,J_r\).
+- Preserve the complete primitive eigensystem and unresolved projector as the independent reference. No unrepresented primitive direction is relabelled or deleted.
+- Report separately:
+  - internal-wave block corrections;
+  - the tangent stationary nullspace;
+  - nonzero first-order zero-block pairs;
+  - bottom participation;
+  - \(\omega(\delta)/\delta\) convergence;
+  - APV, bottom, and strong residuals;
+  - dimension and compression.
+
+### Automated acceptance
+
+- Analytic and centered \(H_1,J_1,R_1\) agree below \(10^{-9}\).
+- Flat block energy orthogonality, conjugacy, and sinusoidal Fourier selection close below \(10^{-11}\).
+- Block solvability, complementary correction, and first-order bottom residuals close below \(10^{-10}\).
+- The \(G_0,G_1\) Green and stationary-row identities close below \(10^{-10}\).
+- Undressed exact weak and absolute bottom residuals scale as \(O(\delta)\).
+- Dressed weak and absolute bottom residuals scale as \(O(\delta^2)\), with observed order at least `1.8` over the three smallest amplitudes.
+- At the smallest amplitude, the dressed residual is at least four times smaller than its undressed counterpart.
+- Exact reduced forms satisfy
+
+  ```math
+  \frac{\lVert H_r-H_r^*\rVert}{\lVert H_r\rVert}\leq10^{-12},
+  \qquad
+  \frac{\lVert J_r+J_r^*\rVert}{\lVert J_r\rVert}\leq10^{-12}.
+  ```
+
+- Internal frequency, APV, bottom, strong-equation, projector, padding, and guard-support diagnostics use the Milestone-9.1 tolerances.
+- Internal projector and bottom errors decrease monotonically under support and vertical refinement.
+- Stationary, dressed physical, and unresolved reference projectors are physical-energy orthogonal and account for the complete primitive dimension within \(10^{-10}\).
+- A topographic boundary-wave claim requires every Milestone-9.1 frequency-uncertainty, projector, APV, bottom, strong, bottom-participation, guard, padding, and \(h\to0\) gate. Otherwise the branch remains unresolved.
+- No replacement APV row, empirical correction, post hoc symmetrization, APV-nullspace projection, absolute frequency cutoff, or mode deletion is permitted.
+
+### Outcome classification
+
+- **`global-dressing-acceleration`:** every physical gate passes with at least factor-two dimension reduction.
+- **`global-dressing-equivalent`:** every physical gate passes with less than factor-two dimension reduction.
+- **`global-dressing-seed`:** coefficient-level \(O(h^2)\) weak and bottom gates pass and improve the physical projectors, but one correction does not pass every finite-amplitude gate.
+- **`global-dressing-incompatible`:** the analytic correction fails the \(O(h^2)\) weak or bottom behavior, or violates the compatible stationary/APV structure.
+
+The first three outcomes authorize Milestone 10 and use the primitive ambient representation with the dressed blocks as initial vectors. `global-dressing-incompatible` blocks Milestone 10.
+
+### Stopping condition
+
+Stop after one outcome is rigorously recorded. Do not begin repeated residual enrichment, matrix-free operators, or time integration.
+
+### Completed result
+
+The public `auditGlobalFirstOrderTerrainDressing` diagnostic constructs the complete signed-frequency corrections in the primitive polynomial ambient space. The nominal centered-difference step `1e-3` is the middle of the three-step validation sequence `[2e-3 1e-3 5e-4]`; the required analytic/centered \(H_1,J_1,R_1\) agreement is below `1e-9`. The broader \(L_1\) and reconstructed-tendency comparison is returned separately because it contains an additional ill-conditioned inverse and is not the coefficient gate.
+
+For the degree-12, padding-two reference, the complete flat zero-frequency block has 377 directions. Backward uncertainty resolves 32 active \(O(h)\) directions and leaves 345 directions in its tangent stationary null sector. The latter are represented by \(G_0+\delta G_1\), rather than by an arbitrary basis of the singular zero-frequency inverse. No active pair is called a topographic boundary wave in this milestone.
+
+The maximum first-order block-correction and active-bottom defects are `5.41e-14` and below `1.0e-11`. Fourier selection is `7.48e-13`; flat energy orthogonality is `1.27e-14`; and the compatible \(G_0,G_1\) Green and stationary-row defects are `1.34e-14` and `1.29e-13`. The undressed weak and absolute bottom residuals are first order. Their dressed counterparts have measured order `2.000` over the three smallest amplitudes and improve at the smallest amplitude by factors `2.09e3` and `1.87e3`.
+
+Every exact finite-amplitude restriction retains the physical structure: the maximum \(H_r-H_r^*\) and \(J_r+J_r^*\) defects are `1.52e-14` and `4.50e-15`. One correction is not yet a converged finite-amplitude physical basis. At full terrain amplitude, the validated internal block has containment defect `1.58e-5`, APV defect `1.70e-11`, bottom defect `8.72e-8`, and strong primitive residual `2.46e-5`; the padding-two/three projector difference is `2.58e-8`. The selective stationary-plus-dressed span uses 45 of 1027 primitive coordinates, a nominal compression factor `22.82`, but it does not satisfy the Milestone-9.1 finite-amplitude projector, bottom, strong, and padding gates.
+
+The dressed physical projector improves by at least a factor of two over the same undressed selective span. The outcome is therefore `global-dressing-seed`. The analytic global correction captures exactly the missing \(O(h)\) terrain convolution and supplies the approved initial vectors for Milestone 10, but repeated exact-residual enrichment is still required. Milestone 10 has not begun.
+
+The eight focused Milestone-9.4 tests and the complete repository suite pass 181 tests with zero failures. Static analysis reports no issues in all 89 MATLAB files.
+
 ## Milestone 10: Residual-enriched terrain modes
 
 - [ ] Complete
@@ -2368,13 +2505,14 @@ Construct selected terrain modes efficiently while preserving the complete stati
 
 ### Dependencies
 
-Milestone 9.3.
+Milestone 9.4 with outcome `global-dressing-acceleration`, `global-dressing-equivalent`, or `global-dressing-seed`.
 
 ### Deliverables
 
-- Use the vertical representation selected by Milestone 9.3. Use a slope-compatible modal family only after a documented acceleration outcome; use a validated equivalent family only for scientific comparison; otherwise retain the primitive polynomial seed.
+- Retain the primitive ambient representation and initialize each selected block with the verified global first-order dressed coordinates from Milestone 9.4.
 - Use the validated Milestone-9.1 physical stationary, internal-wave, and topographic-boundary-wave subspaces as the reference block projectors for the physical-energy eigenproblem.
-- Apply residual correction to complete resonant blocks while retaining every bottom coordinate, the Milestone-8 stationary subspace, and the unresolved algebraic completion needed during construction.
+- Apply repeated exact finite-amplitude residual correction to complete resonant blocks while retaining every bottom coordinate, the Milestone-8 stationary subspace, and the unresolved algebraic completion needed during construction.
+- Recompute a complete block whenever its Ritz frequencies become backward-error inseparable; never continue an individual-vector correction through a newly detected resonance.
 - Preserve the APV-bearing Robin sector, explicit zero-APV bottom sector, stationary sector, and unresolved reference completion throughout every accepted correction.
 - Orthogonalize accepted corrections using $H_\gamma$.
 - Compare every enriched physical invariant subspace with the dense Milestone-9.1 projectors.
@@ -2402,9 +2540,9 @@ Milestone 10.
 
 - Replace dense $H_\gamma$, $J_\gamma$, stationary-inclusion, APV, and bottom-map matrices with field reconstruction, oversampled terrain multiplication, and adjoint projection.
 - Preserve the explicit bottom coefficients throughout packing, application, and reconstruction.
-- Use the flat physical-energy operator, complete flat stationary space, and Milestone-9.2 selected vertical representation as preconditioning data.
+- Use the flat physical-energy operator, complete flat stationary space, and Milestone-9.4 global dressed blocks as preconditioning data.
 - Keep diagnostic pressure recovery outside ordinary operator applications.
-- Record whether the matrix-free coordinates use the primitive polynomial or boundary-complete modal representation, together with its Robin-length convention and unresolved-energy projector.
+- Record the primitive ambient representation, dressing/enrichment construction version, and unresolved-energy projector.
 
 ### Automated acceptance
 
@@ -2496,6 +2634,7 @@ Milestone 12.
 | **D3.3 — Physical-subspace classification** | 9.1 | Establish converged stationary and dynamical physical projectors, quantify the unresolved remainder, and stop before vertical compression or residual enrichment. |
 | **D3.4 — Boundary-complete modal compression** | 9.2 | Compare the Robin, zero-APV-bottom, and fixed-$\kappa$ modal coordinates with the primitive oracle, select the Milestone-10 seed, and stop before residual enrichment. |
 | **D3.5 — Slope-compatible wave coordinates** | 9.3 | Train and freeze hydrostatic and nonhydrostatic active-bottom reference families, validate them independently against the primitive oracle, select the Milestone-10 seed, and stop before residual enrichment. |
+| **D3.6 — Global terrain dressing** | 9.4 | Construct the complete global $O(h)$ internal and zero-frequency block corrections, verify $O(h^2)$ weak and bottom residuals, classify the seed, and stop before repeated enrichment. |
 | **E1 — Selective modes** | 10 | Implement residual enrichment and validate it exclusively against the dense oracle. |
 | **E2 — Matrix-free production core** | 11 | Replace dense actions while preserving every Milestone-7 and Milestone-9.1 identity. |
 | **F — Evolution and examples** | 12 | Add energy-preserving evolution and the three scientific examples. |
@@ -2507,9 +2646,9 @@ Use one focused commit per completed milestone and retain acceptance evidence in
 
 ## Definition of done
 
-The scientific proof of concept is established when Milestones 5–9.1 pass: the boundary coordinate is represented as part of a complete linked state, the projected primitive system preserves physical energy, derives stationary volume APV, and converges to the strong bottom equation, the complete stationary balanced space is represented, and the physical-energy eigenproblem contains converged physical subspaces separated from a quantified unresolved algebraic remainder. A topographic boundary-wave claim remains subject to its independent Milestone-9.1 gates, and physical validation of every auxiliary eigenvector is not required. Milestone 9.2 selects the economical vertical coordinates without changing this physical definition.
+The scientific proof of concept is established when Milestones 5–9.1 pass: the boundary coordinate is represented as part of a complete linked state, the projected primitive system preserves physical energy, derives stationary volume APV, and converges to the strong bottom equation, the complete stationary balanced space is represented, and the physical-energy eigenproblem contains converged physical subspaces separated from a quantified unresolved algebraic remainder. A topographic boundary-wave claim remains subject to its independent Milestone-9.1 gates, and physical validation of every auxiliary eigenvector is not required. Milestones 9.2–9.4 test economical coordinate constructions without changing this physical definition.
 
-The efficient research implementation is established when Milestones 9.3–12 pass: the selected vertical representation reproduces the dense physical subspaces, residual enrichment reproduces the dense physical-energy oracle, matrix-free actions preserve its stationary-space, energy, APV, and bottom identities, and energy-preserving evolution produces convergent constant-slope, sinusoidal-terrain, and Gaussian-ridge examples.
+The efficient research implementation is established when Milestones 9.4–12 pass: global terrain-dressed blocks supply a verified seed, repeated residual enrichment reproduces the dense physical-energy oracle, matrix-free actions preserve its stationary-space, energy, APV, and bottom identities, and energy-preserving evolution produces convergent constant-slope, sinusoidal-terrain, and Gaussian-ridge examples.
 
 Milestone 13 completes research-production behavior through arbitrary stationary stratification, broadband terrain, resolution rebuilding, restartable output, symmetry decomposition, and profiling.
 

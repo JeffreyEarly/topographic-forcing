@@ -2,7 +2,7 @@
 
 ## Current status
 
-**This branch has completed Milestone 9.3 with classification `per-wavenumber-slope-incompatible`.** Milestones 7 and 8 provide a passing finite-amplitude primitive weak oracle and a tangency-defined stationary balanced sector. Milestones 9 and 9.1 preserve that sector, construct the complete physical-energy eigensystem, and identify a converged stationary projector and one conjugate-closed internal-wave projector while retaining every unvalidated direction in an explicit unresolved projector. Milestone 9.2 shows that fixed-\(\kappa\) Dirichlet waves do not close bottom evolution before stationary completion consumes nearly the full primitive dimension. Milestone 9.3 gives hydrostatic and nonhydrostatic wave coordinates the leading active-bottom endpoint, trains \(\ell_b\) and reference slope, and freezes them for validation. The local descriptors are accurate, but the best global span retains a `4.597e-3` bottom defect and only `1.075` compression. The primitive polynomial representation therefore remains the validated reference and Milestone-10 seed. The topographic-boundary candidate remains unresolved, and Milestone 10 has not begun.
+**This branch has completed Milestone 9.4 with classification `global-dressing-seed`.** Milestones 7 and 8 provide a passing finite-amplitude primitive weak oracle and a tangency-defined stationary balanced sector. Milestones 9 and 9.1 preserve that sector, construct the complete physical-energy eigensystem, and identify a converged stationary projector and one conjugate-closed internal-wave projector while retaining every unvalidated direction in an explicit unresolved projector. Milestones 9.2 and 9.3 show why modifying separate vertical problems or local bottom endpoints is insufficient: the leading terrain correction is a global horizontal convolution. Milestone 9.4 constructs that correction from the verified \(H_1,J_1,R_1,G_1\) derivatives. It gives \(O(h^2)\) weak and bottom residuals and exact reduced physical-energy structure, but one correction does not yet pass every finite-amplitude physical-mode gate. The primitive polynomial representation therefore remains the ambient reference, while the global dressed blocks are the approved initial vectors for a separately authorized Milestone 10. The topographic-boundary candidates remain unresolved, and Milestone 10 has not begun.
 
 The pre-Milestone-6.7 checkpoint is commit [`d5ab18f`](https://github.com/JeffreyEarly/topographic-forcing/tree/d5ab18f) on the [`terrain-energy-galerkin`](https://github.com/JeffreyEarly/topographic-forcing/tree/terrain-energy-galerkin) branch. The current branch contains the completed projected, tangent boundary-complete, and finite-amplitude weak oracles. The matching mathematics is maintained in `finite-terrain-projection-problem.tex` and `terrain-energy-galerkin.tex` in the `ape-apv-bottom-topography` literature repository.
 
@@ -254,7 +254,7 @@ Changing the bottom basis alone, changing a quadratic norm without a derived inv
 
 Do not proceed by:
 
-- starting Milestone 10 or later work without using the Milestone-9.3-selected primitive polynomial seed and preserving the Milestone-9.1 stationary, validated-wave, and unresolved projectors;
+- starting Milestone 10 or later work without using the Milestone-9.4 global dressed blocks in the primitive ambient representation and preserving the Milestone-9.1 stationary, validated-wave, and unresolved projectors;
 - projecting the generator into an APV nullspace;
 - empirically symmetrizing the generator;
 - fitting a minimum-change closure;
@@ -266,7 +266,7 @@ Those operations either answer a different dynamical question or hide the diagno
 
 ## Conditions for continuing
 
-Milestones 7–9.3 supply the finite-amplitude dense weak oracle, trusted stationary balanced space, complete dense eigensystem, one validated internal-wave projector, a quantified unresolved remainder, and controlled rejections of both flat-Dirichlet and slope-compatible per-wavenumber compression. The primitive polynomial representation remains the Milestone-10 seed. The complete unresolved algebraic space must remain available during construction.
+Milestones 7–9.4 supply the finite-amplitude dense weak oracle, trusted stationary balanced space, complete dense eigensystem, one validated internal-wave projector, a quantified unresolved remainder, controlled rejections of both flat-Dirichlet and slope-compatible per-wavenumber compression, and a verified global first-order dressed seed. The primitive polynomial representation remains the ambient oracle, and the global dressed blocks are the Milestone-10 initial vectors. The complete unresolved algebraic space must remain available during construction.
 
 The unresolved topographic-boundary candidate must not be presented as a physical mode unless a later independent refinement study satisfies every Milestone-9.1 frequency, projector, APV, bottom, strong-equation, guard, padding, and bottom-participation gate. A direction is called numerical only after independent refinement demonstrates nonconvergence. No corrected generator, fitted closure, empirical symmetrization, replacement APV rows, APV-nullspace projection, frequency cutoff, or mode deletion is permitted. Milestone 10 and all later work require separate authorization.
 
@@ -302,9 +302,11 @@ The physical-subspace classifier is exposed by [`auditConvergedPhysicalSubspaces
 
 The boundary-complete vertical compression experiment is exposed by [`auditBoundaryCompleteVerticalModeCompression`](<@WVTerrainEnergyGalerkin/auditBoundaryCompleteVerticalModeCompression.m>), tested by [`TestWVTerrainEnergyBoundaryCompleteVerticalModeCompression`](UnitTests/TestWVTerrainEnergyBoundaryCompleteVerticalModeCompression.m), and recorded in [Milestone 9.2](milestones.md#milestone-92-boundary-complete-vertical-mode-compression-oracle). Its `modal-incompatible` result motivates the slope-compatible wave-coordinate experiment in [Milestone 9.3](milestones.md#milestone-93-slope-compatible-wave-coordinate-oracle); it no longer selects the Milestone-10 seed by itself.
 
-The slope-compatible experiment is exposed by [`auditSlopeCompatibleWaveModeCompression`](<@WVTerrainEnergyGalerkin/auditSlopeCompatibleWaveModeCompression.m>), tested by [`TestWVTerrainEnergySlopeCompatibleWaveModeCompression`](UnitTests/TestWVTerrainEnergySlopeCompatibleWaveModeCompression.m), and recorded in [Milestone 9.3](milestones.md#milestone-93-slope-compatible-wave-coordinate-oracle). Its `per-wavenumber-slope-incompatible` result selects the primitive polynomial representation for any separately authorized Milestone-10 work. Neither InternalModes checkout was modified.
+The slope-compatible experiment is exposed by [`auditSlopeCompatibleWaveModeCompression`](<@WVTerrainEnergyGalerkin/auditSlopeCompatibleWaveModeCompression.m>), tested by [`TestWVTerrainEnergySlopeCompatibleWaveModeCompression`](UnitTests/TestWVTerrainEnergySlopeCompatibleWaveModeCompression.m), and recorded in [Milestone 9.3](milestones.md#milestone-93-slope-compatible-wave-coordinate-oracle). Its `per-wavenumber-slope-incompatible` result retains the primitive polynomial representation as the ambient oracle for Milestone 9.4. Neither InternalModes checkout was modified.
 
-The current complete repository suite contains 173 passing tests, and static analysis reports no issues in all 86 MATLAB files.
+The global terrain-dressing oracle is exposed by [`auditGlobalFirstOrderTerrainDressing`](<@WVTerrainEnergyGalerkin/auditGlobalFirstOrderTerrainDressing.m>), tested by [`TestWVTerrainEnergyGlobalFirstOrderTerrainDressing`](UnitTests/TestWVTerrainEnergyGlobalFirstOrderTerrainDressing.m), and recorded in [Milestone 9.4](milestones.md#milestone-94-global-first-order-terrain-dressed-block-oracle). Its `global-dressing-seed` result verifies the analytic \(O(h)\) coordinates and exact reduced energy structure while reserving repeated exact-residual enrichment for Milestone 10.
+
+The current complete repository suite contains 181 passing tests, and static analysis reports no issues in all 89 MATLAB files.
 
 ## Mathematical sources
 

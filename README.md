@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Milestone-9.3 scientific checkpoint:** the primitive polynomial eigensystem remains the validated reference and the Milestone-10 seed. Trained-and-frozen hydrostatic and nonhydrostatic slope-compatible wave coordinates satisfy their local active-bottom descriptors and pass frequency, APV, strong-equation, and padding checks, but the best compressed global system retains a `4.597e-3` bottom-evolution defect, a `3.251e-7` internal-projector defect, and only `1.075` compression. The recorded outcome is `per-wavenumber-slope-incompatible`: a correct local endpoint is not enough to compress the globally coupled periodic-terrain stationary completion. Every primitive and reduced algebraic direction remains retained. The leading topographic-boundary candidate is still unresolved, and Milestone 10 has not begun. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Milestone-9.4 scientific checkpoint:** the global first-order terrain correction gives the required \(O(h^2)\) weak and bottom residuals and is classified `global-dressing-seed`. It reduces the smallest-amplitude weak and bottom residuals by factors `2.09e3` and `1.87e3`, while exact reduced finite-terrain matrices retain physical-energy structure at roundoff. One correction does not yet pass every finite-amplitude physical-mode gate: the internal-projector, bottom, and strong residuals are `1.58e-5`, `8.72e-8`, and `2.46e-5`. The primitive polynomial eigensystem remains the ambient reference, and the dressed blocks—not the rejected per-wavenumber bases—are the approved initial vectors for a separately authorized Milestone 10. Every unresolved algebraic direction remains retained. The leading topographic-boundary candidates are still unresolved, and Milestone 10 has not begun. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -316,6 +316,28 @@ The Robin length and reference slope are trained jointly at padding two and then
 Both families select \(s_{\rm ref}/s_{\rm rms}=0.5\) and \(\ell_b/D=\infty\). Their local descriptor residuals are about `5e-14`, active-bottom residuals are below `9e-13`, and backward errors are below `2e-17`. Globally, both give an internal-projector defect of `3.251e-7`, bottom-evolution defect of `4.597e-3`, strong residual of `2.073e-6`, and compression factor `1.075`. The result is `per-wavenumber-slope-incompatible`. Hydrostatic and nonhydrostatic reference dynamics are indistinguishable at this resolution; the unresolved bottleneck is the global periodic-terrain stationary/bottom coupling, not vertical inertia in the local wave coordinate.
 
 The complete repository suite passes 173 tests with zero failures, and `checkcode` reports no issues in all 86 MATLAB files.
+
+## Global first-order terrain dressing
+
+Milestone 9.4 uses the verified analytic terrain derivatives to construct the horizontal sidebands and vertical corrections of complete flat signed-frequency blocks:
+
+```matlab
+audit = problem.auditGlobalFirstOrderTerrainDressing( ...
+    trustedModeBounds=[1 0], ...
+    supportModeBounds=[1 2;1 3;1 4], ...
+    stationaryPolynomialDegree=4, ...
+    primitivePolynomialDegrees=[4;6;8], ...
+    comparisonPolynomialDegree=12, ...
+    paddingFactors=[2;3], ...
+    terrainScales=[1/16;1/8;1/4;1/2;1], ...
+    tangentStep=1e-3);
+```
+
+The first-order block calculation uses \(H_1,J_1,R_1,G_1\) only to choose coordinates. At every terrain amplitude, the reduced eigensystem is assembled from the unchanged exact primitive \(H_\gamma,J_\gamma\) forms and the exact stationary space. At the degree-12 comparison resolution, the complete flat zero-frequency block has 377 directions: 345 remain in its tangent stationary sector and 32 form backward-error-resolved nonzero first-order pairs. These pairs remain topographic-boundary candidates rather than claimed physical modes.
+
+The analytic and centered \(H_1,J_1,R_1\) calculations agree below `1e-9`; the complementary correction, Fourier selection, active first-order bottom equation, and stationary Green identities close below `1e-10`. Dressed weak and bottom residuals have observed order `2.000`, and the dressed physical projector improves by at least a factor of two over the same undressed selective span. The full-amplitude internal APV defect is `1.70e-11`, but the physical projector and strong residual still exceed the Milestone-9.1 gates. The result is therefore `global-dressing-seed`: it authorizes repeated exact-residual enrichment as a separate Milestone 10, not a finite-amplitude mode claim.
+
+The complete repository suite passes 181 tests with zero failures, and `checkcode` reports no issues in all 89 MATLAB files.
 
 ## Terrain-energy Galerkin flat oracle
 
