@@ -165,6 +165,69 @@ classdef TestEddyTideTopographicForcingSimulation < matlab.unittest.TestCase
             clear secondFigureCleanup figureCleanup
         end
 
+        function energyEnstrophyFigureUsesCommonEddyNormalization(testCase)
+            figurePath = fullfile(testCase.temporaryDirectory,"energy-enstrophy.png");
+            [figureHandle,series,diagnosticsFiles] = AnalyzeEddyTideEnergyEnstrophy( ...
+                testCase.eddyFile,testCase.noEddyFile,figureVisible="off", ...
+                exportPath=figurePath,shouldOverwriteExisting=true);
+            figureCleanup = onCleanup(@()close(figureHandle));
+
+            testCase.verifyTrue(all(isfile(diagnosticsFiles)))
+            testCase.verifyTrue(isfile(figurePath))
+            testCase.verifyEqual(series.eddy.time,series.control.time)
+            testCase.verifyEqual(series.eddy.time(:),[0; 300; 600])
+            testCase.verifyTrue(isfinite(series.normalization.energy))
+            testCase.verifyGreaterThan(series.normalization.energy,0)
+            testCase.verifyTrue(isfinite(series.normalization.enstrophy))
+            testCase.verifyGreaterThan(series.normalization.enstrophy,0)
+            testCase.verifyEqual(series.normalization.energy,series.eddy.raw.energy.total(1))
+            testCase.verifyEqual(series.normalization.enstrophy,series.eddy.raw.apvEnstrophy(1))
+            testCase.verifyEqual(series.eddy.normalized.energy.total(1),1,AbsTol=10*eps)
+            testCase.verifyEqual(series.eddy.normalized.apvEnstrophy(1),1,AbsTol=10*eps)
+            testCase.verifyEqual(series.control.normalized.energy.total, ...
+                series.control.raw.energy.total/series.normalization.energy)
+            testCase.verifyEqual(series.control.normalized.apvEnstrophy, ...
+                series.control.raw.apvEnstrophy/series.normalization.enstrophy)
+            eddyNormalizedEnergy = [ ...
+                series.eddy.normalized.energy.total; ...
+                series.eddy.normalized.energy.wave; ...
+                series.eddy.normalized.energy.geostrophic; ...
+                series.eddy.normalized.energy.geostrophicKinetic; ...
+                series.eddy.normalized.energy.geostrophicPotential];
+            controlNormalizedEnergy = [ ...
+                series.control.normalized.energy.total; ...
+                series.control.normalized.energy.wave; ...
+                series.control.normalized.energy.geostrophic; ...
+                series.control.normalized.energy.geostrophicKinetic; ...
+                series.control.normalized.energy.geostrophicPotential];
+            testCase.verifyTrue(all(isfinite(eddyNormalizedEnergy)))
+            testCase.verifyTrue(all(isfinite(controlNormalizedEnergy)))
+            testCase.verifyTrue(all(isfinite(series.eddy.normalized.apvEnstrophy)))
+            testCase.verifyTrue(all(isfinite(series.control.normalized.apvEnstrophy)))
+            testCase.verifyEqual(string(series.figurePath),string(figurePath))
+            testCase.verifyNumElements(findall(figureHandle,Type="axes"),2)
+
+            reopenFiles = [testCase.eddyFile; testCase.noEddyFile; diagnosticsFiles];
+            for iFile = 1:numel(reopenFiles)
+                writableFile = NetCDFFile(char(reopenFiles(iFile)),shouldReadOnly=false);
+                writableCleanup = onCleanup(@()writableFile.close());
+                clear writableCleanup writableFile
+            end
+
+            testCase.verifyError(@()AnalyzeEddyTideEnergyEnstrophy( ...
+                testCase.eddyFile,testCase.noEddyFile,figureVisible="off", ...
+                exportPath=figurePath), ...
+                "AnalyzeEddyTideEnergyEnstrophy:ExportFileExists")
+
+            [secondFigure,secondSeries,secondDiagnosticsFiles] = AnalyzeEddyTideEnergyEnstrophy( ...
+                testCase.eddyFile,testCase.noEddyFile,figureVisible="off",shouldExport=false);
+            secondFigureCleanup = onCleanup(@()close(secondFigure));
+            testCase.verifyEqual(secondDiagnosticsFiles,diagnosticsFiles)
+            testCase.verifyEqual(secondSeries.eddy.raw.energy.total,series.eddy.raw.energy.total)
+            testCase.verifyEqual(secondSeries.control.raw.apvEnstrophy,series.control.raw.apvEnstrophy)
+            clear secondFigureCleanup figureCleanup
+        end
+
         function basicFigureAnalysisExportsPairedDiagnostics(testCase)
             exportDirectory = fullfile(testCase.temporaryDirectory,"basic-figures");
             [figures,summary] = AnalyzeEddyTideBasicFigures(testCase.eddyFile,testCase.noEddyFile, ...
