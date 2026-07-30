@@ -81,8 +81,10 @@ end
 function diagnostics = sourceDiagnostics(wvt,forcing)
 [Fp,Fm,F0] = forcing.addSpectralForcing(wvt,zeros(size(wvt.Ap)),zeros(size(wvt.Am)),zeros(size(wvt.A0)));
 modalPower = 2*sum(wvt.Apm_TE_factor(:).*real(Fp(:).*conj(wvt.Ap(:))+Fm(:).*conj(wvt.Am(:))));
+[~,maskComponents] = forcing.spectralGenerationMask();
+kinematicPressure = wvt.g*wvt.transformToSpatialDomainWithF(Apm=wvt.NAp.*wvt.Apt.*maskComponents.effectivePositive+wvt.NAm.*wvt.Amt.*maskComponents.effectiveNegative);
 [~,iBottom] = min(wvt.z);
-bottomPower = mean((wvt.p(:,:,iBottom)/wvt.rho0).*forcing.bottomVelocityAtTime(wvt.t),"all");
+bottomPower = mean(kinematicPressure(:,:,iBottom).*forcing.bottomVelocityAtTime(wvt.t),"all");
 diagnostics = struct(F0=F0,modalPower=modalPower,bottomPower=bottomPower);
 end
 

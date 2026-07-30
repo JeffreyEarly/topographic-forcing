@@ -5,6 +5,7 @@ classdef TestWVBottomWaveGenerationForcing < matlab.unittest.TestCase
         function addRepositoryToPath(~)
             repositoryRoot = fileparts(fileparts(mfilename("fullpath")));
             addpath(repositoryRoot);
+            addpath(fullfile(repositoryRoot,"Examples"));
         end
     end
 
@@ -31,6 +32,9 @@ classdef TestWVBottomWaveGenerationForcing < matlab.unittest.TestCase
             testCase.verifyEqual(forcing.frequency,2*pi/(12.4206012*3600),"RelTol",10*eps)
             testCase.verifyEqual(forcing.rampDuration,0)
             testCase.verifyEqual(forcing.startTime,wvt.t)
+            testCase.verifyTrue(forcing.shouldAvoidAdaptiveDamping)
+            testCase.verifyEqual(forcing.maximumForcedHorizontalWavenumber,Inf)
+            testCase.verifyEqual(forcing.maximumForcedVerticalMode,Inf)
 
             testCase.verifyError(@()WVBottomWaveGenerationForcing(wvt,topographicHeight=zeros(wvt.Nx-1,wvt.Ny),barotropicVelocityAmplitude=[0.05; 0]),"WVBottomWaveGenerationForcing:InvalidTopographicHeightSize")
             testCase.verifyError(@()WVBottomWaveGenerationForcing(wvt,topographicHeight=1i*ones(wvt.Nx,wvt.Ny),barotropicVelocityAmplitude=[0.05; 0]),"WVBottomWaveGenerationForcing:InvalidTopographicHeight")
@@ -42,6 +46,8 @@ classdef TestWVBottomWaveGenerationForcing < matlab.unittest.TestCase
             testCase.verifyError(@()WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0],frequency=0),"WVBottomWaveGenerationForcing:InvalidFrequency")
             testCase.verifyError(@()WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0],rampDuration=-1),"WVBottomWaveGenerationForcing:InvalidRampDuration")
             testCase.verifyError(@()WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0],startTime=NaN),"WVBottomWaveGenerationForcing:InvalidStartTime")
+            testCase.verifyError(@()WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0],maximumForcedHorizontalWavenumber=-1),"WVBottomWaveGenerationForcing:InvalidMaximumForcedHorizontalWavenumber")
+            testCase.verifyError(@()WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0],maximumForcedVerticalMode=NaN),"WVBottomWaveGenerationForcing:InvalidMaximumForcedVerticalMode")
             testCase.verifyError(@()WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0],name=""),"WVBottomWaveGenerationForcing:InvalidName")
 
             barotropic = WVTransformBarotropicQG([wvt.Lx wvt.Ly],[wvt.Nx wvt.Ny],latitude=45,shouldAntialias=false);
@@ -49,6 +55,93 @@ classdef TestWVBottomWaveGenerationForcing < matlab.unittest.TestCase
             variableN2 = WVTransformBoussinesq([wvt.Lx wvt.Ly wvt.Lz],[wvt.Nx wvt.Ny wvt.Nz],N2=@(z)2e-5*exp(z/4000),latitude=45,shouldAntialias=false);
             variableForcing = WVBottomWaveGenerationForcing(variableN2,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; 0]);
             testCase.verifyClass(variableForcing,"WVBottomWaveGenerationForcing")
+        end
+
+        function manualSpectralBoundsRestrictGeneration(testCase)
+            wvt = WVTransformBoussinesq([40e3 30e3 2e3],[8 8 9],N2=@(z)2e-5*exp(z/4000),latitude=45,shouldAntialias=false);
+            terrain = TestWVBottomWaveGenerationForcing.bandLimitedTopography(wvt);
+            horizontalBound = 1.5*min(wvt.dk,wvt.dl);
+            verticalBound = 2;
+            forcing = WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05+0.01i; -0.02],maximumForcedHorizontalWavenumber=horizontalBound,maximumForcedVerticalMode=verticalBound);
+            unrestricted = WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=forcing.barotropicVelocityAmplitude,shouldAvoidAdaptiveDamping=false);
+
+            [mask,components] = forcing.spectralGenerationMask();
+            expectedHorizontal = wvt.Kh <= horizontalBound;
+            expectedVertical = wvt.J <= verticalBound;
+            expectedWaveValidity = logical(wvt.waveComponent.maskAp) | logical(wvt.waveComponent.maskAm);
+            testCase.verifyEqual(components.horizontalBound,expectedHorizontal)
+            testCase.verifyEqual(components.verticalBound,expectedVertical)
+            testCase.verifyEqual(components.waveValidity,expectedWaveValidity)
+            testCase.verifyEqual(components.adaptiveDamping,true(size(mask)))
+            testCase.verifyEqual(mask,expectedWaveValidity & expectedHorizontal & expectedVertical)
+            testCase.verifyEqual(components.effectivePositive,mask & logical(wvt.waveComponent.maskAp))
+            testCase.verifyEqual(components.effectiveNegative,mask & logical(wvt.waveComponent.maskAm))
+
+            wvt.t = 317;
+            [Fp,Fm] = forcing.addSpectralForcing(wvt,zeros(size(wvt.Ap)),zeros(size(wvt.Am)),zeros(size(wvt.A0)));
+            [unrestrictedFp,unrestrictedFm] = unrestricted.addSpectralForcing(wvt,zeros(size(wvt.Ap)),zeros(size(wvt.Am)),zeros(size(wvt.A0)));
+            testCase.verifyEqual(Fp,mask.*unrestrictedFp,AbsTol=1e-15)
+            testCase.verifyEqual(Fm,mask.*unrestrictedFm,AbsTol=1e-15)
+        end
+
+        function adaptiveDampingMaskTracksForcingChanges(testCase)
+            wvt = WVTransformBoussinesq([40e3 30e3 2e3],[8 8 9],N2=@(z)2e-5*exp(z/4000),latitude=45,shouldAntialias=false);
+            terrain = TestWVBottomWaveGenerationForcing.bandLimitedTopography(wvt);
+            forcing = WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; -0.02]);
+            legacyForcing = WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=forcing.barotropicVelocityAmplitude,shouldAvoidAdaptiveDamping=false);
+            wvt.removeAllForcing();
+            wvt.addForcing(forcing);
+            wvt.t = 421;
+
+            [legacyFp,legacyFm] = legacyForcing.addSpectralForcing(wvt,zeros(size(wvt.Ap)),zeros(size(wvt.Am)),zeros(size(wvt.A0)));
+            [beforeFp,beforeFm] = forcing.addSpectralForcing(wvt,zeros(size(wvt.Ap)),zeros(size(wvt.Am)),zeros(size(wvt.A0)));
+            testCase.verifyEqual(beforeFp,legacyFp)
+            testCase.verifyEqual(beforeFm,legacyFm)
+
+            damping = WVAdaptiveDamping(wvt);
+            wvt.addForcing(damping);
+            [mask,components] = forcing.spectralGenerationMask();
+            testCase.verifyEqual(components.adaptiveDamping,damping.damp == 0)
+            testCase.verifyFalse(any(mask(damping.damp ~= 0),"all"))
+            testCase.verifyGreaterThan(nnz(mask),0)
+            [maskedFp,maskedFm] = forcing.addSpectralForcing(wvt,zeros(size(wvt.Ap)),zeros(size(wvt.Am)),zeros(size(wvt.A0)));
+            testCase.verifyEqual(maskedFp,mask.*legacyFp,AbsTol=1e-15)
+            testCase.verifyEqual(maskedFm,mask.*legacyFm,AbsTol=1e-15)
+            testCase.verifyEqual(maskedFp(damping.damp ~= 0),zeros(nnz(damping.damp ~= 0),1))
+            testCase.verifyEqual(maskedFm(damping.damp ~= 0),zeros(nnz(damping.damp ~= 0),1))
+
+            originalDamping = damping.damp;
+            antialiasing = WVAntialiasing(wvt,Nj=4);
+            wvt.addForcing(antialiasing);
+            [rebuiltMask,rebuiltComponents] = forcing.spectralGenerationMask();
+            testCase.verifyNotEqual(damping.damp,originalDamping)
+            testCase.verifyEqual(rebuiltComponents.adaptiveDamping,damping.damp == 0)
+            testCase.verifyFalse(any(rebuiltMask(damping.damp ~= 0),"all"))
+            wvt.removeForcing(antialiasing);
+
+            wvt.removeForcing(damping);
+            [afterFp,afterFm] = forcing.addSpectralForcing(wvt,zeros(size(wvt.Ap)),zeros(size(wvt.Am)),zeros(size(wvt.A0)));
+            testCase.verifyEqual(afterFp,legacyFp)
+            testCase.verifyEqual(afterFm,legacyFm)
+        end
+
+        function maskedBottomWorkMatchesModalInjection(testCase)
+            previousRandomState = rng;
+            randomStateCleanup = onCleanup(@()rng(previousRandomState));
+            rng(92841,"twister")
+            wvt = WVTransformBoussinesq([40e3 30e3 2e3],[8 8 9],N2=@(z)2e-5*exp(z/4000),latitude=45,shouldAntialias=true);
+            terrain = TestWVBottomWaveGenerationForcing.bandLimitedTopography(wvt);
+            forcing = WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05; -0.02],maximumForcedVerticalMode=2);
+            wvt.addForcing(forcing);
+            wvt.addForcing(WVAdaptiveDamping(wvt));
+            wvt.t = 813;
+            wvt.Ap = (randn(size(wvt.Ap))+1i*randn(size(wvt.Ap))).*wvt.waveComponent.maskAp;
+            wvt.Am = (randn(size(wvt.Am))+1i*randn(size(wvt.Am))).*wvt.waveComponent.maskAm;
+            wvt.A0(:) = 0;
+
+            diagnostics = TestWVBottomWaveGenerationForcing.sourceDiagnostics(wvt,forcing);
+            testCase.verifyLessThanOrEqual(diagnostics.powerError,5e-12)
+            clear randomStateCleanup
         end
 
         function prescribedVelocityAndRampAreCorrect(testCase)
@@ -357,8 +450,10 @@ classdef TestWVBottomWaveGenerationForcing < matlab.unittest.TestCase
             qgpvScale = norm(vorticityX(:))+norm(vorticityY(:))+norm(stretching(:));
             normalizedQGPV = norm(qgpvSource(:))/max(qgpvScale,eps);
             modalPower = 2*sum(wvt.Apm_TE_factor(:).*real(Fp(:).*conj(wvt.Ap(:))+Fm(:).*conj(wvt.Am(:))));
+            [~,maskComponents] = forcing.spectralGenerationMask();
+            kinematicPressure = wvt.g*wvt.transformToSpatialDomainWithF(Apm=wvt.NAp.*wvt.Apt.*maskComponents.effectivePositive+wvt.NAm.*wvt.Amt.*maskComponents.effectiveNegative);
             [~,iBottom] = min(wvt.z);
-            bottomPower = mean((wvt.p(:,:,iBottom)/wvt.rho0).*forcing.bottomVelocityAtTime(wvt.t),"all");
+            bottomPower = mean(kinematicPressure(:,:,iBottom).*forcing.bottomVelocityAtTime(wvt.t),"all");
             powerError = abs(modalPower-bottomPower)/max([abs(modalPower) abs(bottomPower) eps]);
             modalQGPVSource = wvt.A0_QGPV_factor.*F0;
             diagnostics = struct(Fp=Fp,Fm=Fm,F0=F0,modalQGPVSource=modalQGPVSource,qgpvSource=qgpvSource,normalizedQGPV=normalizedQGPV,modalPower=modalPower,bottomPower=bottomPower,powerError=powerError);

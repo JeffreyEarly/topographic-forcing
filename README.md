@@ -23,7 +23,7 @@ The wave forcing is obtained directly from the bottom pressure of each complete 
 
 This construction adds only to the wave coefficients $A_+$ and $A_-$. It therefore produces no direct linear interior QGPV tendency and leaves the balanced forcing coefficient $F_0$ unchanged. It requires no finite-terrain pressure solve, modal terrain matrix, or artificial bottom-localized vertical envelope.
 
-The prescribed barotropic current is an external energy reservoir. Wave energy is not conserved by itself; its rate of increase must equal the bottom pressure work supplied by the prescribed current.
+The prescribed barotropic current is an external energy reservoir. Wave energy is not conserved by itself; its rate of increase must equal the bottom pressure work supplied by the prescribed current. When spectral generation bounds are active, this identity uses wave pressure projected through the same spectral mask as the forcing.
 
 WaveVortexModel 4.1.1 or newer is required. The forcing classes themselves have no diagnostics dependency. The eddy-tide analysis example additionally requires WaveVortexModelDiagnostics 1.0.6 or newer.
 
@@ -40,6 +40,18 @@ wvt.addForcing(forcing);
 ```
 
 The velocity amplitude is the complex two-component vector $\widehat{\boldsymbol U}_{\mathrm{bt}}$ in meters per second. The default frequency is M2; `frequency`, `rampDuration`, `startTime`, and `name` are optional constructor arguments.
+
+New generators avoid every mode on which an active `WVAdaptiveDamping` has a nonzero damping operator. This is the default behavior and follows the exact damping support, rather than the approximate `k_damp` or `j_damp` thresholds. For other closures, set `maximumForcedHorizontalWavenumber` and `maximumForcedVerticalMode` manually:
+
+```matlab
+forcing = WVBottomWaveGenerationForcing(wvt, ...
+    topographicHeight=h, ...
+    barotropicVelocityAmplitude=[0.05; 0], ...
+    maximumForcedHorizontalWavenumber=2*pi/20e3, ...
+    maximumForcedVerticalMode=12);
+```
+
+The effective generation region is the intersection of the wave-validity masks, the manual radial-wavenumber and vertical-mode bounds, and the zero-damping support of `WVAdaptiveDamping`. Inspect it with `[mask,components] = forcing.spectralGenerationMask()`. Set `shouldAvoidAdaptiveDamping=false` only when reproducing the earlier unmasked behavior. A masked generator imposes the projection of the physical bottom condition onto the allowed wave subspace; if the mask depends on vertical mode, it cannot be represented by a single filtered two-dimensional bottom-velocity field.
 
 The constructor precomputes the bottom-pressure projection on the transform's native spectral layout. It supports `WVTransformBoussinesq`, both hydrostatic and nonhydrostatic `WVTransformConstantStratification` configurations, and `WVTransformHydrostatic`. These transforms provide their optimized modal endpoint factors through WaveVortexModel's `waveModeVerticalStructureAtIndex` API. Each subsequent forcing call evaluates the prescribed current, combines two response arrays per wave branch, and applies WaveVortexModel's interaction phases. There is no runtime pressure solve, FFT, spatial projection, or modal coupling matrix. Transforms with either value of `shouldAntialias` are supported.
 
@@ -186,7 +198,7 @@ This is initially an infrastructure-validation version of the experiment, not a 
 
 The first Shakespeare-comparison attempt consists of two matched generation-only simulations, one initialized with the shallow eddy and one initialized without it. The intent is to move toward the key eddy-tide calculation in [Shakespeare (2023)](https://doi.org/10.1175/JPO-D-23-0127.1), not to claim a literal reproduction. Relative to the default infrastructure test, this pair uses the paper's $500$ km square domain and increases the horizontal spectral resolution to $256^2$. It remains coarser than the paper's $500$ m MITgCM grid, but a spectral discretization makes a direct grid-spacing comparison conservative. The automatically selected vertical grid has 45 points and retains 29 wave modes.
 
-The pair uses constant $N^2=2\times10^{-5}\ \mathrm{s^{-2}}$, the nonhydrostatic antialiased transform, nonlinear advection, adaptive damping, the $10$ cm/s shallow eddy, and the same generation-only topographic forcing in both cases. The terrain is a seed-2023 Goff realization with $100$ m RMS height, corner wavenumber $10^{-4}\ \mathrm{m^{-1}}$, and a 6 km minimum wavelength. The 6 km cutoff is the nearest round cutoff above the 5.882 km antialiased limit. The zonal M2-current amplitude is $0.05/\sqrt{10}\ \mathrm{m\,s^{-1}}$; this is the reduced-input experiment, with one tenth of the nominal wave-energy input because generation scales quadratically with current amplitude. The tide ramps over one M2 period. Full state is saved every 6 hours.
+The pair uses constant $N^2=2\times10^{-5}\ \mathrm{s^{-2}}$, the nonhydrostatic antialiased transform, nonlinear advection, adaptive damping, the $10$ cm/s shallow eddy, and the same generation-only topographic forcing in both cases. The generator automatically excludes the exact adaptive-damping support, so it does not inject waves directly into the closure region. The terrain is a seed-2023 Goff realization with $100$ m RMS height, corner wavenumber $10^{-4}\ \mathrm{m^{-1}}$, and a 6 km minimum wavelength. The 6 km cutoff is the nearest round cutoff above the 5.882 km antialiased limit. The zonal M2-current amplitude is $0.05/\sqrt{10}\ \mathrm{m\,s^{-1}}$; this is the reduced-input experiment, with one tenth of the nominal wave-energy input because generation scales quadratically with current amplitude. The tide ramps over one M2 period. Full state is saved every 6 hours.
 
 To repeat the actual calculation, run the following two calls in separate MATLAB processes so that they integrate concurrently:
 

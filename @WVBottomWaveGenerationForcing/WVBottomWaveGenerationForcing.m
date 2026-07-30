@@ -10,8 +10,11 @@ classdef WVBottomWaveGenerationForcing < WVForcing
     %
     % onto the rigid-lid wave modes using their bottom pressure. The
     % projection is precomputed, so ordinary forcing calls add spectral
-    % wave tendencies without a pressure solve or spatial transform. The
-    % incoming balanced tendency is left unchanged.
+    % wave tendencies without a pressure solve or spatial transform. By
+    % default, generation is projected outside the exact support of an
+    % active `WVAdaptiveDamping`. Optional horizontal-wavenumber and
+    % vertical-mode bounds support other closures. The incoming balanced
+    % tendency is left unchanged.
     %
     % ```matlab
     % forcing = WVBottomWaveGenerationForcing(wvt,topographicHeight=h,barotropicVelocityAmplitude=[0.05; 0]);
@@ -67,6 +70,29 @@ classdef WVBottomWaveGenerationForcing < WVForcing
         %
         % - Topic: Inspect the forcing
         startTime (1,1) double
+
+        % Whether generation avoids active adaptive damping.
+        %
+        % When true, modes for which an active `WVAdaptiveDamping` has a
+        % nonzero spectral operator are excluded from the generated wave
+        % tendency.
+        %
+        % - Topic: Inspect the forcing
+        shouldAvoidAdaptiveDamping (1,1) logical
+
+        % Largest radial horizontal wavenumber forced, in radians per meter.
+        %
+        % The default `Inf` applies no manual horizontal restriction.
+        %
+        % - Topic: Inspect the forcing
+        maximumForcedHorizontalWavenumber (1,1) double
+
+        % Largest vertical wave-mode index forced.
+        %
+        % The default `Inf` applies no manual vertical-mode restriction.
+        %
+        % - Topic: Inspect the forcing
+        maximumForcedVerticalMode (1,1) double
     end
 
     properties (Access = private)
@@ -76,6 +102,9 @@ classdef WVBottomWaveGenerationForcing < WVForcing
         responsePlusY
         responseMinusX
         responseMinusY
+        cachedSpectralGenerationMask
+        shouldRefreshSpectralGenerationMask (1,1) logical = true
+        forcingListener
     end
 
     methods
@@ -85,7 +114,9 @@ classdef WVBottomWaveGenerationForcing < WVForcing
             % The default frequency is the M2 tidal frequency. A zero ramp
             % duration activates the harmonic current immediately at
             % `startTime`. The transform must contain a wave component and
-            % implement `waveModeVerticalStructureAtIndex`.
+            % implement `waveModeVerticalStructureAtIndex`. Generation
+            % avoids active adaptive damping by default. Manual bounds use
+            % radial horizontal wavenumber and vertical wave-mode index.
             %
             % - Topic: Create the forcing
             % - Declaration: forcing = WVBottomWaveGenerationForcing(wvt,options)
@@ -95,6 +126,9 @@ classdef WVBottomWaveGenerationForcing < WVForcing
             % - Parameter options.frequency: positive angular frequency in radians per second
             % - Parameter options.rampDuration: nonnegative startup-ramp duration in seconds
             % - Parameter options.startTime: finite forcing start time in seconds
+            % - Parameter options.shouldAvoidAdaptiveDamping: whether to exclude modes damped by `WVAdaptiveDamping`
+            % - Parameter options.maximumForcedHorizontalWavenumber: largest forced radial horizontal wavenumber in radians per meter
+            % - Parameter options.maximumForcedVerticalMode: largest forced vertical wave-mode index
             % - Parameter options.name: forcing name registered with the transform
             % - Returns forcing: configured `WVBottomWaveGenerationForcing`
             arguments (Input)
@@ -104,6 +138,9 @@ classdef WVBottomWaveGenerationForcing < WVForcing
                 options.frequency double = 2*pi/(12.4206012*3600)
                 options.rampDuration double = 0
                 options.startTime double = wvt.t
+                options.shouldAvoidAdaptiveDamping (1,1) logical = true
+                options.maximumForcedHorizontalWavenumber double = Inf
+                options.maximumForcedVerticalMode double = Inf
                 options.name (1,1) string = "bottom wave generation"
             end
 
@@ -128,6 +165,12 @@ classdef WVBottomWaveGenerationForcing < WVForcing
             if ~isscalar(options.startTime) || ~isreal(options.startTime) || ~isfinite(options.startTime)
                 error("WVBottomWaveGenerationForcing:InvalidStartTime", "startTime must be a finite real scalar.")
             end
+            if ~isscalar(options.maximumForcedHorizontalWavenumber) || ~isreal(options.maximumForcedHorizontalWavenumber) || isnan(options.maximumForcedHorizontalWavenumber) || options.maximumForcedHorizontalWavenumber < 0
+                error("WVBottomWaveGenerationForcing:InvalidMaximumForcedHorizontalWavenumber", "maximumForcedHorizontalWavenumber must be a nonnegative real scalar or Inf.")
+            end
+            if ~isscalar(options.maximumForcedVerticalMode) || ~isreal(options.maximumForcedVerticalMode) || isnan(options.maximumForcedVerticalMode) || options.maximumForcedVerticalMode < 0
+                error("WVBottomWaveGenerationForcing:InvalidMaximumForcedVerticalMode", "maximumForcedVerticalMode must be a nonnegative real scalar or Inf.")
+            end
             if strlength(options.name) == 0
                 error("WVBottomWaveGenerationForcing:InvalidName", "name must be a nonempty string.")
             end
@@ -138,11 +181,15 @@ classdef WVBottomWaveGenerationForcing < WVForcing
             self.frequency = options.frequency;
             self.rampDuration = options.rampDuration;
             self.startTime = options.startTime;
+            self.shouldAvoidAdaptiveDamping = options.shouldAvoidAdaptiveDamping;
+            self.maximumForcedHorizontalWavenumber = options.maximumForcedHorizontalWavenumber;
+            self.maximumForcedVerticalMode = options.maximumForcedVerticalMode;
             self.dHdx = wvt.diffX(self.topographicHeight);
             self.dHdy = wvt.diffY(self.topographicHeight);
 
             terrainFourier = wvt.transformFromSpatialDomainWithFourier(repmat(self.topographicHeight,1,1,wvt.Nz));
             [self.responsePlusX,self.responsePlusY,self.responseMinusX,self.responseMinusY] = self.buildResponses(wvt,terrainFourier(1,:));
+            self.forcingListener = addlistener(self.wvt,'forcingDidChange',@self.forcingDidChangeNotification);
         end
 
         function velocity = barotropicVelocityAtTime(self,t)
@@ -202,10 +249,45 @@ classdef WVBottomWaveGenerationForcing < WVForcing
             % - Returns F0: unchanged incoming balanced tendency
             self.requireOriginatingTransform(wvt);
             velocity = self.barotropicVelocityAtTime(wvt.t);
-            Fpt = velocity(1)*self.responsePlusX+velocity(2)*self.responsePlusY;
-            Fmt = velocity(1)*self.responseMinusX+velocity(2)*self.responseMinusY;
+            generationMask = self.spectralGenerationMask();
+            Fpt = generationMask.*(velocity(1)*self.responsePlusX+velocity(2)*self.responsePlusY);
+            Fmt = generationMask.*(velocity(1)*self.responseMinusX+velocity(2)*self.responseMinusY);
             Fp = Fp+Fpt.*wvt.conjPhase;
             Fm = Fm+Fmt.*wvt.phase;
+        end
+
+        function [mask,components] = spectralGenerationMask(self)
+            % Return the spectral region eligible for bottom-wave generation.
+            %
+            % The common `mask` combines wave validity, the manual radial
+            % horizontal-wavenumber and vertical-mode bounds, and the exact
+            % zero-damping support of active `WVAdaptiveDamping` objects.
+            % `components` reports those masks separately, including the
+            % distinct positive- and negative-wave validity masks.
+            %
+            % - Topic: Inspect the forcing
+            % - Declaration: [mask,components] = spectralGenerationMask()
+            % - Returns mask: logical mask applied to both generated wave tendencies
+            % - Returns components: structure containing each constituent and branch-specific effective mask
+            arguments (Input)
+                self WVBottomWaveGenerationForcing {mustBeNonempty}
+            end
+            arguments (Output)
+                mask logical
+                components struct
+            end
+
+            if self.shouldRefreshSpectralGenerationMask
+                if nargout > 1
+                    [self.cachedSpectralGenerationMask,components] = self.buildSpectralGenerationMask();
+                else
+                    self.cachedSpectralGenerationMask = self.buildSpectralGenerationMask();
+                end
+                self.shouldRefreshSpectralGenerationMask = false;
+            elseif nargout > 1
+                [~,components] = self.buildSpectralGenerationMask();
+            end
+            mask = self.cachedSpectralGenerationMask;
         end
 
         function forcing = forcingWithResolutionOfTransform(self,wvtX2)
@@ -238,7 +320,7 @@ classdef WVBottomWaveGenerationForcing < WVForcing
             terrainFourier = self.wvt.transformFromSpatialDomainWithFourier(repmat(self.topographicHeight,1,1,self.wvt.Nz));
             terrainFourierX2 = self.wvt.spectralVariableWithResolution(wvtX2,terrainFourier);
             terrainX2 = wvtX2.transformToSpatialDomainWithFourier(repmat(terrainFourierX2(1,:),wvtX2.Nz,1));
-            forcing = WVBottomWaveGenerationForcing(wvtX2,topographicHeight=real(terrainX2(:,:,1)),barotropicVelocityAmplitude=self.barotropicVelocityAmplitude,frequency=self.frequency,rampDuration=self.rampDuration,startTime=self.startTime,name=string(self.name));
+            forcing = WVBottomWaveGenerationForcing(wvtX2,topographicHeight=real(terrainX2(:,:,1)),barotropicVelocityAmplitude=self.barotropicVelocityAmplitude,frequency=self.frequency,rampDuration=self.rampDuration,startTime=self.startTime,shouldAvoidAdaptiveDamping=self.shouldAvoidAdaptiveDamping,maximumForcedHorizontalWavenumber=self.maximumForcedHorizontalWavenumber,maximumForcedVerticalMode=self.maximumForcedVerticalMode,name=string(self.name));
         end
 
         function writeToGroup(self,group,propertyAnnotations,attributes)
@@ -270,9 +352,55 @@ classdef WVBottomWaveGenerationForcing < WVForcing
                 group.addVariable(annotation.name,annotation.dimensions,self.topographicHeight,isComplex=annotation.isComplex,attributes=variableAttributes);
             end
         end
+
+        function didGetRemovedFromTransform(self,~)
+            % Release the transform forcing-change listener.
+            %
+            % - Topic: CAAnnotatedClass requirement
+            % - Developer: true
+            if ~isempty(self.forcingListener)
+                delete(self.forcingListener);
+                self.forcingListener = [];
+            end
+        end
     end
 
     methods (Access = private)
+        function forcingDidChangeNotification(self,~,~)
+            self.shouldRefreshSpectralGenerationMask = true;
+        end
+
+        function [mask,components] = buildSpectralGenerationMask(self)
+            positiveWaveValidity = logical(self.wvt.waveComponent.maskAp);
+            negativeWaveValidity = logical(self.wvt.waveComponent.maskAm);
+            waveValidity = positiveWaveValidity | negativeWaveValidity;
+            horizontalBound = self.wvt.Kh <= self.maximumForcedHorizontalWavenumber;
+            verticalBound = self.wvt.J <= self.maximumForcedVerticalMode;
+            adaptiveDamping = true(size(waveValidity));
+
+            if self.shouldAvoidAdaptiveDamping
+                forcing = self.wvt.forcing;
+                for iForcing = 1:numel(forcing)
+                    if isa(forcing(iForcing),"WVAdaptiveDamping")
+                        adaptiveDamping = adaptiveDamping & forcing(iForcing).damp == 0;
+                    end
+                end
+            end
+
+            mask = waveValidity & horizontalBound & verticalBound & adaptiveDamping;
+            if nargout > 1
+                components = struct( ...
+                    positiveWaveValidity=positiveWaveValidity, ...
+                    negativeWaveValidity=negativeWaveValidity, ...
+                    waveValidity=waveValidity, ...
+                    horizontalBound=horizontalBound, ...
+                    verticalBound=verticalBound, ...
+                    adaptiveDamping=adaptiveDamping, ...
+                    effectivePositive=mask & positiveWaveValidity, ...
+                    effectiveNegative=mask & negativeWaveValidity);
+            end
+        end
+
         function requireOriginatingTransform(self,wvt)
             if wvt ~= self.wvt
                 error("WVBottomWaveGenerationForcing:TransformMismatch", "The forcing can only be evaluated with the WVTransform instance used during construction.")
@@ -281,6 +409,16 @@ classdef WVBottomWaveGenerationForcing < WVForcing
     end
 
     methods (Static, Access = private)
+        function requiredPropertyNames = legacyRequiredPropertyNames()
+            requiredPropertyNames = { ...
+                'topographicHeight', ...
+                'barotropicVelocityAmplitude', ...
+                'frequency', ...
+                'rampDuration', ...
+                'startTime', ...
+                'name'};
+        end
+
         function [responsePlusX,responsePlusY,responseMinusX,responseMinusY] = buildResponses(wvt,terrainFourier)
             [~,iBottom] = min(wvt.z);
             bottomF = wvt.waveModeVerticalStructureAtIndex(iBottom);
@@ -343,6 +481,9 @@ classdef WVBottomWaveGenerationForcing < WVForcing
                 'frequency', ...
                 'rampDuration', ...
                 'startTime', ...
+                'shouldAvoidAdaptiveDamping', ...
+                'maximumForcedHorizontalWavenumber', ...
+                'maximumForcedVerticalMode', ...
                 'name'};
         end
 
@@ -363,6 +504,9 @@ classdef WVBottomWaveGenerationForcing < WVForcing
             propertyAnnotations(end+1) = CANumericProperty('frequency',{},'rad s^{-1}','barotropic angular frequency');
             propertyAnnotations(end+1) = CANumericProperty('rampDuration',{},'s','half-cosine startup-ramp duration');
             propertyAnnotations(end+1) = CANumericProperty('startTime',{},'s','model time at which the forcing begins');
+            propertyAnnotations(end+1) = CANumericProperty('shouldAvoidAdaptiveDamping',{},'bool','whether generation avoids active adaptive damping');
+            propertyAnnotations(end+1) = CANumericProperty('maximumForcedHorizontalWavenumber',{},'rad m^{-1}','largest radial horizontal wavenumber receiving generation');
+            propertyAnnotations(end+1) = CANumericProperty('maximumForcedVerticalMode',{},'1','largest vertical wave-mode index receiving generation');
             propertyAnnotations(end+1) = CAPropertyAnnotation('name','name of the forcing');
         end
 
@@ -382,7 +526,7 @@ classdef WVBottomWaveGenerationForcing < WVForcing
                 forcing WVBottomWaveGenerationForcing
             end
 
-            requiredPropertyNames = WVBottomWaveGenerationForcing.classRequiredPropertyNames();
+            requiredPropertyNames = WVBottomWaveGenerationForcing.legacyRequiredPropertyNames();
             missingPropertyNames = string.empty(1,0);
             for iProperty = 1:numel(requiredPropertyNames)
                 propertyName = requiredPropertyNames{iProperty};
@@ -396,7 +540,20 @@ classdef WVBottomWaveGenerationForcing < WVForcing
             end
 
             options = CAAnnotatedClass.propertyValuesFromGroup(group,requiredPropertyNames);
+            optionalPropertyNames = {'shouldAvoidAdaptiveDamping','maximumForcedHorizontalWavenumber','maximumForcedVerticalMode'};
+            optionalDefaults = {false,Inf,Inf};
+            for iProperty = 1:numel(optionalPropertyNames)
+                propertyName = optionalPropertyNames{iProperty};
+                isPresent = group.hasVariableWithName(propertyName) || group.hasGroupWithName(propertyName) || isKey(group.attributes,propertyName);
+                if isPresent
+                    value = CAAnnotatedClass.propertyValuesFromGroup(group,{propertyName});
+                    options.(propertyName) = value.(propertyName);
+                else
+                    options.(propertyName) = optionalDefaults{iProperty};
+                end
+            end
             options.barotropicVelocityAmplitude = reshape(options.barotropicVelocityAmplitude,2,1);
+            options.shouldAvoidAdaptiveDamping = logical(options.shouldAvoidAdaptiveDamping);
             options.name = string(options.name);
             optionArguments = namedargs2cell(options);
             forcing = WVBottomWaveGenerationForcing(wvt,optionArguments{:});

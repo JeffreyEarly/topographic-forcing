@@ -43,17 +43,20 @@ classdef TestWVBottomWaveGenerationProduction < matlab.unittest.TestCase
         function resolutionConversionRebuildsEquivalentForcing(testCase)
             sourceTransform = TestWVBottomWaveGenerationProduction.createTransform([8 6 5],false);
             terrain = TestWVBottomWaveGenerationProduction.topography(sourceTransform);
-            forcing = WVBottomWaveGenerationForcing(sourceTransform,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05+0.01i; -0.02],frequency=1.31e-4,rampDuration=200,startTime=50,name="converted forcing");
+            forcing = WVBottomWaveGenerationForcing(sourceTransform,topographicHeight=terrain,barotropicVelocityAmplitude=[0.05+0.01i; -0.02],frequency=1.31e-4,rampDuration=200,startTime=50,shouldAvoidAdaptiveDamping=false,maximumForcedHorizontalWavenumber=2.5e-4,maximumForcedVerticalMode=3,name="converted forcing");
             targetTransform = TestWVBottomWaveGenerationProduction.createTransform([12 10 7],false);
             converted = forcing.forcingWithResolutionOfTransform(targetTransform);
             expectedTerrain = TestWVBottomWaveGenerationProduction.topography(targetTransform);
-            expected = WVBottomWaveGenerationForcing(targetTransform,topographicHeight=expectedTerrain,barotropicVelocityAmplitude=forcing.barotropicVelocityAmplitude,frequency=forcing.frequency,rampDuration=forcing.rampDuration,startTime=forcing.startTime,name=string(forcing.name));
+            expected = WVBottomWaveGenerationForcing(targetTransform,topographicHeight=expectedTerrain,barotropicVelocityAmplitude=forcing.barotropicVelocityAmplitude,frequency=forcing.frequency,rampDuration=forcing.rampDuration,startTime=forcing.startTime,shouldAvoidAdaptiveDamping=forcing.shouldAvoidAdaptiveDamping,maximumForcedHorizontalWavenumber=forcing.maximumForcedHorizontalWavenumber,maximumForcedVerticalMode=forcing.maximumForcedVerticalMode,name=string(forcing.name));
 
             testCase.verifyEqual(converted.topographicHeight,expectedTerrain,AbsTol=1e-12)
             testCase.verifyEqual(converted.barotropicVelocityAmplitude,forcing.barotropicVelocityAmplitude)
             testCase.verifyEqual(converted.frequency,forcing.frequency)
             testCase.verifyEqual(converted.rampDuration,forcing.rampDuration)
             testCase.verifyEqual(converted.startTime,forcing.startTime)
+            testCase.verifyEqual(converted.shouldAvoidAdaptiveDamping,forcing.shouldAvoidAdaptiveDamping)
+            testCase.verifyEqual(converted.maximumForcedHorizontalWavenumber,forcing.maximumForcedHorizontalWavenumber)
+            testCase.verifyEqual(converted.maximumForcedVerticalMode,forcing.maximumForcedVerticalMode)
             testCase.verifyEqual(string(converted.name),string(forcing.name))
             targetTransform.t = 467;
             [convertedFp,convertedFm,convertedF0] = converted.addSpectralForcing(targetTransform,zeros(size(targetTransform.Ap)),zeros(size(targetTransform.Am)),zeros(size(targetTransform.A0)));
@@ -89,8 +92,26 @@ classdef TestWVBottomWaveGenerationProduction < matlab.unittest.TestCase
             testCase.verifyLessThanOrEqual(diagnostics.qgpvNorm,1e-10)
         end
 
+        function resolutionConversionUsesTargetAdaptiveDamping(testCase)
+            source = TestWVBottomWaveGenerationProduction.createTransform([8 6 5],false);
+            generation = WVBottomWaveGenerationForcing(source,topographicHeight=TestWVBottomWaveGenerationProduction.topography(source),barotropicVelocityAmplitude=[0.05; -0.02]);
+            target = TestWVBottomWaveGenerationProduction.createTransform([12 10 7],true);
+            damping = WVAdaptiveDamping(target);
+            target.addForcing(damping);
+            converted = generation.forcingWithResolutionOfTransform(target);
+            target.addForcing(converted);
+
+            [mask,components] = converted.spectralGenerationMask();
+            testCase.verifyEqual(components.adaptiveDamping,damping.damp == 0)
+            testCase.verifyFalse(any(mask(damping.damp ~= 0),"all"))
+            target.t = 391;
+            [Fp,Fm] = converted.addSpectralForcing(target,zeros(size(target.Ap)),zeros(size(target.Am)),zeros(size(target.A0)));
+            testCase.verifyEqual(Fp(damping.damp ~= 0),zeros(nnz(damping.damp ~= 0),1))
+            testCase.verifyEqual(Fm(damping.damp ~= 0),zeros(nnz(damping.damp ~= 0),1))
+        end
+
         function persistenceMetadataAndTransformRoundTrip(testCase)
-            requiredProperties = {'topographicHeight','barotropicVelocityAmplitude','frequency','rampDuration','startTime','name'};
+            requiredProperties = {'topographicHeight','barotropicVelocityAmplitude','frequency','rampDuration','startTime','shouldAvoidAdaptiveDamping','maximumForcedHorizontalWavenumber','maximumForcedVerticalMode','name'};
             testCase.verifyEqual(WVBottomWaveGenerationForcing.classRequiredPropertyNames(),requiredProperties)
             annotations = WVBottomWaveGenerationForcing.classDefinedPropertyAnnotations();
             annotationNames = string({annotations.name});
@@ -103,7 +124,7 @@ classdef TestWVBottomWaveGenerationProduction < matlab.unittest.TestCase
 
             wvt = TestWVBottomWaveGenerationProduction.createTransform([8 6 5],false);
             terrain = TestWVBottomWaveGenerationProduction.topography(wvt);
-            forcing = WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=[0.04+0.01i; -0.02+0.015i],frequency=1.31e-4,rampDuration=400,startTime=120,name="restart terrain");
+            forcing = WVBottomWaveGenerationForcing(wvt,topographicHeight=terrain,barotropicVelocityAmplitude=[0.04+0.01i; -0.02+0.015i],frequency=1.31e-4,rampDuration=400,startTime=120,shouldAvoidAdaptiveDamping=false,maximumForcedHorizontalWavenumber=2.5e-4,maximumForcedVerticalMode=3,name="restart terrain");
             wvt.removeAllForcing();
             wvt.addForcing(forcing);
             wvt.t = 317;
@@ -123,6 +144,9 @@ classdef TestWVBottomWaveGenerationProduction < matlab.unittest.TestCase
             testCase.verifyEqual(restoredForcing.frequency,forcing.frequency)
             testCase.verifyEqual(restoredForcing.rampDuration,forcing.rampDuration)
             testCase.verifyEqual(restoredForcing.startTime,forcing.startTime)
+            testCase.verifyEqual(restoredForcing.shouldAvoidAdaptiveDamping,forcing.shouldAvoidAdaptiveDamping)
+            testCase.verifyEqual(restoredForcing.maximumForcedHorizontalWavenumber,forcing.maximumForcedHorizontalWavenumber)
+            testCase.verifyEqual(restoredForcing.maximumForcedVerticalMode,forcing.maximumForcedVerticalMode)
             testCase.verifyEqual(string(restoredForcing.name),string(forcing.name))
             restoredTransform.t = wvt.t;
             [restoredFp,restoredFm,restoredF0] = restoredForcing.addSpectralForcing(restoredTransform,zeros(size(restoredTransform.Ap)),zeros(size(restoredTransform.Am)),zeros(size(restoredTransform.A0)));
@@ -130,6 +154,27 @@ classdef TestWVBottomWaveGenerationProduction < matlab.unittest.TestCase
             testCase.verifyLessThanOrEqual(TestWVBottomWaveGenerationProduction.relativeError(restoredFm,originalFm),1e-12)
             testCase.verifyEqual(restoredF0,originalF0)
             clear cleanup
+        end
+
+        function legacyRestartDefaultsToUnmaskedGeneration(testCase)
+            wvt = TestWVBottomWaveGenerationProduction.createTransform([8 6 5],false);
+            forcing = WVBottomWaveGenerationForcing(wvt,topographicHeight=TestWVBottomWaveGenerationProduction.topography(wvt),barotropicVelocityAmplitude=[0.05; -0.01]);
+            path = string(tempname)+".nc";
+            cleanup = onCleanup(@()TestWVBottomWaveGenerationProduction.deleteFile(path));
+            ncfile = NetCDFFile(path);
+            fileCleanup = onCleanup(@()ncfile.close());
+            ncfile.addDimension("x",wvt.x);
+            ncfile.addDimension("y",wvt.y);
+            group = ncfile.addGroup("legacy forcing");
+            legacyPropertyNames = {'topographicHeight','barotropicVelocityAmplitude','frequency','rampDuration','startTime','name'};
+            legacyAnnotations = forcing.propertyAnnotationWithName(legacyPropertyNames);
+            forcing.writeToGroup(group,legacyAnnotations);
+
+            restored = WVBottomWaveGenerationForcing.forcingFromGroup(group,wvt);
+            testCase.verifyFalse(restored.shouldAvoidAdaptiveDamping)
+            testCase.verifyEqual(restored.maximumForcedHorizontalWavenumber,Inf)
+            testCase.verifyEqual(restored.maximumForcedVerticalMode,Inf)
+            clear fileCleanup cleanup
         end
 
         function adaptiveModelRestartMatchesControl(testCase)
@@ -197,8 +242,10 @@ classdef TestWVBottomWaveGenerationProduction < matlab.unittest.TestCase
             stretching = wvt.f*wvt.diffZG(Feta);
             qgpvSource = vorticityX-vorticityY-stretching;
             modalPower = 2*sum(wvt.Apm_TE_factor(:).*real(Fp(:).*conj(wvt.Ap(:))+Fm(:).*conj(wvt.Am(:))));
+            [~,maskComponents] = forcing.spectralGenerationMask();
+            kinematicPressure = wvt.g*wvt.transformToSpatialDomainWithF(Apm=wvt.NAp.*wvt.Apt.*maskComponents.effectivePositive+wvt.NAm.*wvt.Amt.*maskComponents.effectiveNegative);
             [~,iBottom] = min(wvt.z);
-            bottomPower = mean((wvt.p(:,:,iBottom)/wvt.rho0).*forcing.bottomVelocityAtTime(wvt.t),"all");
+            bottomPower = mean(kinematicPressure(:,:,iBottom).*forcing.bottomVelocityAtTime(wvt.t),"all");
             diagnostics = struct(F0=F0,modalQGPVSource=wvt.A0_QGPV_factor.*F0,qgpvNorm=norm(qgpvSource(:)),modalPower=modalPower,bottomPower=bottomPower,powerError=abs(modalPower-bottomPower)/max([abs(modalPower) abs(bottomPower) eps]));
         end
 

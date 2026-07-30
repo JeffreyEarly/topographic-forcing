@@ -59,6 +59,17 @@ classdef TestEddyTideTopographicForcingSimulation < matlab.unittest.TestCase
             testCase.verifyEqual(eddyGeneration.barotropicVelocityAmplitude,complex([0.05; 0]))
             testCase.verifyEqual(eddyGeneration.rampDuration,12.420602*3600)
             testCase.verifyEqual(eddyGeneration.startTime,0)
+            testCase.verifyTrue(eddyGeneration.shouldAvoidAdaptiveDamping)
+            testCase.verifyEqual(eddyGeneration.maximumForcedHorizontalWavenumber,Inf)
+            testCase.verifyEqual(eddyGeneration.maximumForcedVerticalMode,Inf)
+
+            adaptiveDamping = eddyInitial.forcingWithName("adaptive damping");
+            eddyInitial.t = eddyGeneration.rampDuration;
+            [Fp,Fm] = eddyGeneration.addSpectralForcing(eddyInitial,zeros(size(eddyInitial.Ap)),zeros(size(eddyInitial.Am)),zeros(size(eddyInitial.A0)));
+            dampingRegion = adaptiveDamping.damp ~= 0;
+            testCase.verifyEqual(Fp(dampingRegion),zeros(nnz(dampingRegion),1))
+            testCase.verifyEqual(Fm(dampingRegion),zeros(nnz(dampingRegion),1))
+            testCase.verifyGreaterThan(norm([Fp(~dampingRegion); Fm(~dampingRegion)]),0)
 
             clear noEddyInitialCleanup eddyInitialCleanup
         end
@@ -247,6 +258,53 @@ classdef TestEddyTideTopographicForcingSimulation < matlab.unittest.TestCase
             testCase.verifyLessThanOrEqual(max(abs(summary.eddy.vorticity.waveZetaOverF),[],"all"),summary.comparison.waveVorticityColorLimit)
             testCase.verifyLessThanOrEqual(max(abs(summary.noEddy.vorticity.geostrophicZetaOverF),[],"all"),summary.comparison.geostrophicVorticityColorLimit)
             clear cleanup
+        end
+
+        function adaptiveDampingFigureClosesExactSpatialWork(testCase)
+            figurePath = fullfile(testCase.temporaryDirectory,"adaptive-damping.png");
+            timeRangeDays = [0 600]/86400;
+            [figureHandle,analysis,diagnosticsFile] = AnalyzeEddyTideAdaptiveDamping( ...
+                testCase.eddyFile,timeRangeDays=timeRangeDays,radialBinCount=8, ...
+                figureVisible="off",exportPath=figurePath,shouldOverwriteExisting=true);
+            figureCleanup = onCleanup(@()close(figureHandle));
+
+            testCase.verifyTrue(isfile(figurePath))
+            testCase.verifyTrue(isfile(diagnosticsFile))
+            testCase.verifyEqual(analysis.time(:),[0; 300; 600])
+            testCase.verifyEqual(analysis.timeRangeDays,timeRangeDays)
+            testCase.verifyEqual(sum(analysis.timeWeights),1,AbsTol=10*eps)
+            testCase.verifyEqual(analysis.eddyOrientationFactor,-1)
+            testCase.verifySize(analysis.azimuthalVelocity,[8 numel(analysis.depth)])
+            testCase.verifySize(analysis.adaptiveDampingEnergyRemovalRate,[8 numel(analysis.depth)])
+            testCase.verifyTrue(all(isfinite(analysis.azimuthalVelocity),"all"))
+            testCase.verifyTrue(all(isfinite(analysis.adaptiveDampingEnergyRemovalRate),"all"))
+            testCase.verifyTrue(all(analysis.radialCounts > 0))
+            testCase.verifyLessThanOrEqual(analysis.validation.maximumRelativeFluxError,1e-10)
+            testCase.verifyLessThanOrEqual(max(analysis.validation.absoluteFluxError),1e-14)
+            testCase.verifyLessThanOrEqual(max(analysis.validation.diagnosticWork),1e-14)
+            testCase.verifyEqual(string(analysis.figurePath),string(figurePath))
+            testCase.verifyNumElements(findall(figureHandle,Type="axes"),2)
+            testCase.verifyNumElements(findall(figureHandle,Type="colorbar"),2)
+
+            reopenFiles = [testCase.eddyFile; diagnosticsFile];
+            for iFile = 1:numel(reopenFiles)
+                writableFile = NetCDFFile(char(reopenFiles(iFile)),shouldReadOnly=false);
+                writableCleanup = onCleanup(@()writableFile.close());
+                clear writableCleanup writableFile
+            end
+
+            testCase.verifyError(@()AnalyzeEddyTideAdaptiveDamping( ...
+                testCase.eddyFile,timeRangeDays=timeRangeDays,radialBinCount=8, ...
+                figureVisible="off",exportPath=figurePath), ...
+                "AnalyzeEddyTideAdaptiveDamping:ExportFileExists")
+
+            [secondFigure,secondAnalysis,secondDiagnosticsFile] = AnalyzeEddyTideAdaptiveDamping( ...
+                testCase.eddyFile,timeRangeDays=timeRangeDays,radialBinCount=8, ...
+                figureVisible="off",exportPath=figurePath,shouldOverwriteExisting=true);
+            secondFigureCleanup = onCleanup(@()close(secondFigure));
+            testCase.verifyEqual(secondDiagnosticsFile,diagnosticsFile)
+            testCase.verifyEqual(secondAnalysis.azimuthalVelocity,analysis.azimuthalVelocity)
+            clear secondFigureCleanup figureCleanup
         end
 
         function forcingBudgetsAndTriadsUseStandardDiagnostics(testCase)

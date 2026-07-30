@@ -50,7 +50,7 @@ Run the 30-day constant-stratification eddy experiment and its matched no-eddy c
 [~,~,noEddyFile] = EddyTideTopographicForcingSimulation(includeEddy=false);
 ```
 
-The setup retains the domain, shallow eddy, nonlinear advection, and damping of the JPO2026 minimal simulation. It removes the initialized fixed-amplitude wave beam. Both runs instead start with zero wave coefficients and use a one-M2-period ramp of a 5 cm/s zonal barotropic current over the same seed-2023 Goff terrain. `WVBottomWaveGenerationForcing` generates the tide. Autonomous `WVBottomWaveScatteringForcing` is opt-in with `shouldUseScattering=true` and is not part of the default validation pair.
+The setup retains the domain, shallow eddy, nonlinear advection, and damping of the JPO2026 minimal simulation. It removes the initialized fixed-amplitude wave beam. Both runs instead start with zero wave coefficients and use a one-M2-period ramp of a 5 cm/s zonal barotropic current over the same seed-2023 Goff terrain. `WVBottomWaveGenerationForcing` generates the tide and automatically excludes the exact nonzero support of `WVAdaptiveDamping`. Autonomous `WVBottomWaveScatteringForcing` is opt-in with `shouldUseScattering=true` and is not part of the default validation pair.
 
 The defaults use `Nxy=128`, hourly output, $100$ m RMS terrain, corner wavenumber $10^{-4}\ \mathrm{m^{-1}}$, and a 20 km minimum terrain wavelength. The cutoff lies above the 17.84 km antialiased resolution limit for this grid. Hourly records resolve the twice-tidal terms used by the exact energy and APV-enstrophy diagnostics. Use `horizontalDomainSize` to replace the default four-mode-one-wavelength square domain; the vertical resolution is then selected by `WVStratification.verticalResolutionForHorizontalResolution`. Use `maxT`, `Nxy`, `outputInterval`, `minimumWavelength`, and the other documented options for shorter tests or longer continuations. An explicit `outputFilename` overrides the descriptive default name.
 
@@ -78,6 +78,14 @@ For forcing-resolved energy and potential-enstrophy pathways, run:
 ```
 
 The three figures compare reservoirs, cumulative forcing budgets, and nonlinear-triad pathways. The returned structure contains raw rates, cumulative integrals, integrated contributions, closure metrics, and eddy-minus-control differences. The implementation uses the lower-level WVDiagnostics flux APIs directly; it does not depend on the mirror-triad variables required by `summarizeSourcesSinksReservoirs`.
+
+Create the Shakespeare-style radius-depth comparison of eddy velocity and adaptive-damping energy removal with:
+
+```matlab
+[figureHandle,analysis,diagnosticsFile] = AnalyzeEddyTideAdaptiveDamping(eddyFile);
+```
+
+The default averages days 25--30, uses the domain-centered eddy, and overlays the eddy-aligned \(u_\theta=0.02\ \mathrm{m\,s^{-1}}\) contour. The damping panel is the exact signed work of the spectral closure, not a pointwise non-negative viscous dissipation rate; see [the accompanying note](AnalyzeEddyTideAdaptiveDamping.md).
 
 After the generation-only control is available, assess whether autonomous scattering is perturbative with:
 
