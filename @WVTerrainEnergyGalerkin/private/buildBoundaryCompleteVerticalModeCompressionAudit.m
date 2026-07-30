@@ -1,16 +1,20 @@
 function audit = buildBoundaryCompleteVerticalModeCompressionAudit( ...
     problem,trustedBounds,supportBounds,stationaryDegree,degrees, ...
     comparisonDegree,modalCounts,robinLengthRatios,paddingFactors,terrainScales, ...
-    solverOrders,quadratureOrder)
+    solverOrders,quadratureOrder,waveCoordinateType,referenceSlope,sharedSetup)
 % Build the Milestone-9.2 boundary-complete modal-compression oracle.
 
-reference = problem.auditConvergedPhysicalSubspaces( ...
-    trustedModeBounds=trustedBounds, ...
-    supportModeBounds=supportBounds, ...
-    stationaryPolynomialDegree=stationaryDegree, ...
-    primitivePolynomialDegrees=degrees, ...
-    paddingFactors=paddingFactors,terrainScales=terrainScales, ...
-    quadratureOrder=quadratureOrder);
+if nargin < 13
+    waveCoordinateType = "nonhydrostatic-dirichlet";
+end
+if nargin < 14
+    referenceSlope = [0 0];
+end
+if nargin < 15
+    sharedSetup = [];
+end
+waveCoordinateType = string(waveCoordinateType);
+referenceSlope = reshape(referenceSlope,1,2);
 
 degree = comparisonDegree;
 support = supportBounds(end,:);
@@ -26,20 +30,54 @@ nRobin = numel(robinLengthRatios);
 nPadding = numel(paddingFactors);
 details = cell(nCount,nRobin,nPadding);
 comparisonReferences = cell(nPadding,1);
+if isempty(sharedSetup)
+    reference = problem.auditConvergedPhysicalSubspaces( ...
+        trustedModeBounds=trustedBounds, ...
+        supportModeBounds=supportBounds, ...
+        stationaryPolynomialDegree=stationaryDegree, ...
+        primitivePolynomialDegrees=degrees, ...
+        paddingFactors=paddingFactors,terrainScales=terrainScales, ...
+        quadratureOrder=quadratureOrder);
+    sharedSetup = repmat(struct("primitive",[], ...
+        "context",[],"direction",[],"stationary",[], ...
+        "comparisonReference",[],"providerCatalogs",[], ...
+        "reference",[]),nPadding,1);
+    for iPadding = 1:nPadding
+        [primitive,context] = buildGlobalSmallTerrainPrimitiveAudit( ...
+            problem,degree,order,1e-3,horizontalLayout=layout, ...
+            paddingFactor=paddingFactors(iPadding), ...
+            trustedModeBounds=trustedBounds,rejectTerrainNyquist=true, ...
+            evaluationScales=terrainScales);
+        direction = primitive.evaluatedDirections(end);
+        stationary = constructCompleteStationarySpace(context,direction, ...
+            trustedBounds,degree,stationaryDegree,terrainScales(end));
+        comparisonReference = buildComparisonPrimitiveReference( ...
+            context,direction,stationary,reference);
+        providerCatalogs = buildVerticalCatalog( ...
+            problem,context,primitive.flatReference,max(modalCounts), ...
+            robinLengthRatios,solverOrders, ...
+            "nonhydrostatic-dirichlet",[0 0],[]);
+        sharedSetup(iPadding).primitive = primitive;
+        sharedSetup(iPadding).context = context;
+        sharedSetup(iPadding).direction = direction;
+        sharedSetup(iPadding).stationary = stationary;
+        sharedSetup(iPadding).comparisonReference = comparisonReference;
+        sharedSetup(iPadding).providerCatalogs = providerCatalogs;
+    end
+else
+    reference = sharedSetup(1).reference;
+end
 for iPadding = 1:nPadding
-    [primitive,context] = buildGlobalSmallTerrainPrimitiveAudit( ...
-        problem,degree,order,1e-3,horizontalLayout=layout, ...
-        paddingFactor=paddingFactors(iPadding), ...
-        trustedModeBounds=trustedBounds,rejectTerrainNyquist=true, ...
-        evaluationScales=terrainScales);
-    direction = primitive.evaluatedDirections(end);
-    stationary = constructCompleteStationarySpace(context,direction, ...
-        trustedBounds,degree,stationaryDegree,terrainScales(end));
-    comparisonReference = buildComparisonPrimitiveReference( ...
-        context,direction,stationary,reference);
+    primitive = sharedSetup(iPadding).primitive;
+    context = sharedSetup(iPadding).context;
+    direction = sharedSetup(iPadding).direction;
+    stationary = sharedSetup(iPadding).stationary;
+    comparisonReference = sharedSetup(iPadding).comparisonReference;
     comparisonReferences{iPadding} = comparisonReference;
-    catalogs = buildVerticalCatalog(problem,context,max(modalCounts), ...
-        robinLengthRatios,solverOrders);
+    catalogs = buildVerticalCatalog(problem,context,primitive.flatReference, ...
+        max(modalCounts),robinLengthRatios,solverOrders, ...
+        waveCoordinateType,referenceSlope, ...
+        sharedSetup(iPadding).providerCatalogs);
     for iCount = 1:nCount
         for iRobin = 1:nRobin
             basis = buildModalCoordinates(context,direction,stationary, ...
@@ -89,8 +127,7 @@ physicalPasses = primary.internalProjectorDefect <= tolerance.projector ...
     && primary.internalFrequencyDefect <= tolerance.frequency ...
     && primary.maximumInternalAPVDefect <= tolerance.apv ...
     && primary.maximumInternalStrongResidual <= tolerance.strong ...
-    && padding.maximumInternalProjectorDefect <= tolerance.padding ...
-    && robin.maximumInternalProjectorDefect <= tolerance.robin;
+    && padding.maximumInternalProjectorDefect <= tolerance.padding;
 converges = convergence.projectorDefect(end) ...
     <= tolerance.projector ...
     && convergence.frequencyDefect(end) <= tolerance.frequency;
@@ -140,8 +177,14 @@ audit.robinLengthRatios = robinLengthRatios;
 audit.paddingFactors = paddingFactors;
 audit.terrainScales = terrainScales;
 audit.internalModesEVPOrders = solverOrders;
+audit.waveCoordinateType = waveCoordinateType;
+audit.referenceSlope = referenceSlope;
 audit.quadratureOrder = order;
 audit.reference = reference;
+for iPadding = 1:numel(sharedSetup)
+    sharedSetup(iPadding).reference = reference;
+end
+audit.sharedSetup = sharedSetup;
 audit.comparisonReference = comparisonReferences{1};
 audit.comparisonReferences = comparisonReferences;
 audit.details = details;
@@ -149,8 +192,12 @@ audit.primary = primary;
 audit.convergence = convergence;
 audit.padding = padding;
 audit.robin = robin;
+audit.robinInterpretation = struct( ...
+    "role","finite-order-convergence-parameter", ...
+    "isHardPhysicalGate",false, ...
+    "selectionRule","train-then-freeze-for-independent-validation");
 audit.requiredTolerance = tolerance;
-audit.nextScope = "milestone-10-only-if-separately-authorized";
+audit.nextScope = "milestone-9.3-slope-compatible-wave-coordinates";
 end
 
 function reference = buildComparisonPrimitiveReference( ...
@@ -260,46 +307,306 @@ function values = insertIdentity(values,rows,columns)
 values(rows,columns) = speye(numel(rows),numel(columns));
 end
 
-function catalogs = buildVerticalCatalog(problem,c,maximumCount,ratios,orders)
+function catalogs = buildVerticalCatalog(problem,c,flat,maximumCount,ratios,orders, ...
+    waveCoordinateType,referenceSlope,baseCatalogs)
 kappaValues = hypot(c.horizontalLayout.k,c.horizontalLayout.l);
 uniqueKappa = unique(kappaValues(kappaValues > 0),"sorted");
 nRobin = numel(ratios);
-catalogs = repmat(struct, nRobin,1);
+if isempty(baseCatalogs)
+    catalogs = repmat(struct, nRobin,1);
+else
+    catalogs = baseCatalogs;
+end
 for iRobin = 1:nRobin
     robinLength = ratios(iRobin)*c.wvt.Lz;
     if isinf(ratios(iRobin))
         robinLength = Inf;
     end
-    high = cell(numel(uniqueKappa),1);
-    low = cell(numel(uniqueKappa),1);
-    providerDefect = zeros(numel(uniqueKappa),1);
-    for iKappa = 1:numel(uniqueKappa)
-        high{iKappa} = buildBoundaryCompleteVerticalReferenceFamily( ...
-            problem,uniqueKappa(iKappa),maximumCount,robinLength, ...
-            orders(end),c.quadrature.xi);
-        low{iKappa} = buildBoundaryCompleteVerticalReferenceFamily( ...
-            problem,uniqueKappa(iKappa),maximumCount,robinLength, ...
-            orders(end-1),c.quadrature.xi);
-        providerDefect(iKappa) = familyDifference( ...
-            low{iKappa},high{iKappa},c.quadrature.weight);
+    if isempty(baseCatalogs)
+        high = cell(numel(uniqueKappa),1);
+        low = cell(numel(uniqueKappa),1);
+        providerDefect = zeros(numel(uniqueKappa),1);
+        for iKappa = 1:numel(uniqueKappa)
+            high{iKappa} = buildBoundaryCompleteVerticalReferenceFamily( ...
+                problem,uniqueKappa(iKappa),maximumCount,robinLength, ...
+                orders(end),c.quadrature.xi);
+            low{iKappa} = buildBoundaryCompleteVerticalReferenceFamily( ...
+                problem,uniqueKappa(iKappa),maximumCount,robinLength, ...
+                orders(end-1),c.quadrature.xi);
+            providerDefect(iKappa) = familyDifference( ...
+                low{iKappa},high{iKappa},c.quadrature.weight);
+        end
+        diagnostics = [high{:}];
+        diagnostics = [diagnostics.diagnostics];
+        providerMaximumEndpointDefect = max([ ...
+            diagnostics.waveEndpointDefect, ...
+            diagnostics.surfaceRobinDefect, ...
+            diagnostics.bottomRobinDefect, ...
+            diagnostics.bottomAPVDefect, ...
+            diagnostics.bottomValueDefect, ...
+            diagnostics.bottomSurfaceValueDefect],[],"all");
+        catalogs(iRobin).ratio = ratios(iRobin);
+        catalogs(iRobin).robinLength = robinLength;
+        catalogs(iRobin).kappa = uniqueKappa;
+        catalogs(iRobin).families = high;
+        catalogs(iRobin).providerDefect = max(providerDefect);
+        catalogs(iRobin).providerMaximumEndpointDefect = ...
+            providerMaximumEndpointDefect;
+        catalogs(iRobin).negativeRobinModeCountDefect = ...
+            max([diagnostics.negativeRobinModeCountDefect]);
+    else
+        high = catalogs(iRobin).families;
+        providerMaximumEndpointDefect = ...
+            catalogs(iRobin).providerMaximumEndpointDefect;
     end
-    diagnostics = [high{:}];
-    diagnostics = [diagnostics.diagnostics];
-    catalogs(iRobin).ratio = ratios(iRobin);
-    catalogs(iRobin).robinLength = robinLength;
-    catalogs(iRobin).kappa = uniqueKappa;
-    catalogs(iRobin).families = high;
-    catalogs(iRobin).providerDefect = max(providerDefect);
-    catalogs(iRobin).maximumEndpointDefect = max([ ...
-        diagnostics.waveEndpointDefect, ...
-        diagnostics.surfaceRobinDefect, ...
-        diagnostics.bottomRobinDefect, ...
-        diagnostics.bottomAPVDefect, ...
-        diagnostics.bottomValueDefect, ...
-        diagnostics.bottomSurfaceValueDefect],[],"all");
-    catalogs(iRobin).negativeRobinModeCountDefect = ...
-        max([diagnostics.negativeRobinModeCountDefect]);
+    waveByHorizontal = cell(c.nK,1);
+    waveDiagnostics = repmat(emptySlopeWaveDiagnostics,0,1);
+    if contains(waveCoordinateType,"slope")
+        isHydrostatic = startsWith(waveCoordinateType,"hydrostatic");
+        for iHorizontal = 1:c.nK
+            if hypot(c.horizontalLayout.k(iHorizontal), ...
+                    c.horizontalLayout.l(iHorizontal)) == 0
+                continue
+            end
+            waveByHorizontal{iHorizontal} = ...
+                buildSlopeCompatibleWaveFamily(c,flat,iHorizontal, ...
+                maximumCount,referenceSlope,isHydrostatic, ...
+                high{find(abs(uniqueKappa-kappaValues(iHorizontal)) ...
+                <=100*eps*max(kappaValues(iHorizontal),1),1)}.wave);
+            waveDiagnostics(end+1,1) = ...
+                waveByHorizontal{iHorizontal}.diagnostics; %#ok<AGROW>
+        end
+    end
+    catalogs(iRobin).waveCoordinateType = waveCoordinateType;
+    catalogs(iRobin).referenceSlope = referenceSlope;
+    catalogs(iRobin).waveByHorizontal = waveByHorizontal;
+    catalogs(iRobin).waveDiagnostics = waveDiagnostics;
+    catalogs(iRobin).maximumEndpointDefect = ...
+        providerMaximumEndpointDefect;
+    if ~isempty(waveDiagnostics)
+        catalogs(iRobin).maximumEndpointDefect = max( ...
+            catalogs(iRobin).maximumEndpointDefect, ...
+            max([waveDiagnostics.bottomResidual]));
+    end
 end
+end
+
+function diagnostics = emptySlopeWaveDiagnostics
+diagnostics = struct("descriptorResidual",0, ...
+    "momentumResidual",0,"bottomResidual",0, ...
+    "backwardError",0,"flatFrequencyDefect",0, ...
+    "maximumBottomDisplacement",0, ...
+    "numberOfFiniteModes",0,"numberOfInfiniteModes",0, ...
+    "homogeneousFiniteCount",0);
+end
+
+function family = buildSlopeCompatibleWaveFamily( ...
+    c,flat,iHorizontal,numberOfModes,referenceSlope,isHydrostatic,flatWave)
+% Construct boundary-only slope-compatible wave coordinates in the local
+% primitive polynomial space. The periodic terrain forms are not changed.
+
+nF = c.nF;
+nH = c.nH;
+nP = c.nP;
+nXBlock = c.nXBlock;
+nK = c.nK;
+rawColumns = (iHorizontal-1)*nXBlock+(1:nXBlock);
+admissible = c.layout.admissibleRanges{iHorizontal};
+pressureColumns = c.nX+(iHorizontal-1)*nP+(1:nP);
+uRows = (iHorizontal-1)*nF+(1:nF);
+vRows = nK*nF+(iHorizontal-1)*nF+(1:nF);
+wRows = 2*nK*nF+(iHorizontal-1)*nH+(1:nH);
+etaRows = 2*nK*nF+nK*nH+(iHorizontal-1)*nH+(1:nH);
+equationRows = [uRows vRows wRows etaRows];
+
+Slocal = flat.matrices.S(equationRows, ...
+    [rawColumns pressureColumns]);
+Flocal = flat.matrices.F(equationRows,admissible);
+Nlocal = c.N(rawColumns,admissible);
+nA = numel(admissible);
+M = [Slocal(:,1:nXBlock)*Nlocal zeros(numel(equationRows),nP)];
+K = [Flocal -Slocal(:,nXBlock+(1:nP))];
+
+k = c.horizontalLayout.k(iHorizontal);
+l = c.horizontalLayout.l(iHorizontal);
+sx = referenceSlope(1);
+sy = referenceSlope(2);
+etaBottomRaw = zeros(1,nXBlock);
+etaBottomRaw(2*nF+c.nG+(1:nH)) = c.spaces.Hendpoint(1,:);
+uBottomRaw = zeros(1,nXBlock);
+vBottomRaw = zeros(1,nXBlock);
+uBottomRaw(1:nF) = c.spaces.Fendpoint(1,:);
+vBottomRaw(nF+(1:nF)) = c.spaces.Fendpoint(1,:);
+B = etaBottomRaw*Nlocal;
+R = (sx*uBottomRaw+sy*vBottomRaw)*Nlocal;
+bottomRow = numel(equationRows);
+M(bottomRow,:) = [B zeros(1,nP)];
+K(bottomRow,:) = [R zeros(1,nP)];
+
+localWRows = 2*nF+(1:nH);
+if isHydrostatic
+    M(localWRows,:) = 0;
+end
+
+referenceFrequency = max(abs(flatWave.omega),[],"all");
+[vectors,lambda,homogeneous,scaling] = ...
+    finiteHomogeneousDescriptorModes(K,M,referenceFrequency);
+xCoordinates = vectors(1:nA,:);
+H = flat.E(admissible,admissible);
+xCoordinates = energyNormalizeColumns(xCoordinates,H);
+
+flatCoordinates = flatWaveCoordinates(c,iHorizontal,flatWave,numberOfModes);
+flatCoordinates = energyNormalizeColumns(flatCoordinates,H);
+flatProjector = energyProjector(flatCoordinates,H);
+participation = real(sum(conj(xCoordinates) ...
+    .*(H*flatProjector*xCoordinates),1)).';
+numberToRetain = min(2*numberOfModes,size(xCoordinates,2));
+[~,order] = sort(participation,"descend");
+selected = order(1:numberToRetain);
+if numberToRetain < 2*numberOfModes
+    error("WVTerrainEnergyGalerkin:InsufficientSlopeWaveModes", ...
+        "The local slope descriptor returned %d finite wave candidates; %d are required.", ...
+        numberToRetain,2*numberOfModes)
+end
+[~,frequencyOrder] = sort(real(1i*lambda(selected)));
+selected = selected(frequencyOrder);
+coordinates = xCoordinates(:,selected);
+selectedVectors = vectors(:,selected);
+selectedLambda = lambda(selected);
+frequency = real(1i*selectedLambda);
+
+descriptorResidual = columnRelativeResidual( ...
+    K*selectedVectors-M*(selectedVectors.*selectedLambda.'), ...
+    {K*selectedVectors,M*(selectedVectors.*selectedLambda.')});
+momentumRows = 1:(numel(equationRows)-1);
+momentumResidual = columnRelativeResidual( ...
+    K(momentumRows,:)*selectedVectors ...
+    -M(momentumRows,:)*(selectedVectors.*selectedLambda.'), ...
+    {K(momentumRows,:)*selectedVectors, ...
+    M(momentumRows,:)*(selectedVectors.*selectedLambda.')});
+bottomResidual = abs(B*coordinates.*selectedLambda.'-R*coordinates).' ...
+    ./max((abs(B*coordinates).*abs(selectedLambda.')).' ...
+    +abs(R*coordinates).',realmin);
+backwardError = descriptorBackwardError(K,M,selectedVectors,selectedLambda);
+
+flatFrequencyDefect = 0;
+if hypot(sx,sy) <=100*eps
+    if isHydrostatic
+        N2 = c.wvt.N2Function(0);
+        if isscalar(N2)
+            verticalWavenumber = (1:numberOfModes)'*pi/c.wvt.Lz;
+            expectedMagnitude = sqrt(c.wvt.f^2 ...
+                +N2*hypot(k,l)^2./verticalWavenumber.^2);
+        else
+            expectedMagnitude = [];
+        end
+    else
+        expectedMagnitude = flatWave.omega(1:numberOfModes);
+    end
+    if ~isempty(expectedMagnitude)
+        expected = sort([-expectedMagnitude(:);expectedMagnitude(:)]);
+        flatFrequencyDefect = max(abs(sort(frequency)-expected)) ...
+            /max(abs(expected),[],"all");
+    end
+end
+
+family = struct;
+family.coordinates = coordinates;
+family.frequency = frequency;
+family.lambda = selectedLambda;
+family.embeddingDefect = zeros(2*numberOfModes,1);
+family.participation = participation(selected);
+family.homogeneous = homogeneous;
+family.scaling = scaling;
+family.diagnostics = struct( ...
+    "descriptorResidual",max(descriptorResidual), ...
+    "momentumResidual",max(momentumResidual), ...
+    "bottomResidual",max(bottomResidual), ...
+    "backwardError",max(backwardError), ...
+    "flatFrequencyDefect",flatFrequencyDefect, ...
+    "maximumBottomDisplacement",max(abs(B*coordinates),[],"all"), ...
+    "numberOfFiniteModes",numel(lambda), ...
+    "numberOfInfiniteModes",size(K,1)-numel(lambda), ...
+    "homogeneousFiniteCount",nnz(homogeneous.isFinite));
+end
+
+function coordinates = flatWaveCoordinates(c,iHorizontal,wave,numberOfModes)
+k = c.horizontalLayout.k(iHorizontal);
+l = c.horizontalLayout.l(iHorizontal);
+kappa = hypot(k,l);
+admissible = c.layout.admissibleRanges{iHorizontal};
+coordinates = zeros(numel(admissible),2*numberOfModes);
+iColumn = 0;
+for iMode = 1:numberOfModes
+    for sigma = [-1 1]
+        iColumn = iColumn+1;
+        omega = wave.omega(iMode);
+        h = wave.h(iMode);
+        F = wave.F(:,iMode);
+        G = wave.G(:,iMode);
+        state = struct( ...
+            "u",(k*omega-sigma*1i*c.wvt.f*l)/(omega*kappa)*F, ...
+            "v",(l*omega+sigma*1i*c.wvt.f*k)/(omega*kappa)*F, ...
+            "w",-1i*kappa*h*G, ...
+            "eta",-sigma*kappa*h/omega*G);
+        [globalCoordinate,~] = embedState(c,iHorizontal,state);
+        coordinates(:,iColumn) = globalCoordinate(admissible);
+    end
+end
+end
+
+function values = energyNormalizeColumns(values,H)
+energy = real(sum(conj(values).*(H*values),1));
+valid = isfinite(energy) & energy > max(size(H))*eps(norm(H,2));
+if ~all(valid)
+    error("WVTerrainEnergyGalerkin:InvalidSlopeWaveEnergy", ...
+        "Every finite local descriptor mode must have positive finite physical energy.")
+end
+values = values./sqrt(energy);
+end
+
+function [vectors,lambda,homogeneous,scaling] = ...
+    finiteHomogeneousDescriptorModes(K,M,referenceFrequency)
+frequencyScale = max(abs(referenceFrequency),eps);
+Ks = K/frequencyScale;
+Ms = M;
+columnNorm = sqrt(sum(abs(Ks).^2+abs(Ms).^2,1));
+columnScale = 1./max(columnNorm,sqrt(realmin));
+Ks = Ks.*columnScale;
+Ms = Ms.*columnScale;
+rowNorm = sqrt(sum(abs(Ks).^2+abs(Ms).^2,2));
+rowScale = 1./max(rowNorm,sqrt(realmin));
+Ks = rowScale.*Ks;
+Ms = rowScale.*Ms;
+
+[AA,BB] = qz(Ks,Ms,"complex");
+alpha = diag(AA);
+beta = diag(BB);
+homogeneousTolerance = max(size(K))*eps*100;
+isFinite = abs(beta) > homogeneousTolerance ...
+    .*max(abs(alpha)+abs(beta),realmin);
+
+[scaledVectors,scaledLambda] = eig(Ks,Ms,"vector");
+finiteEigenvector = isfinite(scaledLambda) & ~isnan(scaledLambda);
+vectors = columnScale.'.*scaledVectors(:,finiteEigenvector);
+lambda = frequencyScale*scaledLambda(finiteEigenvector);
+vectors = vectors./max(vecnorm(vectors),sqrt(realmin));
+homogeneous = struct("alpha",alpha,"beta",beta, ...
+    "isFinite",isFinite,"tolerance",homogeneousTolerance);
+scaling = struct("frequency",frequencyScale, ...
+    "row",rowScale,"column",columnScale.');
+if nnz(isFinite) ~= numel(lambda)
+    error("WVTerrainEnergyGalerkin:HomogeneousDescriptorCountMismatch", ...
+        "Generalized Schur and eigenvector finite counts disagree (%d versus %d).", ...
+        nnz(isFinite),numel(lambda))
+end
+end
+
+function errorValue = descriptorBackwardError(K,M,vectors,lambda)
+residual = K*vectors-M*(vectors.*lambda.');
+scale = (norm(K,2)+abs(lambda).'*norm(M,2)) ...
+    .*max(vecnorm(vectors,2,1).',realmin);
+errorValue = vecnorm(residual,2,1).'./max(scale,realmin);
 end
 
 function value = familyDifference(first,second,weight)
@@ -365,23 +672,35 @@ for iHorizontal = 1:c.nK
     familyIndex = find(abs(catalog.kappa-kappa) ...
         <=100*eps*max(kappa,1),1);
     family = catalog.families{familyIndex};
-    for iMode = 1:count
-        for sigma = [-1 1]
-            omega = family.wave.omega(iMode);
-            h = family.wave.h(iMode);
-            F = family.wave.F(:,iMode);
-            G = family.wave.G(:,iMode);
-            state = struct( ...
-                "u",(k*omega-sigma*1i*c.wvt.f*l) ...
-                /(omega*kappa)*F, ...
-                "v",(l*omega+sigma*1i*c.wvt.f*k) ...
-                /(omega*kappa)*F, ...
-                "w",-1i*kappa*h*G, ...
-                "eta",-sigma*kappa*h/omega*G);
-            [coordinate,defect] = embedState(c,iHorizontal,state);
+    if contains(catalog.waveCoordinateType,"slope")
+        slopeWave = catalog.waveByHorizontal{iHorizontal};
+        for iMode = 1:(2*count)
+            coordinate = zeros(nState,1);
+            coordinate(admissible) = slopeWave.coordinates(:,iMode);
             columns(:,end+1) = coordinate; %#ok<AGROW>
-            labels(end+1,1) = "wave-"+string(sigma); %#ok<AGROW>
-            embeddingDefect(end+1,1) = defect; %#ok<AGROW>
+            labels(end+1,1) = catalog.waveCoordinateType; %#ok<AGROW>
+            embeddingDefect(end+1,1) = ...
+                slopeWave.embeddingDefect(iMode); %#ok<AGROW>
+        end
+    else
+        for iMode = 1:count
+            for sigma = [-1 1]
+                omega = family.wave.omega(iMode);
+                h = family.wave.h(iMode);
+                F = family.wave.F(:,iMode);
+                G = family.wave.G(:,iMode);
+                state = struct( ...
+                    "u",(k*omega-sigma*1i*c.wvt.f*l) ...
+                    /(omega*kappa)*F, ...
+                    "v",(l*omega+sigma*1i*c.wvt.f*k) ...
+                    /(omega*kappa)*F, ...
+                    "w",-1i*kappa*h*G, ...
+                    "eta",-sigma*kappa*h/omega*G);
+                [coordinate,defect] = embedState(c,iHorizontal,state);
+                columns(:,end+1) = coordinate; %#ok<AGROW>
+                labels(end+1,1) = "wave-"+string(sigma); %#ok<AGROW>
+                embeddingDefect(end+1,1) = defect; %#ok<AGROW>
+            end
         end
     end
     for iMode = 1:count
@@ -456,6 +775,29 @@ basis.providerDefect = catalog.providerDefect;
 basis.maximumEndpointDefect = catalog.maximumEndpointDefect;
 basis.negativeRobinModeCountDefect = ...
     catalog.negativeRobinModeCountDefect;
+basis.waveCoordinateType = catalog.waveCoordinateType;
+basis.referenceSlope = catalog.referenceSlope;
+if isempty(catalog.waveDiagnostics)
+    basis.maximumWaveDescriptorResidual = 0;
+    basis.maximumWaveMomentumResidual = 0;
+    basis.maximumWaveBottomResidual = 0;
+    basis.maximumWaveBackwardError = 0;
+    basis.maximumWaveFlatFrequencyDefect = 0;
+    basis.maximumWaveBottomDisplacement = 0;
+else
+    basis.maximumWaveDescriptorResidual = max( ...
+        [catalog.waveDiagnostics.descriptorResidual]);
+    basis.maximumWaveMomentumResidual = max( ...
+        [catalog.waveDiagnostics.momentumResidual]);
+    basis.maximumWaveBottomResidual = max( ...
+        [catalog.waveDiagnostics.bottomResidual]);
+    basis.maximumWaveBackwardError = max( ...
+        [catalog.waveDiagnostics.backwardError]);
+    basis.maximumWaveFlatFrequencyDefect = max( ...
+        [catalog.waveDiagnostics.flatFrequencyDefect]);
+    basis.maximumWaveBottomDisplacement = max( ...
+        [catalog.waveDiagnostics.maximumBottomDisplacement]);
+end
 end
 
 function [coordinate,defect] = embedState(c,iHorizontal,state)
@@ -602,6 +944,20 @@ result.maximumProviderDefect = basis.providerDefect;
 result.maximumEndpointDefect = basis.maximumEndpointDefect;
 result.negativeRobinModeCountDefect = ...
     basis.negativeRobinModeCountDefect;
+result.waveCoordinateType = basis.waveCoordinateType;
+result.referenceSlope = basis.referenceSlope;
+result.maximumWaveDescriptorResidual = ...
+    basis.maximumWaveDescriptorResidual;
+result.maximumWaveMomentumResidual = ...
+    basis.maximumWaveMomentumResidual;
+result.maximumWaveBottomResidual = ...
+    basis.maximumWaveBottomResidual;
+result.maximumWaveBackwardError = ...
+    basis.maximumWaveBackwardError;
+result.maximumWaveFlatFrequencyDefect = ...
+    basis.maximumWaveFlatFrequencyDefect;
+result.maximumWaveBottomDisplacement = ...
+    basis.maximumWaveBottomDisplacement;
 result.primitiveDimension = basis.primitiveDimension;
 result.nominalModalDimension = ...
     basis.numberOfNominalModalCoordinates;

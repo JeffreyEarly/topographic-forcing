@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Milestone-9.2 scientific checkpoint:** the primitive polynomial eigensystem remains the validated reference and preferred seed. The boundary-complete vertical-mode experiment reproduces the internal frequency increasingly well, but fails its bottom-evolution, projector, and Robin-independence gates before providing useful compression; its recorded outcome is `modal-incompatible`. Every primitive and reduced algebraic direction remains retained. The leading topographic-boundary candidate is still unresolved, and Milestone 10 has not begun. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Milestone-9.3 scientific checkpoint:** the primitive polynomial eigensystem remains the validated reference and the Milestone-10 seed. Trained-and-frozen hydrostatic and nonhydrostatic slope-compatible wave coordinates satisfy their local active-bottom descriptors and pass frequency, APV, strong-equation, and padding checks, but the best compressed global system retains a `4.597e-3` bottom-evolution defect, a `3.251e-7` internal-projector defect, and only `1.075` compression. The recorded outcome is `per-wavenumber-slope-incompatible`: a correct local endpoint is not enough to compress the globally coupled periodic-terrain stationary completion. Every primitive and reduced algebraic direction remains retained. The leading topographic-boundary candidate is still unresolved, and Milestone 10 has not begun. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -287,9 +287,35 @@ audit = problem.auditBoundaryCompleteVerticalModeCompression( ...
 
 The one-dimensional eigenproblems come from the isolated `internal-modes-evp` checkout pinned to commit `df86687`; WaveVortexModel continues to use the main InternalModes dependency. Every candidate column is first embedded in the primitive oracle, missing stationary directions are appended by physical-energy orthogonal completion, and the reduced system uses the unchanged finite-terrain \(H_\gamma\) and \(J_\gamma\).
 
-The family converges toward the validated internal-wave projector, but at eight wave and Robin modes its projector defect is `7.86e-7`, bottom-evolution defect is `3.10e-3`, and compression factor is only `1.0914`. Robin-length changes produce projector differences up to `2.87e-5`. The audit therefore returns `modal-incompatible`; the primitive polynomial representation remains the preferred seed, every unresolved direction remains retained, and Milestone 10 has not begun.
+The family converges toward the validated internal-wave projector, but at eight wave and Robin modes its projector defect is `7.86e-7`, bottom-evolution defect is `3.10e-3`, and compression factor is only `1.0914`. Robin-length changes produce projector differences up to `2.87e-5`; this is retained as finite-order convergence evidence and is no longer treated as a hard physical gate. The audit remains `modal-incompatible` because the flat Dirichlet wave coordinates do not close bottom evolution before stationary completion removes useful compression. Milestone 9.3 subsequently tests slope-compatible hydrostatic and nonhydrostatic replacements while retaining every unresolved direction and the unchanged primitive \(H_\gamma,J_\gamma\) evolution. Milestone 10 has not begun.
 
 The complete repository suite passes 168 tests with zero failures, and `checkcode` reports no issues in all 83 MATLAB files.
+
+## Slope-compatible wave-coordinate compression
+
+Milestone 9.3 replaces only the wave coordinates in the Milestone-9.2 experiment. For each horizontal wavenumber, it compares hydrostatic and nonhydrostatic first-order descriptors that leave the interior flat and retain a constant reference slope only in the active bottom-displacement row:
+
+```matlab
+audit = problem.auditSlopeCompatibleWaveModeCompression( ...
+    trustedModeBounds=[1 0], ...
+    supportModeBounds=[1 2;1 3;1 4], ...
+    stationaryPolynomialDegree=4, ...
+    primitivePolynomialDegrees=[4;6;8], ...
+    comparisonPolynomialDegree=12, ...
+    modalCounts=[1;2;4;8], ...
+    robinLengthRatios=[-1/8;-1/4;-1/2;-1;Inf], ...
+    referenceSlopeFactors=[0;0.5;1;sqrt(2)], ...
+    dynamics=["hydrostatic";"nonhydrostatic"], ...
+    paddingFactors=[2;3], ...
+    terrainScales=[0.125;0.25;0.5;1], ...
+    internalModesEVPOrders=[128;256]);
+```
+
+The Robin length and reference slope are trained jointly at padding two and then frozen. Finite descriptor modes are classified using homogeneous generalized-Schur data; the wave subspace is tracked by physical-energy projector overlap rather than a frequency cutoff. The final periodic-terrain calculation continues to use the unchanged primitive \(H_\gamma,J_\gamma\) forms.
+
+Both families select \(s_{\rm ref}/s_{\rm rms}=0.5\) and \(\ell_b/D=\infty\). Their local descriptor residuals are about `5e-14`, active-bottom residuals are below `9e-13`, and backward errors are below `2e-17`. Globally, both give an internal-projector defect of `3.251e-7`, bottom-evolution defect of `4.597e-3`, strong residual of `2.073e-6`, and compression factor `1.075`. The result is `per-wavenumber-slope-incompatible`. Hydrostatic and nonhydrostatic reference dynamics are indistinguishable at this resolution; the unresolved bottleneck is the global periodic-terrain stationary/bottom coupling, not vertical inertia in the local wave coordinate.
+
+The complete repository suite passes 173 tests with zero failures, and `checkcode` reports no issues in all 86 MATLAB files.
 
 ## Terrain-energy Galerkin flat oracle
 

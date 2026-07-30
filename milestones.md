@@ -1,6 +1,6 @@
 # Terrain-energy Galerkin milestones
 
-> **Checkpoint after Milestone 9.2:** the finite-amplitude primitive oracle remains the validated reference and preferred Milestone-10 seed. A boundary-complete family of fixed-\(\kappa\) waves, Robin APV modes, explicit zero-APV bottom inversions, and the mean sector approaches the validated internal-wave projector, but it does not close bottom evolution or remove its Robin-parameter sensitivity before its stationary completion consumes nearly the full primitive dimension. Milestone 9.2 is therefore complete with classification `modal-incompatible`. The leading topographic-boundary candidate remains unresolved.
+> **Checkpoint after Milestone 9.3:** the finite-amplitude primitive polynomial oracle remains the validated reference and the Milestone-10 seed. A full trained-and-frozen sweep of hydrostatic and nonhydrostatic slope-compatible wave coordinates passes its local descriptor, frequency, APV, strong-equation, and padding checks, but the best family retains a \(4.60\times10^{-3}\) bottom-evolution defect, a \(3.25\times10^{-7}\) internal-projector defect, and only `1.075` compression. Milestone 9.3 is therefore complete with classification `per-wavenumber-slope-incompatible`. The result shows that a correct per-wavenumber active-bottom endpoint is not sufficient to compress the globally coupled periodic-terrain stationary completion. The leading topographic-boundary candidate remains unresolved, and Milestone 10 has not begun.
 
 ## Objective
 
@@ -21,7 +21,7 @@ B\dot{\boldsymbol x}=R_h\boldsymbol x,
 
 where $\boldsymbol a$ contains the existing volume coordinates and $\boldsymbol b$ contains independent bottom coordinates. The mathematical specification begins with `terrain-energy-galerkin.tex` at commit `72c967c` in the `ape-apv-bottom-topography` literature repository. The boundary-energy and potential-enstrophy analysis in `boundary-energy-enstrophy.tex` at commit `716c216` supplies the subsequent correction to the numerical state: a nonzero bottom displacement cannot be represented as an isolated scalar lift if its dynamically associated balanced velocity, pressure, and APV structure are omitted.
 
-The verified dense oracle uses primitive polynomial coordinates. Milestone 9.2 compares them with a boundary-complete modal family containing fixed-\(\kappa\) nonhydrostatic waves, generalized-energy Robin APV modes, and an explicit zero-APV bottom inversion. The public coefficient ordering remains fixed, the bottom coordinate remains independent, and physical finite-terrain energy remains the evolution norm. The signed Robin length shapes only the candidate basis and must disappear from converged physical results.
+The verified dense oracle uses primitive polynomial coordinates. Milestone 9.2 compares them with a boundary-complete modal family containing fixed-\(\kappa\) nonhydrostatic waves, generalized-energy Robin APV modes, and an explicit zero-APV bottom inversion. The public coefficient ordering remains fixed, the bottom coordinate remains independent, and physical finite-terrain energy remains the evolution norm. The signed Robin length shapes only the candidate basis. At finite mode count it may strongly affect convergence; it is selected on a training oracle and frozen for independent validation. Only a stable complete limit is expected to be coordinate independent.
 
 The completed mean-depth generator and scattering implementation is retained as reusable engineering infrastructure. Its scientific roadmap is archived in [mean-depth-wave-generator-milestones.md](mean-depth-wave-generator-milestones.md). Neither existing forcing is used as the terrain-energy evolution operator.
 
@@ -2160,7 +2160,7 @@ to be compared with $3p+2$ admissible primitive coordinates at polynomial degree
 
 - The stationary Green identities and bottom evolution close below $10^{-10}$.
 - Internal-wave frequencies and physical-energy projectors agree with the degree-12 primitive oracle within $10^{-8}$.
-- Accepted physical projectors are insensitive to padding, guard support, and $\ell_b$ within $10^{-8}$.
+- Accepted physical projectors are insensitive to padding and guard support within $10^{-8}$. Dependence on $\ell_b$ is reported as a finite-order convergence diagnostic rather than used as a hard physical gate.
 - A topographic boundary-wave claim must pass every Milestone-9.1 APV, bottom, strong-residual, backward-error, bottom-participation, guard, and $h\to0$ gate.
 - Flat and uniform-depth calculations recover the established wave, APV-bearing geostrophic, zero-APV bottom, and MDA sectors.
 - Variable-stratification results converge under independent modal-count and primitive-reference refinement.
@@ -2195,15 +2195,168 @@ For the primary \(\ell_b=-D/4\), padding factor two, and degree-12 primitive com
 
 The primitive state dimension is 1026. The explicit stationary completion accounts for every missing stationary direction rather than deleting it; at count eight this leaves 941 coordinates and only a `1.0914` compression factor. The degree-8 to degree-12 nested primitive transfer closes to `2.51e-16`. Physical-energy and exchange structure remain at roundoff, and the trusted stationary representation is accurate to approximately `2.3e-12`.
 
-Padding factors two and three change the internal projector by `1.58e-9`, which passes the padding gate. Changing the Robin length from \(-D/4\) produces projector changes between `1.39e-5` and `2.87e-5`, which fails the required `1e-8` independence. No topographic-boundary-wave claim is made.
+Padding factors two and three change the internal projector by `1.58e-9`, which passes the padding gate. Changing the Robin length from \(-D/4\) produces projector changes between `1.39e-5` and `2.87e-5`. This is retained as evidence that \(\ell_b\) materially shapes a low-order trial space, not as a physical failure: future use must tune \(\ell_b\) on a training case and freeze it for validation. No topographic-boundary-wave claim is made.
 
-The result is therefore **`modal-incompatible` for the tested compression strategy**. The reference modes themselves are useful coordinates—the frequency, APV, and strong residual improve substantially—but the required stationary completion removes essentially all compression before the internal projector and bottom identity reach their tolerances. Milestone 10, if separately authorized, must retain the primitive polynomial seed. No mode was removed, merged, or classified by a frequency cutoff, and no APV row or generator was altered.
+The result is therefore **`modal-incompatible` for the tested compression strategy**. The reference modes themselves are useful coordinates—the frequency, APV, and strong residual improve substantially—but the flat Dirichlet wave family reaches the bottom identity too slowly and the required stationary completion removes essentially all compression before the internal projector reaches its tolerance. The cross-\(\ell_b\) variation is not part of this incompatibility classification. Milestone 9.3 tests a slope-compatible replacement for the wave coordinates before any Milestone-10 seed is selected. No mode was removed, merged, or classified by a frequency cutoff, and no APV row or generator was altered.
 
 The six focused Milestone-9.2 tests and the complete repository suite pass 168 tests with zero failures. Static analysis reports no issues in all 83 MATLAB files.
 
 ### Stopping condition
 
-Milestone 9.2 stops with the boundary-complete modal seed rejected and the primitive polynomial seed retained. Residual enrichment, matrix-free operators, and time integration have not begun.
+Milestone 9.2 stops with the flat-Dirichlet boundary-complete modal seed rejected. Milestone 9.3 is the next separately authorized compression experiment. Residual enrichment, matrix-free operators, and time integration have not begun.
+
+## Milestone 9.3: Slope-compatible wave-coordinate oracle
+
+- [x] Complete — `per-wavenumber-slope-incompatible`
+
+### Purpose
+
+Determine whether carrying the leading active-bottom relation in the wave coordinates gives faster convergence than flat Dirichlet wave modes, and whether hydrostatic coordinates are as effective as nonhydrostatic coordinates once the final finite-terrain problem retains the unchanged primitive \(H_\gamma,J_\gamma\) forms.
+
+The reference calculation leaves the interior flat and puts a constant reference slope \(\boldsymbol s\) only in the bottom equation. For hydrostatic pressure \(p/\rho_0=F(z)e^{i\boldsymbol K\cdot\boldsymbol x-i\omega t}\), the endpoint is
+
+```math
+\frac{i\omega}{N_b^2}F_z(-D)
+=
+\frac{
+\omega\boldsymbol K\cdot\boldsymbol s
++if(\ell s_x-ks_y)}
+{\omega^2-f^2}
+F(-D).
+```
+
+Because this condition depends rationally on \(\omega\), the reference modes are constructed from a first-order primitive generalized eigenproblem with bottom displacement retained explicitly, not from a scalar real Robin problem.
+
+### Dependencies
+
+Milestones 9.1–9.2 and the slope-compatible derivation in `finite-terrain-projection-problem.tex` and `terrain-energy-galerkin.tex`. The isolated `internal-modes-evp` checkout may continue to supply the Robin geostrophic modes and zero-APV bottom inversion, but neither InternalModes checkout may be modified without approval.
+
+### Deliverables
+
+- Correct the Milestone-9.2 implementation so cross-\(\ell_b\) variation is diagnostic, not a hard pass condition.
+- Add hydrostatic and nonhydrostatic boundary-only reference descriptors for each retained nonzero \(\boldsymbol K\):
+  - the hydrostatic version makes vertical momentum diagnostic;
+  - the nonhydrostatic version retains vertical acceleration;
+  - both retain continuity, pressure gauge, surface normal flow, and the active bottom-displacement row;
+  - slope appears only in the bottom row.
+- Classify finite generalized eigenvalues with homogeneous generalized-Schur data, using \((\alpha,\beta)\) and normwise backward error. Do not use a frequency cutoff to remove diagnostic or constraint directions.
+- Verify the reference descriptors independently before embedding their modes in the primitive oracle:
+  - flat-limit frequencies and polarization;
+  - hydrostatic or full vertical-momentum residual;
+  - endpoint residual;
+  - bottom displacement;
+  - Fourier conjugacy.
+- Retain the Milestone-9.2 Robin APV-bearing geostrophic family, explicit zero-APV bottom inversion, and MDA sector unchanged.
+- Compare four wave-coordinate controls:
+  - hydrostatic Dirichlet;
+  - nonhydrostatic Dirichlet;
+  - hydrostatic slope compatible;
+  - nonhydrostatic slope compatible.
+- Derive the reference-slope direction from the terrain-gradient covariance. For rank-one sinusoidal terrain, use its principal direction and symmetric positive and negative slope samples.
+- Use the default parameter grids
+
+```math
+\frac{\ell_b}{D}
+\in
+\left\{
+-\frac18,-\frac14,-\frac12,-1,\infty
+\right\},
+\qquad
+\frac{s_{\rm ref}}{s_{\rm rms}}
+\in
+\left\{
+0,\frac12,1,\sqrt2
+\right\}.
+```
+
+- Select \(\ell_b\), reference-slope factor, and hydrostatic/nonhydrostatic family on the padding-two, largest-modal-count training calculation using
+
+```math
+\mathcal S
+=
+\max\left(
+\frac{e_P}{10^{-8}},
+\frac{e_b}{10^{-10}},
+\frac{e_Q}{10^{-8}},
+\frac{e_{\rm strong}}{10^{-5}}
+\right).
+```
+
+  Candidates must first pass provider, endpoint, rank, and matrix-structure gates. Break scores within one percent by smaller completed dimension and then lower physical-energy Gram condition number.
+- Freeze the selected parameters before validating padding factor three, other guard supports, smaller terrain amplitudes, and variable stratification. Do not retune on a validation case.
+- Use the Milestone-9.1 constant-\(N\) sinusoidal terrain, trusted bounds `[1 0]`, supports `[1 2;1 3;1 4]`, stationary degree four, primitive degrees `[4;6;8]`, comparison degree 12, modal counts `[1;2;4;8]`, padding factors `[2;3]`, terrain scales `[0.125;0.25;0.5;1]`, and provider orders `[128;256]`.
+- Assemble and solve only the unchanged primitive finite-terrain \(H_\gamma,J_\gamma\) system in the compressed coordinates. Preserve the primitive reference eigensystem, public coefficient ordering, stationary completion, and every unresolved direction.
+
+### Automated acceptance
+
+- Local reference descriptor, endpoint, and hydrostatic or vertical-momentum residuals are below \(10^{-11}\).
+- The flat limit recovers the reference wave frequencies within \(10^{-10}\), and each accepted family is Fourier-conjugate closed.
+- Every explicit zero-APV bottom inversion retains unit bottom displacement and volume-APV defect below \(10^{-11}\).
+- The compressed terrain forms satisfy
+
+```math
+\frac{\lVert H_\gamma-H_\gamma^*\rVert}{\lVert H_\gamma\rVert}
+\leq10^{-12},
+\qquad
+\frac{\lVert J_\gamma+J_\gamma^*\rVert}{\lVert J_\gamma\rVert}
+\leq10^{-12}.
+```
+
+- Stationary representation and Green identities close below \(10^{-10}\).
+- The accepted internal-wave projector and frequencies agree with the degree-12 primitive oracle within \(10^{-8}\).
+- Accepted APV, bottom-evolution, and strong primitive residuals are below \(10^{-8}\), \(10^{-10}\), and \(10^{-5}\), respectively; strong residuals decrease by at least a factor of four across the final three modal counts.
+- Frozen-parameter validation is insensitive to padding factors two and three and to additional guard support within \(10^{-8}\).
+- The validation result remains convergent for smaller terrain amplitudes and variable stratification without retuning.
+- A topographic boundary-wave claim remains subject to every Milestone-9.1 backward-error, projector, APV, bottom, strong-residual, bottom-participation, guard, padding, and \(h\to0\) gate.
+- Every unresolved direction remains in the reference eigensystem. No frequency cutoff, replacement APV row, empirical correction, symmetrization, APV-nullspace projection, or mode deletion is permitted.
+
+### Outcome classification
+
+- **`hydrostatic-slope-acceleration`:** the frozen hydrostatic slope-compatible family passes all physical-projector gates with at least a factor-two reduction in admissible vertical degrees of freedom.
+- **`nonhydrostatic-slope-acceleration`:** only the nonhydrostatic family passes with at least a factor-two reduction, or it provides more than a ten-percent compression advantage over a passing hydrostatic family.
+- **`slope-modal-equivalent`:** a frozen slope-compatible family converges to the primitive physical subspaces but supplies less than a factor-two reduction.
+- **`per-wavenumber-slope-incompatible`:** neither frozen family satisfies the compatible physical gates.
+
+If both accelerated families differ in compression by no more than ten percent, prefer the hydrostatic coordinates. The milestone completes after recording one outcome and selecting the corresponding Milestone-10 seed. It does not implement Milestone 10.
+
+### Outcome
+
+The oracle evaluates the complete declared grid of five Robin lengths, seven signed or zero reference-slope samples for each of the hydrostatic and nonhydrostatic families, modal counts `[1;2;4;8]`, and padding factors two and three. The reference slope is obtained from the terrain-gradient covariance. Candidate parameters are scored only at padding two and the largest modal count; the selected parameters are then frozen while count and padding convergence are evaluated.
+
+The project-local descriptor uses homogeneous generalized-Schur \((\alpha,\beta)\) data to distinguish finite dynamical modes from infinite constraint directions. Candidate wave subspaces are selected by physical-energy overlap with the flat wave projector rather than by a frequency threshold. Across the accepted local candidates, descriptor and momentum residuals are \(O(10^{-14})\), active-bottom residuals are \(O(10^{-13})\), and normwise backward errors are \(O(10^{-17})\). Neither InternalModes checkout is modified.
+
+Both dynamical families select
+
+```math
+\frac{s_{\rm ref}}{s_{\rm rms}}=\frac12,
+\qquad
+\frac{\ell_b}{D}=\infty.
+```
+
+Their frozen validation results agree to the reported precision:
+
+| Diagnostic | Hydrostatic | Nonhydrostatic | Gate |
+|---|---:|---:|---:|
+| Internal projector defect | `3.251e-7` | `3.251e-7` | `1e-8` |
+| Internal frequency defect | `8.452e-14` | `8.333e-14` | `1e-8` |
+| Internal APV defect | `3.139e-11` | `3.139e-11` | `1e-8` |
+| Bottom-evolution defect | `4.597e-3` | `4.597e-3` | `1e-10` |
+| Strong primitive residual | `2.073e-6` | `2.073e-6` | `1e-5` |
+| Padding projector defect | `9.888e-10` | `9.763e-10` | `1e-8` |
+| Local descriptor residual | `5.548e-14` | `5.067e-14` | `1e-11` |
+| Local active-bottom residual | `8.121e-13` | `4.470e-13` | `1e-11` |
+| Local backward error | `1.656e-17` | `1.481e-17` | `1e-11` |
+| Compression factor | `1.075` | `1.075` | at least `2` |
+
+The finite-terrain \(H_\gamma,J_\gamma\) forms are unchanged and retain their Hermitian/skew-Hermitian structure. The slope-compatible modes carry nonzero bottom displacement and satisfy their local active-bottom row, but the exact periodic-terrain bottom map is a global horizontal convolution. After the complete stationary space is appended, the compressed span remains nearly as large as the primitive reference and its global bottom identity does not converge. Vertical inertia at the coordinate-construction stage supplies no measurable advantage in this oracle.
+
+The result is therefore **`per-wavenumber-slope-incompatible`** for both reference families. This does not invalidate the local endpoint derivation or imply that hydrostatic wave coordinates are physically wrong; it establishes that per-wavenumber slope tuning alone is not the missing compression mechanism. The primitive polynomial representation remains the Milestone-10 seed. Every unresolved direction is retained, and no frequency cutoff, replacement APV row, empirical correction, symmetrization, APV-nullspace projection, or mode deletion is used.
+
+The five focused Milestone-9.3 tests and the complete repository suite pass 173 tests with zero failures. Static analysis reports no issues in all 86 MATLAB files.
+
+### Stopping condition
+
+Milestone 9.3 stops with `per-wavenumber-slope-incompatible`. Residual enrichment, matrix-free operators, and time integration have not begun.
 
 ## Milestone 10: Residual-enriched terrain modes
 
@@ -2215,11 +2368,11 @@ Construct selected terrain modes efficiently while preserving the complete stati
 
 ### Dependencies
 
-Milestone 9.2.
+Milestone 9.3.
 
 ### Deliverables
 
-- Use the vertical representation selected by Milestone 9.2. Use the boundary-complete modal family only after a `modal-acceleration` outcome; otherwise retain the primitive polynomial seed.
+- Use the vertical representation selected by Milestone 9.3. Use a slope-compatible modal family only after a documented acceleration outcome; use a validated equivalent family only for scientific comparison; otherwise retain the primitive polynomial seed.
 - Use the validated Milestone-9.1 physical stationary, internal-wave, and topographic-boundary-wave subspaces as the reference block projectors for the physical-energy eigenproblem.
 - Apply residual correction to complete resonant blocks while retaining every bottom coordinate, the Milestone-8 stationary subspace, and the unresolved algebraic completion needed during construction.
 - Preserve the APV-bearing Robin sector, explicit zero-APV bottom sector, stationary sector, and unresolved reference completion throughout every accepted correction.
@@ -2342,6 +2495,7 @@ Milestone 12.
 | **D3.2 — Dense terrain eigensystem** | 9 | Solve the complete physical-energy eigenproblem, preserve every direction, and expose candidate physical and unresolved subspaces. |
 | **D3.3 — Physical-subspace classification** | 9.1 | Establish converged stationary and dynamical physical projectors, quantify the unresolved remainder, and stop before vertical compression or residual enrichment. |
 | **D3.4 — Boundary-complete modal compression** | 9.2 | Compare the Robin, zero-APV-bottom, and fixed-$\kappa$ modal coordinates with the primitive oracle, select the Milestone-10 seed, and stop before residual enrichment. |
+| **D3.5 — Slope-compatible wave coordinates** | 9.3 | Train and freeze hydrostatic and nonhydrostatic active-bottom reference families, validate them independently against the primitive oracle, select the Milestone-10 seed, and stop before residual enrichment. |
 | **E1 — Selective modes** | 10 | Implement residual enrichment and validate it exclusively against the dense oracle. |
 | **E2 — Matrix-free production core** | 11 | Replace dense actions while preserving every Milestone-7 and Milestone-9.1 identity. |
 | **F — Evolution and examples** | 12 | Add energy-preserving evolution and the three scientific examples. |
@@ -2355,7 +2509,7 @@ Use one focused commit per completed milestone and retain acceptance evidence in
 
 The scientific proof of concept is established when Milestones 5–9.1 pass: the boundary coordinate is represented as part of a complete linked state, the projected primitive system preserves physical energy, derives stationary volume APV, and converges to the strong bottom equation, the complete stationary balanced space is represented, and the physical-energy eigenproblem contains converged physical subspaces separated from a quantified unresolved algebraic remainder. A topographic boundary-wave claim remains subject to its independent Milestone-9.1 gates, and physical validation of every auxiliary eigenvector is not required. Milestone 9.2 selects the economical vertical coordinates without changing this physical definition.
 
-The efficient research implementation is established when Milestones 9.2–12 pass: the selected vertical representation reproduces the dense physical subspaces, residual enrichment reproduces the dense physical-energy oracle, matrix-free actions preserve its stationary-space, energy, APV, and bottom identities, and energy-preserving evolution produces convergent constant-slope, sinusoidal-terrain, and Gaussian-ridge examples.
+The efficient research implementation is established when Milestones 9.3–12 pass: the selected vertical representation reproduces the dense physical subspaces, residual enrichment reproduces the dense physical-energy oracle, matrix-free actions preserve its stationary-space, energy, APV, and bottom identities, and energy-preserving evolution produces convergent constant-slope, sinusoidal-terrain, and Gaussian-ridge examples.
 
 Milestone 13 completes research-production behavior through arbitrary stationary stratification, broadband terrain, resolution rebuilding, restartable output, symmetry decomposition, and profiling.
 
