@@ -36,6 +36,7 @@ classdef WVTerrainEnergyGalerkin < handle
     % - Topic: Audit residual-enriched terrain modes
     % - Topic: Audit the production physical-state contract
     % - Topic: Audit complete production internal-wave coverage
+    % - Topic: Audit geometric-cascade isolation
     % - Topic: Audit the Branch-P discrete oracle
     % - Topic: Audit terrain compatibility
     % - Topic: Audit constrained evolution

@@ -1,6 +1,6 @@
 # Terrain-energy Galerkin milestones
 
-> **Checkpoint before Milestone 10.2.2:** the exact coupled Sylvester correction recovers the fixed-discretization zonal internal-wave projector in one update, but the resulting physical projector does not stabilize under primitive vertical refinement. Milestone 10.2.2 will determine whether the measured \(5.96\times10^{-4}\) drift is an unresolved horizontal or vertical geometric-scattering tail or evidence that the eight-dimensional block is not spectrally isolated. Milestone 10.3 and matrix-free work remain inactive.
+> **Checkpoint after Milestone 10.2.2:** the eight-dimensional zonal production-wave block is physically clean and spectrally isolated, and its geometric Fourier tail converges through scattering order five. Its vertical primitive tail decreases systematically but remains above tolerance at degree fourteen, so the milestone records `cascade-slow`. Milestone 10.3 and matrix-free work remain inactive until a revised vertical representation or higher-degree convergence study resolves this stop.
 
 ## Objective
 
@@ -2781,7 +2781,7 @@ The focused Milestone-10.2.1 suite passes five tests. The complete repository su
 
 ## Milestone 10.2.2: Geometric-cascade and spectral-isolation audit
 
-- [ ] Complete — blocking diagnostic gate
+- [x] Complete — `cascade-slow`; blocking diagnostic gate
 
 ### Purpose
 
@@ -2853,6 +2853,8 @@ The oracle will:
 
 The exact stationary space, primitive dense oracle, production coordinate contract, public coefficient layout, unresolved completion, and unmodified finite-terrain \(H_\gamma,J_\gamma\) forms remain fixed.
 
+The implementation also provides a resumable content-addressed cache through `cacheDirectory`. Cache keys include the complete scientific configuration, geometry, stratification sample, coefficient layout, terrain field, and implementation signature. Only signature-validated audit artifacts are restored. The cache is opt-in, is restricted to the repository's ignored `output/` directory, and performs no disk writes when disabled. Each primitive configuration is checkpointed independently so an interrupted high-degree run can resume without invoking Milestone 10.2.1 or rebuilding completed forms.
+
 ### Automated acceptance
 
 - Common-space transfer adjointness, physical-energy normalization, shell-energy accounting, and Fourier conjugacy close below \(10^{-11}\).
@@ -2872,6 +2874,39 @@ The exact stationary space, primitive dense oracle, production coordinate contra
 - **`cascade-nonconvergent`:** neither a stable physical projector nor systematic horizontal and vertical tail decay is established.
 
 Only `cascade-resolved` authorizes Milestone 10.3. `resonant-block-required` requires an explicit revision of the production block before further work. The other outcomes stop for analysis. No iterative coupled solver, bottom-wave classification, matrix-free operator, time integration, frequency cutoff, replacement APV row, empirical correction, symmetrization, APV-nullspace projection, or mode deletion is included.
+
+### Outcome
+
+The constant-\(N\) zonal oracle used resolution `[6 14 5]`, trusted band `[1 0]`, the native \(j=1,2\) wave families, sinusoidal terrain of amplitude \(2.5\,\mathrm{m}\), scattering orders one through five, primitive degrees \(8,10,12,14\), degree-sixteen comparison, seven terrain amplitudes, and padding factors two and three. The production block retains eight directions, does not require backward-error enlargement, and is separated from the complementary spectrum by \(5.16\times10^{11}\) times the combined normwise uncertainty. With nine exact stationary directions in an ambient space of dimension \(1151\), the stationary-plus-wave compression factor is \(67.7\).
+
+The final physical residuals are
+
+```text
+energy-scaled Ritz       2.74e-15
+projected volume APV     1.18e-12
+bottom evolution         1.01e-13
+strong primitive         1.16e-07
+padding projector        0
+padding tail difference  2.46e-15
+```
+
+The independent horizontal tail amplitudes at scattering orders one through five are
+
+```text
+7.58e-4, 1.73e-5, 3.23e-7, 4.66e-9, 0,
+```
+
+so the geometric Fourier cascade is resolved through the declared support. The fitted shell-amplitude onsets for orders one through five are \(1.000,2.000,3.000,3.999,4.987\), matching the expected powers of terrain amplitude. The independent vertical tail amplitudes at degrees \(8,10,12,14,16\) are
+
+```text
+2.77e-4, 3.72e-5, 5.03e-6, 6.35e-7, 0.
+```
+
+They decrease systematically by factors near seven to eight, but degree fourteen remains above the \(10^{-8}\) gate. The corresponding projector defect is \(6.83\times10^{-7}\). The worst drifting principal direction contains energy fractions \(0.999999\) in the declared internal-wave sector, \(5.74\times10^{-7}\) in higher flat waves, and \(5.83\times10^{-10}\) in the unresolved primitive remainder; stationary and non-tangent-bottom fractions are negligible.
+
+The outcome is therefore **`cascade-slow`**. The earlier \(5.96\times10^{-4}\) drift is not caused by loss of spectral isolation, a missing resonant block, padding, bottom physics, or an unresolved horizontal geometric cascade. It is a slowly converging vertical primitive tail. The two-dimensional control is not attempted because the approved cadence permits it only after `cascade-resolved`. Milestone 10.3 remains blocked. The next increment must decide whether a better vertically adapted coordinate family or a targeted higher-degree oracle can establish the same projector below \(10^{-8}\) without sacrificing economy.
+
+The focused Milestone-10.2.2 suite passes seven tests. The complete repository suite passes 218 tests with zero failures, and static analysis reports no issues in all 104 MATLAB files.
 
 ## Milestone 10.3: Complete bottom and topographic-wave sector
 

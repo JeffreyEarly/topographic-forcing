@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Scientific checkpoint before Milestone 10.2.2:** the exact coupled Sylvester correction recovers the fixed-discretization zonal production-wave projector in one update, but that projector drifts by \(5.96\times10^{-4}\) across primitive degrees \(8,10,12\). Milestone 10.2.2 will determine whether this is an unresolved horizontal or vertical geometric-scattering tail or evidence that the eight-dimensional block is not spectrally isolated. Milestone 10.3 remains inactive. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) and the [Milestone 10.2.2 specification](milestones.md#milestone-1022-geometric-cascade-and-spectral-isolation-audit) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Scientific checkpoint after Milestone 10.2.2:** the eight-dimensional zonal production-wave block is physically clean and separated from its complement by more than \(5\times10^{11}\) times backward uncertainty. Its horizontal geometric cascade converges through scattering order five, but its vertical primitive tail is \(6.35\times10^{-7}\) at degree fourteen, above the \(10^{-8}\) gate. The recorded outcome is `cascade-slow`; Milestone 10.3 remains inactive. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) and the [Milestone 10.2.2 outcome](milestones.md#milestone-1022-geometric-cascade-and-spectral-isolation-audit) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -361,9 +361,18 @@ Milestone 10.2 is exposed by `auditCompleteInternalWaveCoverage`. It maps the na
 
 Milestone 10.2.1 is exposed by `auditCoupledBlockInternalWaveCorrection`. Its exact complementary Sylvester solve acts on the complete invariant subspace and updates \(Y\) to \(Y+\Delta\), preserving the eight-coordinate production dimension. At primitive degree twelve it reaches Ritz residual \(1.69\times10^{-12}\), dense-projector defect \(4.03\times10^{-10}\), APV defect \(1.16\times10^{-9}\), and bottom defect \(3.50\times10^{-13}\). The correction equation and energy-orthogonality constraint close below \(5\times10^{-15}\), and padding factors two and three agree to \(4.63\times10^{-13}\). However, the nested physical projector drifts by \(5.96\times10^{-4}\) across degrees \(8,10,12\), so the result is `coupled-block-isolation-blocker`. The iterative stage was correctly skipped.
 
-The next documented gate is [Milestone 10.2.2](milestones.md#milestone-1022-geometric-cascade-and-spectral-isolation-audit). It will continue the flat production-wave projector in terrain amplitude while varying horizontal scattering order and vertical degree independently. Energy-resolved tail measures and spectral gaps will distinguish a resolvable eight-dimensional geometric tail, slow but systematic convergence, a larger resonant physical block, and failure of the primitive representation to isolate a continuum sector. This milestone is specified but not yet implemented.
+Milestone 10.2.2 is exposed by `auditGeometricCascadeIsolation`. It continues the flat production-wave projector in terrain amplitude while varying horizontal scattering order and vertical degree independently. The implemented oracle finds a resolved horizontal geometric cascade, a well-separated eight-dimensional physical block, and a systematically decreasing but unresolved vertical primitive tail. The resulting `cascade-slow` classification blocks Milestone 10.3 pending a vertically more economical representation or a successful higher-degree convergence gate.
 
-The focused Milestone-10.2.1 suite passes five tests. The complete repository suite passes 211 tests with zero failures, and `checkcode` reports no issues in all 101 MATLAB files.
+The diagnostic supports an optional resumable cache:
+
+```matlab
+audit = problem.auditGeometricCascadeIsolation( ...
+    cacheDirectory="output/milestone-10.2.2-cache");
+```
+
+Artifacts are content addressed, signature validated, and restricted to the ignored `output/` directory. Omitting `cacheDirectory` performs no cache writes.
+
+The focused Milestone-10.2.2 suite passes seven tests. The complete repository suite passes 218 tests with zero failures, and `checkcode` reports no issues in all 104 MATLAB files.
 
 ## Terrain-energy Galerkin flat oracle
 

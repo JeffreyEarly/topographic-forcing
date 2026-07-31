@@ -10,12 +10,34 @@ arguments
     options.trustedModeBounds (1,2) double = [Inf Inf]
     options.rejectTerrainNyquist (1,1) logical = false
     options.evaluationScales (:,1) double = zeros(0,1)
+    options.shouldAuditTangent (1,1) logical = true
 end
 
 context = buildContext(problem,polynomialDegree,quadratureOrder, ...
     options.horizontalLayout,options.paddingFactor,options.trustedModeBounds, ...
     options.rejectTerrainNyquist);
 flat = descriptorAtScale(context,0);
+evaluatedDirections = repmat(flat,numel(options.evaluationScales),1);
+for iScale = 1:numel(options.evaluationScales)
+    evaluatedDirections(iScale) = descriptorAtScale(context, ...
+        options.evaluationScales(iScale));
+end
+if ~options.shouldAuditTangent
+    audit = struct;
+    audit.status = "finite-terrain-evaluation-only";
+    audit.isCompatible = false;
+    audit.scope = "global-finite-terrain-evaluation-only";
+    audit.polynomialDegree = polynomialDegree;
+    audit.quadratureOrder = quadratureOrder;
+    audit.layout = context.layout;
+    audit.flatReference = flat;
+    audit.evaluationScales = options.evaluationScales;
+    audit.evaluatedDirections = evaluatedDirections;
+    audit.projection = context.projectionDiagnostics;
+    audit.diagnosis = "The primitive forms were assembled without the separate tangent audit.";
+    audit.nextScope = "caller-owned-finite-terrain-audit";
+    return
+end
 analytic = analyticTangent(context,flat);
 steps = tangentStep./(2.^(0:2));
 for iStep = 1:numel(steps)
@@ -35,12 +57,6 @@ strongAPV = strongAPVDiagnostics(context,flat,analytic);
 fourier = fourierDiagnostics(context,analytic,compatibility.apvCancellation);
 flatDiagnostics = flatReferenceDiagnostics(context,flat);
 structure = structureDiagnostics(context,flat,analytic);
-evaluatedDirections = repmat(flat,numel(options.evaluationScales),1);
-for iScale = 1:numel(options.evaluationScales)
-    evaluatedDirections(iScale) = descriptorAtScale(context, ...
-        options.evaluationScales(iScale));
-end
-
 requiredTolerance = struct("tangent",1e-9,"weak",1e-11,"energy",1e-11, ...
     "apv",1e-10,"enstrophy",1e-10,"bottom",1e-11,"conjugacy",1e-11);
 tangentPasses = tangentAgreement.maximumRelativeDefect <= requiredTolerance.tangent;
