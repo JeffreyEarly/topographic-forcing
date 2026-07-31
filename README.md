@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Milestone-10 scientific checkpoint:** repeated exact-residual enrichment is classified `residual-enrichment-acceleration`. Starting from the globally dressed Milestone-9.4 seed, three corrections reproduce the independent dense internal-wave projector at numerical precision while reducing the full-scale Ritz, bottom, and strong residuals to `1.37e-11`, `1.55e-12`, and below `2e-10`. The exact stationary-plus-dynamical representation uses 165 directions inside the 1027-dimensional primitive ambient space, for compression factor `6.22`. The primitive eigensystem and unresolved complement remain intact, and active bottom directions remain unresolved rather than being deleted or promoted without the Milestone-9.1 continuation gates. Milestone 11 has not begun. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Milestone-10.2 scientific checkpoint:** the declared production waves map cleanly into the primitive oracle, and the full degree-12 zonal wave projector can be recovered, but the present multiblock residual-enrichment algorithm is neither robust under vertical refinement nor economical. The required 2D control localizes a nonconvergent meridional frequency block. Milestone 10.3 and all production evolution work remain blocked pending a Milestone-10.2 correction reformulation. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -338,6 +338,28 @@ The first-order block calculation uses \(H_1,J_1,R_1,G_1\) only to choose coordi
 The analytic and centered \(H_1,J_1,R_1\) calculations agree below `1e-9`; the complementary correction, Fourier selection, active first-order bottom equation, and stationary Green identities close below `1e-10`. Dressed weak and bottom residuals have observed order `2.000`, and the dressed physical projector improves by at least a factor of two over the same undressed selective span. The full-amplitude internal APV defect is `1.70e-11`, but the physical projector and strong residual still exceed the Milestone-9.1 gates. The result is therefore `global-dressing-seed`: it authorizes repeated exact-residual enrichment as a separate Milestone 10, not a finite-amplitude mode claim.
 
 The complete repository suite passes 181 tests with zero failures, and `checkcode` reports no issues in all 89 MATLAB files.
+
+## Production physical-state contract
+
+Milestone 10.1 declares the coordinates intended for forward evolution without replacing the primitive polynomial oracle:
+
+```matlab
+audit = problem.auditProductionPhysicalStateContract( ...
+    trustedModeBounds=[1 0], ...
+    supportModeBounds=[1 0;1 1;1 2], ...
+    waveModeIndices=1, ...
+    apvModeIndices=[0;1], ...
+    primitivePolynomialDegrees=[8;16;24], ...
+    paddingFactors=[2;3]);
+```
+
+For each retained nonzero horizontal wavenumber, the state contains native WaveVortexModel fixed-\(\kappa\) wave pairs and APV-bearing balanced modes plus one existing complete zero-APV bottom inversion. At \(\kappa=0\), it contains the native inertial and MDA sectors plus one compatible mean-bottom coordinate. The audit reports each coordinate’s family, component, units, conjugate partner, native coefficient index, and primitive-oracle image.
+
+The reduced acceptance oracle contains 16 coordinates: four internal-wave, four APV-balanced, two bottom-inversion, four inertial, one MDA, and one mean-bottom coordinate. Constant and variable stratification, both antialias conventions, vertical degrees \(8,16,24\), nested support, and padding factors two and three pass. Round trips and energy normalization close below \(5\times10^{-16}\), zero-APV defects remain below \(4\times10^{-13}\), native-mode matches remain below \(6\times10^{-14}\), and primitive embeddings close below \(2.5\times10^{-11}\). The result is `complete-production-state-contract`; it authorizes Milestone 10.2 only. The complete repository suite passes 198 tests with zero failures, and `checkcode` reports no issues in all 95 MATLAB files.
+
+Milestone 10.2 is exposed by `auditCompleteInternalWaveCoverage`. It maps the native production waves into the primitive oracle, dresses complete signed-frequency blocks, enriches them with exact finite-terrain residuals, and compares a recycled joint trial space with independent-block controls. The required zonal and two-dimensional controls return `internal-wave-numerical-blocker`: the degree-12 zonal physical projector is recovered accurately, but refinement is not robust and joint enrichment saves no directions; in the 2D control one of three horizontal frequency blocks fails to converge. These results block Milestone 10.3 without changing the validated production contract or the physical \(H_\gamma,J_\gamma\) forms.
+
+The focused Milestone-10.2 suite passes eight tests. The complete repository suite passes 206 tests with zero failures, and `checkcode` reports no issues in all 98 MATLAB files.
 
 ## Terrain-energy Galerkin flat oracle
 

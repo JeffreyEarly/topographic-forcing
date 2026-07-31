@@ -1,10 +1,10 @@
 # Terrain-energy Galerkin milestones
 
-> **Checkpoint after Milestone 10:** repeated exact finite-amplitude residual correction is verified as `residual-enrichment-acceleration`. Starting from the global first-order terrain-dressed seed, three corrections reproduce the independent dense internal-wave projector at numerical precision while reducing the energy-scaled Ritz, bottom-evolution, and strong primitive residuals below `1.4e-11`, `1.6e-12`, and `2e-10`. The complete stationary-plus-dynamical representation uses 165 directions inside the 1027-dimensional primitive ambient space, for compression factor `6.22`. Every unresolved direction remains retained, the leading topographic-boundary candidates remain unresolved, and Milestone 11 has not begun.
+> **Checkpoint after Milestone 10.2:** the production physical-state contract remains valid, and complete zonal and two-dimensional wave-coverage controls have been run. The present multiblock residual-correction algorithm is a numerical blocker: it is not stable under the required refinement and provides no trial-space economy in the zonal control. Milestone 10.3 and matrix-free work remain inactive. The next work must reformulate Milestone 10.2 without altering the physical production state or the finite-terrain weak forms.
 
 ## Objective
 
-Develop `WVTerrainEnergyGalerkin`, a boundary-dynamical Galerkin system for the linear rotating Boussinesq equations over stationary bottom topography. The formulation is linear in flow amplitude and exact in the resolved terrain. The immediate goal is to construct one adjoint-consistent Fourier–Galerkin projection that conserves physical energy, enforces projected bottom evolution, and either conserves projected APV exactly or converges to stationary APV on a trusted physical band. Pressure remains a Lagrange multiplier during construction and is removed only from the validated reduced evolution.
+Develop an economical, complete wave–vortex model for the linear rotating Boussinesq equations over stationary bottom topography. The formulation is linear in flow amplitude and exact in the resolved terrain. The immediate goal is to define a finite production state from explicit internal-wave, APV-bearing balanced, zero-APV bottom, and MDA coordinates; construct stationary, internal-wave, and topographic-wave projectors that exhaust that state; and evolve arbitrary production states while conserving physical finite-terrain energy and preserving the validated projected APV and bottom laws. The primitive polynomial representation remains the independent construction and verification oracle rather than the intended online state.
 
 The augmented state begins with
 
@@ -2556,17 +2556,17 @@ The internal Ritz residual decreases from `2.13e-6` for the globally dressed see
 
 The active directions emerging from the flat zero-frequency block remain explicitly retained as unresolved topographic-boundary candidates. Milestone 10 does not promote them to physical modes because it does not repeat the complete terrain-amplitude continuation required by Milestone 9.1. Their omission from the validated internal projector does not delete them from the primitive ambient eigensystem or unresolved complement.
 
-The measured outcome is `residual-enrichment-acceleration`. Milestone 11 is now scientifically authorized but remains separately scoped and has not begun.
+The measured outcome is `residual-enrichment-acceleration` for the selected internal-wave block. This proves that global dressing followed by exact residual enrichment is an effective coordinate construction, but it does not define an economical complete state for arbitrary forward evolution. Milestone 10.1 must define that production state before matrix-free work begins.
 
 The nine focused Milestone-10 tests and the complete repository suite pass 190 tests with zero failures. Static analysis reports no issues in all 92 MATLAB files.
 
-## Milestone 11: Matrix-free terrain-energy operators
+## Milestone 10.1: Production physical-state contract
 
-- [ ] Complete
+- [x] Complete — blocking gate passed
 
 ### Purpose
 
-Replace the dense physical-energy oracle with adjoint-consistent operator actions while preserving the complete stationary space, physical/remainder classification, APV map, and bottom maps.
+Define the complete finite-dimensional state that the forward wave–vortex model will evolve. The dense primitive polynomial system remains an overresolved independent oracle and is not the online state.
 
 ### Dependencies
 
@@ -2574,64 +2574,327 @@ Milestone 10.
 
 ### Deliverables
 
-- Replace dense $H_\gamma$, $J_\gamma$, stationary-inclusion, APV, and bottom-map matrices with field reconstruction, oversampled terrain multiplication, and adjoint projection.
-- Preserve the explicit bottom coefficients throughout packing, application, and reconstruction.
-- Use the flat physical-energy operator, complete flat stationary space, and Milestone-9.4 global dressed blocks as preconditioning data.
-- Keep diagnostic pressure recovery outside ordinary operator applications.
-- Record the primitive ambient representation, dressing/enrichment construction version, and unresolved-energy projector.
+- For every retained horizontal wavenumber, construct fixed-$\kappa$ energy-orthogonal flat nonhydrostatic wave pairs, APV-bearing balanced inversion coordinates, one explicit zero-APV bottom inversion, and the compatible $\kappa=0$ MDA sector.
+- Declare the production dimension
+
+  ```math
+  N_{\rm prod}
+  =
+  \sum_{\boldsymbol K\ne\boldsymbol 0}
+  \left[
+  2J_{\rm w}(\boldsymbol K)
+  +
+  J_{\rm q}(\boldsymbol K)
+  +
+  1
+  \right]
+  +
+  2J_{\rm io}
+  +
+  N_{\rm MDA}
+  +
+  N_{\rm mean,b},
+  ```
+
+  where \(J_{\rm io}=1+J_{\rm w}(\boldsymbol 0)\) counts the retained zero-horizontal-wavenumber inertial vertical structures and \(N_{\rm mean,b}=1\) is the compatible mean-bottom coordinate.
+
+- Separate trusted prognostic modes, outer guard modes used only for dealiased evaluation, and deliberately discarded primitive-oracle modes.
+- Map every production coordinate into the primitive oracle and retain the public WaveVortexModel coefficient and Fourier-conjugacy conventions.
+- Treat Robin length and local reference slope only as historical or optional coordinate-shaping parameters. They are not part of the production physical definition.
+- Add a public audit that reports the degree-of-freedom budget, physical family, units, conjugate partner, native WaveVortexModel index, and primitive-oracle image of every production coordinate.
 
 ### Automated acceptance
 
-- Matrix-free actions reproduce the dense physical-energy oracle within $10^{-10}$.
-- Physical-energy adjoint identities close within $10^{-12}$.
-- No diagnostic pressure solve occurs during an operator application.
-- Bottom coefficients remain explicit throughout packing, application, and reconstruction.
-- Matrix-free stationary-space, projected-APV, bottom-evolution, energy, physical-projector, and unresolved-energy diagnostics reproduce the dense results and their Milestone-9.1 classification.
+- Coordinate counts, family counts, conjugacy maps, and the declared total dimension close exactly.
+- Flat reconstruction/projection round trips, endpoint values, APV classification, and physical-energy normalization close within $10^{-12}$.
+- The production flat wave, balanced, bottom, and MDA projectors converge toward the trusted primitive-oracle projectors under independent vertical and horizontal refinement.
+- Guard modes do not appear in the prognostic layout and discarded oracle coordinates are reported only as truncation error.
+- No coordinate inside the declared production state is labelled unresolved.
 
-## Milestone 12: Energy-preserving evolution and scientific examples
+Failure blocks all finite-terrain production-basis work.
+
+### Implementation result
+
+The public `auditProductionPhysicalStateContract` diagnostic constructs the production layout without changing the existing public `horizontalLayout` or `stateLayout`. Native WaveVortexModel coefficients define the fixed-\(\kappa\) wave, inertial, balanced, and MDA coordinates. The existing complete balanced bottom inversion supplies the independent nonzero-wavenumber bottom coordinate, and the compatible linear mean-bottom profile supplies the \(\kappa=0\) bottom value. Their continuous profiles are energy normalized and mapped into the independent primitive polynomial oracle; neither Robin nor slope-compatible coordinates enter the contract.
+
+For the reduced trusted band \(|k|\le1,\ell=0\), one retained wave mode, and balanced labels \(j\in\{0,1\}\), the complete accounting is:
+
+| Flat physical family | Complex coordinates |
+|---|---:|
+| Internal-wave | 4 |
+| APV-bearing balanced | 4 |
+| Zero-APV bottom inversion | 2 |
+| Inertial | 4 |
+| MDA | 1 |
+| Compatible mean-bottom | 1 |
+| **Total** | **16** |
+
+Fourier conjugacy makes these 16 complex signed-layout entries equivalent to 16 independent real degrees of freedom. No coordinate is labelled unresolved. Guard modes are returned separately, and the primitive directions not used by the production contract are reported only as discarded oracle coordinates.
+
+Constant-stratification calculations with antialiasing disabled and enabled, together with an arbitrary-stratification control, all return `complete-production-state-contract`. Across those controls, reconstruction round trips and energy normalization close below \(5\times10^{-16}\), endpoint and zero-APV defects remain below \(4\times10^{-13}\), the native WaveVortexModel mode match is below \(6\times10^{-14}\), and the highest-degree primitive embedding defect is below \(2.5\times10^{-11}\). Independent vertical degrees \(8,16,24\), three nested horizontal supports, and padding factors two and three satisfy the convergence gates; support and padding Gram differences remain below \(5.3\times10^{-14}\).
+
+The focused Milestone-10.1 suite passes eight tests for constant and variable stratification and both antialias conventions. The complete repository suite passes 198 tests with zero failures, and static analysis reports no issues in all 95 MATLAB files.
+
+## Milestone 10.2: Complete internal-wave coverage
+
+- [x] Complete — `internal-wave-numerical-blocker`; Milestone 10.3 remains blocked
+
+### Purpose
+
+Extend the successful Milestone-10 construction from one four-dimensional internal-wave block to every internal-wave degree of freedom declared by Milestone 10.1.
+
+### Dependencies
+
+Milestone 10.1.
+
+### Deliverables
+
+- Insert the exact finite-terrain stationary space before constructing dynamical coordinates.
+- Globally dress every complete flat signed-frequency block using the verified $H_1,J_1,R_1,G_1$ derivatives.
+- Apply repeated exact finite-amplitude residual enrichment with the unchanged $H_\gamma,J_\gamma$ forms.
+- Expand every backward-error-inseparable or newly resonant block before applying a correction.
+- Recycle shared correction directions across neighboring horizontal and vertical blocks so the total production span is not the direct sum of independently overbuilt trial spaces.
+- Preserve Fourier conjugacy, the complete stationary space, every declared bottom coordinate, and the primitive oracle throughout construction.
+- Construct the complete internal-wave projector $\mathcal W_{\rm int}$ and associate every declared flat wave coordinate with one converged finite-terrain invariant subspace.
+
+### Automated acceptance
+
+- The internal-wave dimension equals the declared $2J_{\rm w}$ total and remains stable under support, padding, and primitive-oracle refinement.
+- Every accepted block satisfies the Milestone-9.1 frequency, physical-energy projector, APV, bottom, strong-equation, guard, and padding gates.
+- The union of accepted blocks is $H_\gamma$-orthogonal to the exact stationary space, conjugate closed, and internally complete within $10^{-10}$.
+- No retained internal-wave coordinate remains in an unresolved production remainder.
+- Recycled enrichment reduces the total trial dimension relative to independently enriched blocks and reproduces the matched dense primitive projector within $10^{-9}$.
+
+Failure blocks the bottom and topographic-wave construction.
+
+### Implementation result
+
+The public `auditCompleteInternalWaveCoverage` diagnostic maps every declared native WaveVortexModel wave into the unchanged primitive polynomial oracle, groups exact signed-frequency degeneracies, applies the verified global first-order dressing, and compares joint residual enrichment with independently enriched block controls. Secondary Fourier/branch columns are generated through the declared production conjugacy map. Bottom and unresolved primitive directions remain in the ambient reference space but are not used as selective Milestone-10.2 seeds.
+
+The requested split controls retain their complete declared dimensions:
+
+| Control | Declared internal-wave coordinates | Frequency blocks | Result |
+|---|---:|---:|---|
+| Zonal trusted band, \(j=1,2\) | 8 | 2 | The degree-12 physical projector passes, but vertical refinement is not stable and joint enrichment saves no directions |
+| \(\lvert k\rvert,\lvert\ell\rvert\le1\), \(j=1\) | 16 | 3 | Two blocks converge; the meridional-axis block fails the residual/projector gates |
+
+For the degree-12 zonal reference, the eight-dimensional dense target is recovered with energy-scaled Ritz residual \(9.81\times10^{-12}\), projected-APV defect \(1.16\times10^{-9}\), bottom defect \(7.12\times10^{-12}\), strong primitive residual \(3.23\times10^{-6}\), and numerical-zero dense-projector and frequency defects. The joint and independent constructions both require 48 trial directions; their physical projector difference is \(6.59\times10^{-10}\). Thus the required correction recycling produces no dimension reduction. At primitive degree eight, the multiblock iteration ceases to track the dense drift: its final projector defect is \(1.42\times10^{-2}\), giving nested excess \(1.42\times10^{-2}\).
+
+The two-dimensional control separates sixteen coordinates into three native-frequency blocks. The first and third independent blocks converge, whereas the intermediate meridional-axis block reaches projector defect \(1\) and residual \(7.76\times10^{-2}\). The resulting recycled joint span is not a physical invariant subspace. This is a numerical limitation of the present flat-frequency residual correction and block-recycling strategy; it is not evidence that the corresponding continuum internal-wave family is absent.
+
+The wider 2D contract also establishes two provider-level reproduction floors: \(1.92\times10^{-12}\) for the embedded zero-APV diagnostic and \(2.94\times10^{-10}\) for re-evaluating native modes on diagonal wavenumbers. The production-contract roundoff tolerances are therefore \(5\times10^{-12}\) and \(5\times10^{-10}\), respectively. No physical finite-terrain gate is relaxed.
+
+The measured outcome is `internal-wave-numerical-blocker`. Milestone 10.3 must not begin. A future Milestone-10.2 reformulation needs a robust complete-block correction—most likely a projected Jacobi–Davidson or exact complementary solve—and an economical thick-restart/recycling rule that converges under vertical refinement and reduces the joint span below the independent sum without using dense eigenvectors as construction coordinates.
+
+The focused Milestone-10.2 suite passes eight tests. The complete repository suite passes 206 tests with zero failures, and static analysis reports no issues in all 98 MATLAB files.
+
+## Milestone 10.3: Complete bottom and topographic-wave sector
+
+- [ ] Complete — blocking gate
+
+### Purpose
+
+Partition every declared flat bottom and zero-frequency coordinate into the exact finite-terrain stationary space or a converged dynamical topographic-wave space.
+
+### Dependencies
+
+Milestone 10.2.
+
+### Deliverables
+
+- Begin with the complete physical flat zero-frequency block: APV-bearing balanced states, explicit zero-APV bottom inversions, and MDA states.
+- Construct the exact finite-terrain bottom-tangent stationary inclusion $G_{\gamma,N}$.
+- Define the $H_\gamma$-orthogonal non-tangent bottom complement without using a frequency threshold.
+- Use the verified first-order zero-block splitting only as the preconditioner for global dressing and exact residual enrichment of the complete non-tangent block.
+- Continue the resulting invariant subspaces in terrain amplitude and report backward uncertainty, bottom participation, projected APV, bottom evolution, strong equations, padding, guard support, and the $h\to0$ limit.
+- Retain complete degenerate pairs and Fourier conjugates throughout. Do not promote or delete individual small-frequency eigenvectors.
+
+### Automated acceptance
+
+- Every declared bottom and zero-frequency coordinate belongs to either the exact stationary space or the converged topographic-wave space.
+- Stationary and dynamical-bottom projectors are $H_\gamma$-orthogonal, conjugate closed, and dimensionally complete within $10^{-10}$.
+- Every claimed topographic-wave frequency exceeds its backward uncertainty by at least $10^3$.
+- Accepted topographic subspaces satisfy the Milestone-9.1 APV, bottom, strong-equation, guard, padding, bottom-participation, and terrain-amplitude gates.
+- The topographic-wave projector approaches the appropriate flat stationary bottom block continuously as $h\to0$.
+- No residual small-frequency or unclassified bottom direction remains in the production state.
+
+Failure blocks assembly of the complete forward basis.
+
+## Milestone 10.4: Complete production-basis gate
+
+- [ ] Complete — principal blocking gate
+
+### Purpose
+
+Combine the stationary, internal-wave, and topographic-wave sectors into one complete and economical state for arbitrary linear forward evolution.
+
+### Dependencies
+
+Milestone 10.3.
+
+### Deliverables
+
+- Assemble
+
+  ```math
+  \mathcal V_{\rm prod}
+  =
+  \mathcal G_\gamma
+  \mathbin{\oplus_{H_\gamma}}
+  \mathcal W_{\rm int}
+  \mathbin{\oplus_{H_\gamma}}
+  \mathcal W_{\rm topo}.
+  ```
+
+- Require the production projectors to satisfy
+
+  ```math
+  P_{\rm g}
+  +
+  P_{\rm int}
+  +
+  P_{\rm topo}
+  =
+  I_{\rm prod}.
+  ```
+
+- Compare the complete production projector with the trusted physical part of the overresolved primitive oracle:
+
+  ```math
+  \left\|
+  (I-P_{\rm prod})
+  P_{\rm oracle,trusted}
+  \right\|_{H_\gamma}
+  \longrightarrow0.
+  ```
+
+- Test arbitrary conjugate-symmetric production states, not only individual eigenmodes.
+- Report deliberately omitted oracle energy as spectral truncation error rather than unresolved production energy.
+- Diagonalize the complete reduced physical-energy pencil and record the stationary, internal, and topographic mode counts.
+
+### Automated acceptance and exits
+
+- The three physical projectors are pairwise $H_\gamma$-orthogonal, conjugate closed, and complete within $10^{-10}$.
+- Arbitrary production states reconstruct in the primitive oracle and return to production coordinates within $10^{-10}$.
+- The complete terrain eigensystem has real frequencies, $H_\gamma$-orthogonality, projected APV, bottom evolution, and strong residuals at the existing physical tolerances.
+- Production observables and projectors converge independently with wave count, APV count, horizontal support, guard width, padding, and primitive-oracle degree.
+- The production state uses no unresolved coordinate and achieves at least factor-two dimension reduction relative to the primitive oracle at matched trusted-band accuracy.
+
+Classify the result as:
+
+- `complete-basis-acceleration` — every gate passes with at least factor-two reduction;
+- `complete-basis-equivalent` — physical completeness passes but the economy target fails;
+- `complete-basis-blocker` — dimensional or physical completeness fails.
+
+Only `complete-basis-acceleration` authorizes Milestone 11.
+
+## Milestone 11: Matrix-free production basis
 
 - [ ] Complete
 
 ### Purpose
 
-Evolve the terrain-energy system and demonstrate the physical role of its stationary and topographic boundary modes.
+Replace dense production-basis construction and operator application with adjoint-consistent matrix-free algorithms without returning to the primitive ambient state online.
+
+### Dependencies
+
+Milestone 10.4 with outcome `complete-basis-acceleration`.
+
+### Public interface
+
+Introduce an immutable basis object:
+
+```matlab
+basis = WVTerrainEnergyBasis.fromGalerkin(problem, ...
+    trustedModeBounds=trustedModeBounds, ...
+    waveModeIndices=waveModeIndices, ...
+    apvModeIndices=apvModeIndices, ...
+    guardModeBounds=guardModeBounds, ...
+    paddingFactor=paddingFactor);
+```
+
+`WVTerrainEnergyGalerkin` remains the scientific construction and oracle object. `WVTerrainEnergyBasis` stores the production layout, exact reduced forms, terrain modes, family projectors, reconstruction maps, truncation metadata, and construction version.
+
+### Deliverables
+
+- Apply $H_\gamma,J_\gamma,Q_\gamma,B,R_h$, and the stationary inclusion through field reconstruction, common dealiased terrain multiplication, and adjoint restriction.
+- Reuse global dressing, recycled residual-enrichment spaces, and complete resonant blocks during construction.
+- Use dense reduced diagonalization at oracle sizes and symmetry/Bloch-block iterative eigensolves at production sizes.
+- Preserve explicit bottom coordinates throughout packing, application, projection, and reconstruction.
+- Keep diagnostic pressure recovery outside ordinary operator applications.
+
+### Automated acceptance
+
+- Matrix-free actions reproduce the complete dense production oracle within $10^{-10}$.
+- Hermitian and skew-Hermitian identities close within $10^{-12}$.
+- Stationary, internal-wave, topographic-wave, and complete-basis projectors agree with Milestone 10.4 within $10^{-9}$.
+- Matrix-free construction retains the Milestone-10.4 dimension reduction and performs no global primitive-matrix assembly online.
+- No diagnostic pressure solve occurs during an operator application.
+
+## Milestone 12: Forward wave–vortex evolution
+
+- [ ] Complete
+
+### Purpose
+
+Evolve arbitrary states in the complete production basis.
 
 ### Dependencies
 
 Milestone 11.
 
-### Deliverables
+### Public interface
 
-- Support exact phase evolution in a converged terrain-mode basis.
-- Support a physical-energy midpoint or Cayley evolution of
+Add a separate mutable model:
 
-```math
-H_\gamma\dot{\boldsymbol A}
-=
-J_\gamma\boldsymbol A
+```matlab
+model = WVTerrainEnergyModel.fromBasis(basis, ...
+    Ap=Ap, ...
+    Am=Am, ...
+    A0=A0, ...
+    bottomDisplacement=etaB, ...
+    time=t0);
 ```
 
-for broad states.
-- Add constant-slope, sinusoidal-terrain, and Gaussian-ridge examples showing wave scattering, stationary-space participation, topographic boundary-mode excitation, bottom displacement, APV, and physical energy.
-- Report the unresolved physical-energy fraction whenever an initial state has support in $\mathcal R_N$.
-- Report the selected Milestone-9.2 vertical representation and verify that observable fields are insensitive to the Robin length whenever the modal representation is used.
-- Compare dense exponentiation, modal phase evolution, and broad-state evolution at reference resolution.
+The basis and Galerkin construction remain immutable. The model owns time, production coefficients, integration configuration, diagnostics, and output callbacks.
+
+### Deliverables
+
+- Support complete terrain-mode phase evolution as the primary path.
+- Support the physical-energy Cayley step
+
+  ```math
+  \left(
+  H_\gamma-\frac{\Delta t}{2}J_\gamma
+  \right)
+  \boldsymbol A^{n+1}
+  =
+  \left(
+  H_\gamma+\frac{\Delta t}{2}J_\gamma
+  \right)
+  \boldsymbol A^n
+  ```
+
+  as the validation and fallback path.
+- Convert to and from WaveVortexModel `Ap`, `Am`, `A0`, and bottom-displacement conventions.
+- Reconstruct physical fields and expose stationary, internal-wave, topographic-wave, physical-energy, APV, bottom-displacement, and truncation diagnostics.
+- Keep pressure recovery diagnostic and absent from ordinary evolution.
 
 ### Automated acceptance
 
-- Dense exponentiation, phase evolution, and Cayley evolution agree at reference resolution.
-- Physical energy is conserved to solver tolerance.
-- Projected APV either closes exactly or converges at the validated trusted-band rate; bottom evolution closes.
-- The stationary, internal-wave, topographic-boundary-wave, and unresolved projections agree with the dense Milestone-9.1 oracle.
-- Example errors converge with time step and spatial resolution.
+- Phase evolution, Cayley evolution, and dense matrix exponentiation agree within $10^{-10}$ at reference resolution.
+- Arbitrary production states round-trip through native WaveVortexModel coefficients and reconstructed fields within $10^{-10}$.
+- Physical energy is conserved to solver tolerance, projected APV remains stationary, and bottom evolution closes.
+- Stationary coefficients remain constant and internal/topographic mode energies agree between evolution paths.
+- Ordinary phase and Cayley evolution perform no pressure solve.
 
-## Milestone 13: Research-production behavior
+## Milestone 13: Forward scientific benchmarks and examples
 
 - [ ] Complete
 
 ### Purpose
 
-Extend the validated terrain-energy formulation to repeatable research calculations without changing its scientific definition.
+Demonstrate that the complete forward model reproduces the expected stationary, internal-wave, topographic-wave, and scattering dynamics.
 
 ### Dependencies
 
@@ -2639,17 +2902,46 @@ Milestone 12.
 
 ### Deliverables
 
-- Add arbitrary stationary stratification, broadband terrain, resolution rebuilding, restartable output, construction and evolution profiling, and symmetry or Bloch decomposition.
-- Retain the pressure-free online path after the terrain-energy operator has been constructed.
-- Persist the physical-energy basis, selected vertical representation, Robin-length convention when applicable, stationary and wave classification, unresolved remainder, bottom-coordinate convention, basis metadata, and construction version.
-- Benchmark construction, memory, eigenanalysis, reconstruction, and online evolution at three resolutions.
+- Add flat and uniform-depth recovery benchmarks.
+- Add stationary APV-bearing and bottom-buoyancy examples.
+- Add an initialized topographic boundary-wave example.
+- Add sinusoidal-terrain internal-wave scattering and Gaussian-ridge packet examples.
+- Show physical fields, modal-family energy transfers, bottom displacement, projected APV, physical energy, and truncation error.
+- Compare the production model with the dense primitive oracle at reduced resolution and compare phase with Cayley evolution.
 
 ### Automated acceptance
 
-- Repeated construction is deterministic and resolution rebuilding preserves conjugacy, invariant normalization, APV classification, and bottom participation.
-- Restart continuation matches uninterrupted evolution to $10^{-10}$ in invariant-normalized coefficients.
-- Broadband and variable-stratification calculations retain every applicable Milestone-7 and Milestone-9.1 gate.
-- Benchmarks report construction time, peak stored state, operator-application time, iteration counts, and reconstruction time.
+- Flat and uniform-depth forward solutions recover the corresponding WaveVortexModel solutions within $10^{-10}$.
+- Stationary examples remain stationary; topographic-wave examples retain their converged invariant subspaces.
+- Sinusoidal and Gaussian calculations converge with production-mode count, support, guard width, padding, and time step.
+- Physical energy, projected APV, and bottom evolution retain their Milestone-12 gates.
+- Every example reports convergent truncation error and uses no unresolved production subspace.
+
+## Milestone 14: Research-production behavior
+
+- [ ] Complete
+
+### Purpose
+
+Extend the validated linear forward model to repeatable research calculations without changing its scientific definition.
+
+### Dependencies
+
+Milestone 13.
+
+### Deliverables
+
+- Add arbitrary stationary stratification, broadband terrain, resolution rebuilding, deterministic basis reconstruction, restartable NetCDF output, and symmetry or Bloch decomposition.
+- Persist the physical truncation, terrain basis, family classification, bottom-coordinate convention, construction version, and evolution method.
+- Add construction, eigensolve, reconstruction, phase-evolution, and Cayley-evolution profiling at three resolutions.
+- Retain the pressure-free online path and the common dealiased terrain-product convention.
+
+### Automated acceptance
+
+- Repeated construction is deterministic and resolution rebuilding preserves conjugacy, physical normalization, family dimensions, projectors, APV classification, and bottom participation.
+- Restart continuation matches uninterrupted evolution within $10^{-10}$ in physical-energy-normalized coefficients.
+- Broadband and variable-stratification calculations retain every Milestone-10.4 through Milestone-13 gate.
+- Benchmarks report construction time, peak stored state, operator-application time, eigensolver iterations, reconstruction time, and online evolution time.
 - Ordinary reduced evolution performs no diagnostic pressure solve.
 
 ## Goal-oriented batch cadence
@@ -2672,20 +2964,27 @@ Milestone 12.
 | **D3.5 — Slope-compatible wave coordinates** | 9.3 | Train and freeze hydrostatic and nonhydrostatic active-bottom reference families, validate them independently against the primitive oracle, select the Milestone-10 seed, and stop before residual enrichment. |
 | **D3.6 — Global terrain dressing** | 9.4 | Construct the complete global $O(h)$ internal and zero-frequency block corrections, verify $O(h^2)$ weak and bottom residuals, classify the seed, and stop before repeated enrichment. |
 | **E1 — Selective modes** | 10 | Implement residual enrichment and validate it exclusively against the dense oracle. |
-| **E2 — Matrix-free production core** | 11 | Replace dense actions while preserving every Milestone-7 and Milestone-9.1 identity. |
-| **F — Evolution and examples** | 12 | Add energy-preserving evolution and the three scientific examples. |
-| **G — Research production** | 13 | Add persistence, rebuilding, broadband terrain, arbitrary stratification, and profiling. |
+| **E1.1 — Production-state contract** | 10.1 | Establish a complete physical coordinate set with exact degree-of-freedom accounting. |
+| **E1.2 — Complete internal waves** | 10.2 | Continue and enrich every declared internal-wave block. |
+| **E1.3 — Bottom/topographic sector** | 10.3 | Partition every bottom coordinate into the exact stationary or converged topographic-wave space. |
+| **E1.4 — Complete basis gate** | 10.4 | Prove complete, economical coverage of the declared production state. |
+| **E2 — Matrix-free production basis** | 11 | Reproduce the complete dense production oracle without global primitive matrices. |
+| **F1 — Forward evolution** | 12 | Evolve arbitrary production states with phase and Cayley methods. |
+| **F2 — Scientific examples** | 13 | Validate the complete forward model in physical benchmarks. |
+| **G — Research production** | 14 | Add persistence, rebuilding, broadband terrain, arbitrary stratification, and profiling. |
 
-Each batch is suitable for a Codex goal of the form: “Implement Batch D1; do not proceed to Batch D2; continue until all acceptance criteria pass or a genuine scientific blocker is established.”
+Each batch is suitable for a separate Codex goal of the form: “Implement Batch E1.1; do not proceed to Batch E1.2; continue until all acceptance criteria pass or a genuine scientific or numerical blocker is established.” Substitute the batch being pursued and its immediate successor.
 
 Use one focused commit per completed milestone and retain acceptance evidence in the automated tests and examples. Do not bypass a blocking gate by symmetrizing an incompatible operator, fitting a closure, or introducing an empirical correction.
 
 ## Definition of done
 
-The scientific proof of concept is established when Milestones 5–9.1 pass: the boundary coordinate is represented as part of a complete linked state, the projected primitive system preserves physical energy, derives stationary volume APV, and converges to the strong bottom equation, the complete stationary balanced space is represented, and the physical-energy eigenproblem contains converged physical subspaces separated from a quantified unresolved algebraic remainder. A topographic boundary-wave claim remains subject to its independent Milestone-9.1 gates, and physical validation of every auxiliary eigenvector is not required. Milestones 9.2–9.4 test economical coordinate constructions without changing this physical definition.
+The continuum and dense-oracle scientific proof of concept is established by Milestones 5–10: the boundary coordinate is represented as part of a complete linked state, the projected primitive system preserves physical energy, derives stationary volume APV, converges to the strong bottom equation, constructs the complete stationary balanced space, and demonstrates that global dressing followed by exact residual enrichment efficiently recovers a selected internal-wave subspace.
 
-The efficient research implementation is established when Milestones 9.4–12 pass: global terrain-dressed blocks supply a verified seed, repeated residual enrichment reproduces the dense physical-energy oracle, matrix-free actions preserve its stationary-space, energy, APV, and bottom identities, and energy-preserving evolution produces convergent constant-slope, sinusoidal-terrain, and Gaussian-ridge examples.
+Scientific completeness of the production basis requires Milestones 10.1–10.4. Every declared wave, APV, bottom, and MDA coordinate must belong to the stationary, internal-wave, or topographic-wave projector, with no unresolved coordinate inside the production state. Guard modes and omitted primitive-oracle directions are numerical support and truncation diagnostics rather than prognostic degrees of freedom.
 
-Milestone 13 completes research-production behavior through arbitrary stationary stratification, broadband terrain, resolution rebuilding, restartable output, symmetry decomposition, and profiling.
+A complete forward wave–vortex model requires Milestones 11–13: matrix-free construction of the complete production basis, arbitrary-state phase and Cayley evolution, and convergent stationary, topographic-wave, sinusoidal-terrain, and Gaussian-ridge benchmarks.
 
-Nonlinear terrain dynamics, an additive terrain `WVForcing`, empirical closure, an MPM release, modifications to WaveVortexModel, independent surface buoyancy, and dynamic barotropic backreaction remain outside this roadmap.
+Milestone 14 completes research-production behavior through arbitrary stationary stratification, broadband terrain, resolution rebuilding, restartable output, symmetry decomposition, and profiling.
+
+Nonlinear wave–wave interactions, nonlinear terrain dynamics, an additive terrain `WVForcing`, empirical closure, an MPM release, modifications to WaveVortexModel, independent surface buoyancy, and dynamic barotropic backreaction remain outside this roadmap.

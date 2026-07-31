@@ -1,6 +1,9 @@
-function [audit,setup] = buildGlobalFirstOrderTerrainDressingAudit(problem,trustedBounds,supportBounds,stationaryDegree,degrees,comparisonDegree,paddingFactors,terrainScales,tangentStep,quadratureOrder)
+function [audit,setup] = buildGlobalFirstOrderTerrainDressingAudit(problem,trustedBounds,supportBounds,stationaryDegree,degrees,comparisonDegree,paddingFactors,terrainScales,tangentStep,quadratureOrder,productionContract)
 % Build the Milestone-9.4 globally coupled terrain-dressing oracle.
 
+if nargin < 11
+    productionContract = [];
+end
 reference = problem.auditConvergedPhysicalSubspaces( ...
     trustedModeBounds=trustedBounds, ...
     supportModeBounds=supportBounds, ...
@@ -10,7 +13,7 @@ reference = problem.auditConvergedPhysicalSubspaces( ...
     terrainScales=terrainScales, ...
     quadratureOrder=quadratureOrder);
 validatedTracks = find([reference.internal.tracks.isValidated]);
-if isempty(validatedTracks)
+if isempty(validatedTracks) && isempty(productionContract)
     error("WVTerrainEnergyGalerkin:GlobalDressingMissingValidatedInternalBlock", ...
         "Milestone 9.4 requires at least one Milestone-9.1 validated internal-wave block.")
 end
@@ -24,7 +27,7 @@ for iDegree = 1:nDegree
         [details{iDegree,iPadding},detailSetup{iDegree,iPadding}] = refinementAudit(problem,reference, ...
             validatedTracks,trustedBounds,supportBounds(iDegree,:), ...
             stationaryDegree,degrees(iDegree),paddingFactors(iPadding), ...
-            terrainScales,tangentStep,quadratureOrder,iDegree);
+            terrainScales,tangentStep,quadratureOrder,iDegree,productionContract);
     end
 end
 
@@ -34,7 +37,7 @@ for iPadding = 1:nPadding
     [comparison{iPadding},comparisonSetup{iPadding}] = comparisonAudit(problem,reference, ...
         validatedTracks,trustedBounds,supportBounds(end,:), ...
         stationaryDegree,comparisonDegree,paddingFactors(iPadding), ...
-        terrainScales,tangentStep,quadratureOrder);
+        terrainScales,tangentStep,quadratureOrder,productionContract);
 end
 
 weakSequence = cell(nPadding,1);
@@ -124,6 +127,7 @@ audit.centeredTangentSteps = 2*tangentStep./(2.^(0:2));
 audit.quadratureOrder = quadratureOrder;
 audit.reference = reference;
 audit.validatedInternalTrackIndices = validatedTracks;
+audit.productionContract = productionContract;
 audit.details = details;
 audit.comparison = comparison;
 audit.primary = primary;
@@ -140,7 +144,7 @@ function value = maximumCellField(results,field)
 value = max(cellfun(@(result)result.(field),results),[],"all");
 end
 
-function [result,setup] = refinementAudit(problem,reference,validatedTracks,trustedBounds,support,stationaryDegree,degree,paddingFactor,terrainScales,tangentStep,quadratureOrder,iDegree)
+function [result,setup] = refinementAudit(problem,reference,validatedTracks,trustedBounds,support,stationaryDegree,degree,paddingFactor,terrainScales,tangentStep,quadratureOrder,iDegree,productionContract)
 layout = retainedLayout(problem,support);
 order = resolvedQuadratureOrder(degree,quadratureOrder);
 [primitive,context] = buildGlobalSmallTerrainPrimitiveAudit(problem, ...
@@ -148,24 +152,34 @@ order = resolvedQuadratureOrder(degree,quadratureOrder);
     paddingFactor=paddingFactor,trustedModeBounds=trustedBounds, ...
     rejectTerrainNyquist=true,evaluationScales=terrainScales);
 flat = flatEigensystem(primitive.flatReference);
-targetBlocks = cell(numel(validatedTracks),1);
-for iTrack = 1:numel(validatedTracks)
-    track = reference.internal.tracks(validatedTracks(iTrack));
-    targetBlocks{iTrack} = track.blocks{iDegree};
+if isempty(productionContract)
+    targetBlocks = cell(numel(validatedTracks),1);
+    for iTrack = 1:numel(validatedTracks)
+        track = reference.internal.tracks(validatedTracks(iTrack));
+        targetBlocks{iTrack} = track.blocks{iDegree};
+    end
+    productionTargets = [];
+else
+    productionTargets = productionWaveTargetBlocks( ...
+        problem,productionContract,context,primitive.flatReference);
+    targetBlocks = productionTargets.blocks;
 end
 result = dressingAudit(context,primitive,targetBlocks,trustedBounds, ...
     stationaryDegree,degree,terrainScales);
 setup = struct("context",context,"primitive",primitive, ...
     "targetBlocks",{targetBlocks},"internal",result.internal, ...
-    "zeroFrequency",result.zeroFrequency);
+    "zeroFrequency",result.zeroFrequency, ...
+    "productionTargets",productionTargets, ...
+    "productionContract",productionContract);
 result.polynomialDegree = degree;
 result.supportModeBounds = support;
 result.paddingFactor = paddingFactor;
 result.quadratureOrder = order;
 result.flat = flat;
+result.productionTargets = productionTargets;
 end
 
-function [result,setup] = comparisonAudit(problem,reference,validatedTracks,trustedBounds,support,stationaryDegree,degree,paddingFactor,terrainScales,tangentStep,quadratureOrder)
+function [result,setup] = comparisonAudit(problem,reference,validatedTracks,trustedBounds,support,stationaryDegree,degree,paddingFactor,terrainScales,tangentStep,quadratureOrder,productionContract)
 layout = retainedLayout(problem,support);
 order = resolvedQuadratureOrder(degree,quadratureOrder);
 [primitive,context] = buildGlobalSmallTerrainPrimitiveAudit(problem, ...
@@ -175,24 +189,34 @@ order = resolvedQuadratureOrder(degree,quadratureOrder);
 coarse = reference.finest.nestedRepresentation;
 fine = nestedRepresentation(context,primitive.flatReference);
 transfer = nestedTransfer(coarse,fine);
-targetBlocks = cell(numel(validatedTracks),1);
-for iTrack = 1:numel(validatedTracks)
-    track = reference.internal.tracks(validatedTracks(iTrack));
-    target = track.blocks{end};
-    target.basis = transfer*target.basis;
-    targetBlocks{iTrack} = target;
+if isempty(productionContract)
+    targetBlocks = cell(numel(validatedTracks),1);
+    for iTrack = 1:numel(validatedTracks)
+        track = reference.internal.tracks(validatedTracks(iTrack));
+        target = track.blocks{end};
+        target.basis = transfer*target.basis;
+        targetBlocks{iTrack} = target;
+    end
+    productionTargets = [];
+else
+    productionTargets = productionWaveTargetBlocks( ...
+        problem,productionContract,context,primitive.flatReference);
+    targetBlocks = productionTargets.blocks;
 end
 result = dressingAudit(context,primitive,targetBlocks,trustedBounds, ...
     stationaryDegree,degree,terrainScales);
 setup = struct("context",context,"primitive",primitive, ...
     "targetBlocks",{targetBlocks},"internal",result.internal, ...
-    "zeroFrequency",result.zeroFrequency);
+    "zeroFrequency",result.zeroFrequency, ...
+    "productionTargets",productionTargets, ...
+    "productionContract",productionContract);
 result.polynomialDegree = degree;
 result.supportModeBounds = support;
 result.paddingFactor = paddingFactor;
 result.quadratureOrder = order;
 result.referenceTransfer = transfer;
 result.referenceTransferDefect = norm(fine.admissibleBasis*transfer-coarseEmbeddedRaw(coarse,fine),"fro")/max(norm(coarseEmbeddedRaw(coarse,fine),"fro"),realmin);
+result.productionTargets = productionTargets;
 end
 
 function result = dressingAudit(c,primitive,targetBlocks,trustedBounds,stationaryDegree,degree,terrainScales)

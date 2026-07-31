@@ -1,10 +1,14 @@
-function audit = buildResidualEnrichedTerrainModeAudit(problem,trustedBounds,supportBounds,stationaryDegree,degrees,comparisonDegree,paddingFactors,terrainScales,tangentStep,maximumIterations,quadratureOrder)
+function audit = buildResidualEnrichedTerrainModeAudit(problem,trustedBounds,supportBounds,stationaryDegree,degrees,comparisonDegree,paddingFactors,terrainScales,tangentStep,maximumIterations,quadratureOrder,productionContract)
 % Build the Milestone-10 exact-residual terrain-mode enrichment oracle.
 
+if nargin < 12
+    productionContract = [];
+end
 [seed,setup] = buildGlobalFirstOrderTerrainDressingAudit(problem, ...
     trustedBounds,supportBounds,stationaryDegree,degrees,comparisonDegree, ...
-    paddingFactors,terrainScales,tangentStep,quadratureOrder);
-if seed.classification == "global-dressing-incompatible"
+    paddingFactors,terrainScales,tangentStep,quadratureOrder,productionContract);
+if isempty(productionContract) ...
+        && seed.classification == "global-dressing-incompatible"
     error("WVTerrainEnergyGalerkin:ResidualEnrichmentIncompatibleSeed", ...
         "Milestone 10 requires a compatible Milestone-9.4 global dressing seed.")
 end
@@ -14,17 +18,64 @@ nPadding = numel(paddingFactors);
 details = cell(nDegree,nPadding);
 for iDegree = 1:nDegree
     for iPadding = 1:nPadding
+        oracle = enrichmentOracle(setup.details{iDegree,iPadding}, ...
+            trustedBounds,stationaryDegree,degrees(iDegree),1);
         details{iDegree,iPadding} = enrichmentCase(setup.details{iDegree,iPadding}, ...
-            trustedBounds,stationaryDegree,degrees(iDegree),1,maximumIterations);
+            trustedBounds,stationaryDegree,degrees(iDegree),1, ...
+            maximumIterations,oracle);
     end
 end
 comparison = cell(nPadding,1);
+comparisonOracle = cell(nPadding,1);
 for iPadding = 1:nPadding
+    comparisonOracle{iPadding} = enrichmentOracle( ...
+        setup.comparison{iPadding},trustedBounds,stationaryDegree, ...
+        comparisonDegree,1);
     comparison{iPadding} = enrichmentCase(setup.comparison{iPadding}, ...
-        trustedBounds,stationaryDegree,comparisonDegree,1,maximumIterations);
+        trustedBounds,stationaryDegree,comparisonDegree,1, ...
+        maximumIterations,comparisonOracle{iPadding});
 end
 
 primary = comparison{1};
+if isempty(productionContract)
+    independent = cell(0,1);
+    economy = emptyEconomy;
+else
+    independent = cell(0,1);
+    economy = emptyEconomy;
+    for iDegree = 1:nDegree
+        for iPadding = 1:nPadding
+            oracle = enrichmentOracle(setup.details{iDegree,iPadding}, ...
+                trustedBounds,stationaryDegree,degrees(iDegree),1);
+            [~,~,recycledTrial] = independentEnrichmentControls( ...
+                setup.details{iDegree,iPadding},trustedBounds, ...
+                stationaryDegree,degrees(iDegree),maximumIterations, ...
+                details{iDegree,iPadding},oracle);
+            details{iDegree,iPadding} = enrichmentCase( ...
+                setup.details{iDegree,iPadding},trustedBounds, ...
+                stationaryDegree,degrees(iDegree),1, ...
+                maximumIterations,oracle,recycledTrial);
+        end
+    end
+    for iPadding = 1:nPadding
+        [controls,~,recycledTrial] = independentEnrichmentControls( ...
+            setup.comparison{iPadding},trustedBounds,stationaryDegree, ...
+            comparisonDegree,maximumIterations,comparison{iPadding}, ...
+            comparisonOracle{iPadding});
+        comparison{iPadding} = enrichmentCase(setup.comparison{iPadding}, ...
+            trustedBounds,stationaryDegree,comparisonDegree,1, ...
+            maximumIterations,comparisonOracle{iPadding},recycledTrial);
+        [~,currentEconomy] = independentEnrichmentControls( ...
+            setup.comparison{iPadding},trustedBounds,stationaryDegree, ...
+            comparisonDegree,maximumIterations,comparison{iPadding}, ...
+            comparisonOracle{iPadding},controls);
+        if iPadding == 1
+            independent = controls;
+            economy = currentEconomy;
+        end
+    end
+    primary = comparison{1};
+end
 crossPaddingDefect = maximumPrincipalSine(primary.internalModeBasis, ...
     comparison{2}.internalModeBasis,primary.energyMatrix);
 denseCrossPaddingDefect = maximumPrincipalSine(primary.denseTargetBasis, ...
@@ -88,11 +139,54 @@ else
     diagnosis = blockerDiagnosis(structurePasses,stationaryPasses,physicalPasses,classificationPasses,primary,paddingDefect,nestedExcessDefect,tolerance);
 end
 
+if ~isempty(productionContract)
+    expectedDimension = setup.comparison{1}.productionTargets.numberOfCoordinates;
+    targetCases = [seed.details(:);seed.comparison(:)];
+    targetEmbedding = cellfun( ...
+        @(value)value.productionTargets.maximumEmbeddingDefect,targetCases);
+    targetNativeMatch = cellfun( ...
+        @(value)value.productionTargets.maximumNativeMatchDefect,targetCases);
+    targetEnergy = cellfun( ...
+        @(value)value.productionTargets.energyOrthogonalityDefect,targetCases);
+    coveragePasses = size(primary.internalModeBasis,2) == expectedDimension ...
+        && height(setup.comparison{1}.productionTargets.assignment) ...
+        == expectedDimension ...
+        && targetEmbedding(end) <= productionContract.requiredTolerance.embedding ...
+        && max(targetNativeMatch) <= productionContract.requiredTolerance.nativeMatch ...
+        && max(targetEnergy) <= tolerance.structure;
+    economyPasses = economy.savedTrialDirections >= 1 ...
+        && economy.projectorDefect <= tolerance.projector;
+    independentPasses = all(cellfun( ...
+        @(value)value.history(end).passesMandatoryGates,independent));
+    if ~coveragePasses
+        classification = "internal-wave-isolation-blocker";
+        diagnosis = "The dense finite-terrain eigensystem does not contain an isolatable invariant subspace with the declared production-wave dimension.";
+    elseif ~independentPasses || nestedExcessDefect > tolerance.nested
+        classification = "internal-wave-numerical-blocker";
+        diagnosis = "At least one complete signed-frequency block or nested primitive refinement fails to converge under the current residual-correction algorithm.";
+    elseif ~(structurePasses && stationaryPasses && physicalPasses ...
+            && classificationPasses)
+        classification = "internal-wave-physics-blocker";
+        diagnosis = blockerDiagnosis(structurePasses,stationaryPasses, ...
+            physicalPasses,classificationPasses,primary,paddingDefect, ...
+            nestedExcessDefect,tolerance);
+    elseif ~economyPasses
+        classification = "internal-wave-economy-blocker";
+        diagnosis = "The complete internal-wave projector converges, but joint residual enrichment does not reduce the trial dimension relative to independent block enrichment.";
+    else
+        classification = "complete-internal-wave-coverage";
+        diagnosis = "Every declared production wave belongs to the converged finite-terrain internal-wave projector, and global correction recycling reduces the joint trial dimension.";
+    end
+end
+
 audit = struct;
 audit.scope = "milestone-10-residual-enriched-terrain-modes";
 audit.status = classification;
 audit.classification = classification;
 audit.isCompatible = classification ~= "residual-enrichment-blocker";
+if ~isempty(productionContract)
+    audit.isCompatible = classification == "complete-internal-wave-coverage";
+end
 audit.diagnosis = diagnosis;
 audit.seed = seed;
 audit.details = details;
@@ -106,10 +200,102 @@ audit.denseNestedProjectorDefect = denseNestedDefect;
 audit.nestedExcessDefect = nestedExcessDefect;
 audit.maximumIterations = maximumIterations;
 audit.requiredTolerance = tolerance;
-audit.nextScope = "milestone-11-only-if-separately-authorized";
+audit.productionContract = productionContract;
+audit.independentControls = independent;
+audit.economy = economy;
+if isempty(productionContract)
+    audit.nextScope = "milestone-11-only-if-separately-authorized";
+else
+    audit.scope = "milestone-10.2-complete-internal-wave-coverage";
+    if audit.isCompatible
+        audit.nextScope = "milestone-10.3-only-if-separately-authorized";
+    else
+        audit.nextScope = "milestone-10.2-reformulation";
+    end
+    audit.coverageTable = setup.comparison{1}.productionTargets.assignment;
+    audit.numberOfDeclaredInternalWaveCoordinates = ...
+        setup.comparison{1}.productionTargets.numberOfCoordinates;
+    audit.numberOfValidatedInternalWaveCoordinates = ...
+        size(primary.internalModeBasis,2);
+    audit.productionTargetEmbeddingDefect = targetEmbedding;
+    audit.productionTargetNativeMatchDefect = targetNativeMatch;
+    audit.productionTargetEnergyOrthogonalityDefect = targetEnergy;
+    audit.independentBlockTable = independentBlockTable( ...
+        setup.comparison{1}.targetBlocks,independent);
+end
 end
 
-function result = enrichmentCase(setup,trustedBounds,stationaryDegree,degree,terrainScale,maximumIterations)
+function value = independentBlockTable(blocks,controls)
+nBlock = numel(blocks);
+blockIndex = (1:nBlock).';
+declaredDimension = cellfun(@(block)block.dimension,blocks);
+trialDimension = cellfun( ...
+    @(control)control.dimension.dynamicalTrial,controls);
+numberOfIterations = cellfun( ...
+    @(control)control.numberOfIterations,controls);
+projectorDefect = cellfun( ...
+    @(control)control.internalProjectorDefect,controls);
+ritzResidual = cellfun( ...
+    @(control)control.maximumInternalResidual,controls);
+apvDefect = cellfun( ...
+    @(control)control.maximumInternalAPVDefect,controls);
+bottomDefect = cellfun( ...
+    @(control)control.maximumInternalBottomDefect,controls);
+strongResidual = cellfun( ...
+    @(control)control.maximumInternalStrongResidual,controls);
+passesPhysicalGates = cellfun( ...
+    @(control)control.history(end).passesMandatoryGates,controls);
+value = table(blockIndex,declaredDimension,trialDimension, ...
+    numberOfIterations,projectorDefect,ritzResidual,apvDefect, ...
+    bottomDefect,strongResidual,passesPhysicalGates);
+end
+
+function [controls,economy,recycledTrial] = independentEnrichmentControls(setup,trustedBounds,stationaryDegree,degree,maximumIterations,joint,oracle,controls)
+nBlock = numel(setup.targetBlocks);
+if nargin < 8
+    controls = cell(nBlock,1);
+    for iBlock = 1:nBlock
+        blockSetup = setup;
+        blockSetup.targetBlocks = setup.targetBlocks(iBlock);
+        blockSetup.internal = setup.internal(iBlock);
+        controls{iBlock} = enrichmentCase(blockSetup,trustedBounds, ...
+            stationaryDegree,degree,1,maximumIterations,oracle);
+    end
+end
+trialDimension = sum(cellfun( ...
+    @(value)value.dimension.dynamicalTrial,controls));
+if isempty(controls)
+    basis = zeros(size(joint.energyMatrix,1),0);
+else
+    parts = cellfun(@(value)value.internalModeBasis,controls, ...
+        UniformOutput=false);
+    basis = horzcat(parts{:});
+    basis = energyOrthonormalize(basis,joint.energyMatrix);
+    trialParts = cellfun(@(value)value.trialBasis,controls, ...
+        UniformOutput=false);
+    recycledTrial = energyOrthonormalize( ...
+        horzcat(trialParts{:}),joint.energyMatrix);
+end
+if isempty(controls)
+    recycledTrial = zeros(size(joint.energyMatrix,1),0);
+end
+economy = struct;
+economy.jointTrialDimension = joint.dimension.dynamicalTrial;
+economy.independentTrialDimension = trialDimension;
+economy.savedTrialDirections = trialDimension-joint.dimension.dynamicalTrial;
+economy.recyclingFactor = trialDimension ...
+    /max(joint.dimension.dynamicalTrial,1);
+economy.projectorDefect = energyProjectorDifference( ...
+    basis,joint.denseTargetBasis,joint.energyMatrix);
+end
+
+function value = emptyEconomy
+value = struct("jointTrialDimension",0,"independentTrialDimension",0, ...
+    "savedTrialDirections",0,"recyclingFactor",1, ...
+    "projectorDefect",0);
+end
+
+function oracle = enrichmentOracle(setup,trustedBounds,stationaryDegree,degree,terrainScale)
 c = setup.context;
 primitive = setup.primitive;
 direction = primitive.evaluatedDirections(find(primitive.evaluationScales == terrainScale,1));
@@ -117,20 +303,42 @@ if isempty(direction)
     error("WVTerrainEnergyGalerkin:ResidualEnrichmentMissingTerrainScale", ...
         "The exact finite-amplitude terrain direction was not constructed.")
 end
-H = direction.E;
 stationary = constructCompleteStationarySpace(c,direction,trustedBounds,degree,stationaryDegree,terrainScale);
-G = stationary.trustedBasis;
+dense = exactEigensystem(direction);
+flat = flatEigensystem(primitive.flatReference);
+oracle = struct("direction",direction,"stationary",stationary, ...
+    "dense",dense,"flat",flat);
+end
+
+function result = enrichmentCase(setup,trustedBounds,stationaryDegree,degree,terrainScale,maximumIterations,oracle,initialTrial)
+c = setup.context;
+primitive = setup.primitive;
+if nargin < 7 || isempty(oracle)
+    oracle = enrichmentOracle(setup,trustedBounds,stationaryDegree, ...
+        degree,terrainScale);
+end
+direction = oracle.direction;
+H = direction.E;
+G = oracle.stationary.trustedBasis;
 internalSeed = internalColumns(setup.internal,terrainScale);
-zeroSeed = zeroColumns(setup.zeroFrequency,terrainScale);
-X = [internalSeed zeroSeed];
+if isempty(setup.productionContract)
+    zeroSeed = zeroColumns(setup.zeroFrequency,terrainScale);
+else
+    zeroSeed = zeros(size(H,1),0);
+end
+if nargin < 8 || isempty(initialTrial)
+    X = [internalSeed zeroSeed];
+else
+    X = initialTrial;
+end
 X = projectOut(X,G,H);
 X = energyOrthonormalize(X,H);
 targetParts = cellfun(@(block)block.basis,setup.targetBlocks,"UniformOutput",false);
 targetSeed = energyOrthonormalize(horzcat(targetParts{:}),H);
-dense = exactEigensystem(direction);
+dense = oracle.dense;
 targetIndices = selectMostCaptured(dense.vectors,targetSeed,H,size(targetSeed,2),zeros(0,1));
 target = dense.vectors(:,targetIndices);
-flat = flatEigensystem(primitive.flatReference);
+flat = oracle.flat;
 
 history = repmat(emptyIteration,maximumIterations+1,1);
 for iIteration = 0:maximumIterations
@@ -438,11 +646,26 @@ elseif isempty(first) || isempty(second) || size(first,2) ~= size(second,2)
     defect = Inf;
     return
 end
+
 R = chol((H+H')/2);
 firstQ = orth(R*first);
 secondQ = orth(R*second);
 singularValues = svd(firstQ'*secondQ);
 defect = sqrt(max(0,1-min(singularValues,[],"all")^2));
+end
+
+function defect = energyProjectorDifference(first,second,H)
+if isempty(first) && isempty(second)
+    defect = 0;
+    return
+elseif isempty(first) || isempty(second) || size(first,2) ~= size(second,2)
+    defect = Inf;
+    return
+end
+R = chol((H+H')/2);
+firstQ = orth(R*first);
+secondQ = orth(R*second);
+defect = norm(firstQ*firstQ'-secondQ*secondQ',2);
 end
 
 function defect = trustedAPVDefect(c,direction,vectors)
