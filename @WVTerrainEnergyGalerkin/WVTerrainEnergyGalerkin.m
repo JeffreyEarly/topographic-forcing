@@ -33,6 +33,7 @@ classdef WVTerrainEnergyGalerkin < handle
     % - Topic: Audit converged physical terrain subspaces
     % - Topic: Audit boundary-complete vertical-mode compression
     % - Topic: Audit global first-order terrain dressing
+    % - Topic: Audit residual-enriched terrain modes
     % - Topic: Audit the Branch-P discrete oracle
     % - Topic: Audit terrain compatibility
     % - Topic: Audit constrained evolution

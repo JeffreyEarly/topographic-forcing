@@ -1,4 +1,4 @@
-function audit = buildGlobalFirstOrderTerrainDressingAudit(problem,trustedBounds,supportBounds,stationaryDegree,degrees,comparisonDegree,paddingFactors,terrainScales,tangentStep,quadratureOrder)
+function [audit,setup] = buildGlobalFirstOrderTerrainDressingAudit(problem,trustedBounds,supportBounds,stationaryDegree,degrees,comparisonDegree,paddingFactors,terrainScales,tangentStep,quadratureOrder)
 % Build the Milestone-9.4 globally coupled terrain-dressing oracle.
 
 reference = problem.auditConvergedPhysicalSubspaces( ...
@@ -18,9 +18,10 @@ end
 nDegree = numel(degrees);
 nPadding = numel(paddingFactors);
 details = cell(nDegree,nPadding);
+detailSetup = cell(nDegree,nPadding);
 for iDegree = 1:nDegree
     for iPadding = 1:nPadding
-        details{iDegree,iPadding} = refinementAudit(problem,reference, ...
+        [details{iDegree,iPadding},detailSetup{iDegree,iPadding}] = refinementAudit(problem,reference, ...
             validatedTracks,trustedBounds,supportBounds(iDegree,:), ...
             stationaryDegree,degrees(iDegree),paddingFactors(iPadding), ...
             terrainScales,tangentStep,quadratureOrder,iDegree);
@@ -28,8 +29,9 @@ for iDegree = 1:nDegree
 end
 
 comparison = cell(nPadding,1);
+comparisonSetup = cell(nPadding,1);
 for iPadding = 1:nPadding
-    comparison{iPadding} = comparisonAudit(problem,reference, ...
+    [comparison{iPadding},comparisonSetup{iPadding}] = comparisonAudit(problem,reference, ...
         validatedTracks,trustedBounds,supportBounds(end,:), ...
         stationaryDegree,comparisonDegree,paddingFactors(iPadding), ...
         terrainScales,tangentStep,quadratureOrder);
@@ -131,13 +133,14 @@ audit.convergence = convergence;
 audit.padding = padding;
 audit.requiredTolerance = tolerance;
 audit.nextScope = "milestone-10-only-if-separately-authorized";
+setup = struct("details",{detailSetup},"comparison",{comparisonSetup});
 end
 
 function value = maximumCellField(results,field)
 value = max(cellfun(@(result)result.(field),results),[],"all");
 end
 
-function result = refinementAudit(problem,reference,validatedTracks,trustedBounds,support,stationaryDegree,degree,paddingFactor,terrainScales,tangentStep,quadratureOrder,iDegree)
+function [result,setup] = refinementAudit(problem,reference,validatedTracks,trustedBounds,support,stationaryDegree,degree,paddingFactor,terrainScales,tangentStep,quadratureOrder,iDegree)
 layout = retainedLayout(problem,support);
 order = resolvedQuadratureOrder(degree,quadratureOrder);
 [primitive,context] = buildGlobalSmallTerrainPrimitiveAudit(problem, ...
@@ -152,6 +155,9 @@ for iTrack = 1:numel(validatedTracks)
 end
 result = dressingAudit(context,primitive,targetBlocks,trustedBounds, ...
     stationaryDegree,degree,terrainScales);
+setup = struct("context",context,"primitive",primitive, ...
+    "targetBlocks",{targetBlocks},"internal",result.internal, ...
+    "zeroFrequency",result.zeroFrequency);
 result.polynomialDegree = degree;
 result.supportModeBounds = support;
 result.paddingFactor = paddingFactor;
@@ -159,7 +165,7 @@ result.quadratureOrder = order;
 result.flat = flat;
 end
 
-function result = comparisonAudit(problem,reference,validatedTracks,trustedBounds,support,stationaryDegree,degree,paddingFactor,terrainScales,tangentStep,quadratureOrder)
+function [result,setup] = comparisonAudit(problem,reference,validatedTracks,trustedBounds,support,stationaryDegree,degree,paddingFactor,terrainScales,tangentStep,quadratureOrder)
 layout = retainedLayout(problem,support);
 order = resolvedQuadratureOrder(degree,quadratureOrder);
 [primitive,context] = buildGlobalSmallTerrainPrimitiveAudit(problem, ...
@@ -178,6 +184,9 @@ for iTrack = 1:numel(validatedTracks)
 end
 result = dressingAudit(context,primitive,targetBlocks,trustedBounds, ...
     stationaryDegree,degree,terrainScales);
+setup = struct("context",context,"primitive",primitive, ...
+    "targetBlocks",{targetBlocks},"internal",result.internal, ...
+    "zeroFrequency",result.zeroFrequency);
 result.polynomialDegree = degree;
 result.supportModeBounds = support;
 result.paddingFactor = paddingFactor;

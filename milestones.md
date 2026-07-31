@@ -1,6 +1,6 @@
 # Terrain-energy Galerkin milestones
 
-> **Checkpoint after Milestone 9.4:** the global first-order terrain correction is verified as a `global-dressing-seed`. It produces the required \(O(h^2)\) weak and bottom residuals, preserves exact reduced physical-energy structure, and improves the smallest-amplitude weak and bottom residuals by factors `2.09e3` and `1.87e3`. One correction does not yet pass every finite-amplitude physical-mode gate, so the primitive polynomial eigensystem remains the ambient oracle and the dressed blocks become the approved Milestone-10 initial vectors. Every unresolved direction remains retained, the leading topographic-boundary candidates remain unresolved, and Milestone 10 has not begun.
+> **Checkpoint after Milestone 10:** repeated exact finite-amplitude residual correction is verified as `residual-enrichment-acceleration`. Starting from the global first-order terrain-dressed seed, three corrections reproduce the independent dense internal-wave projector at numerical precision while reducing the energy-scaled Ritz, bottom-evolution, and strong primitive residuals below `1.4e-11`, `1.6e-12`, and `2e-10`. The complete stationary-plus-dynamical representation uses 165 directions inside the 1027-dimensional primitive ambient space, for compression factor `6.22`. Every unresolved direction remains retained, the leading topographic-boundary candidates remain unresolved, and Milestone 11 has not begun.
 
 ## Objective
 
@@ -2497,7 +2497,7 @@ The eight focused Milestone-9.4 tests and the complete repository suite pass 181
 
 ## Milestone 10: Residual-enriched terrain modes
 
-- [ ] Complete
+- [x] Complete — `residual-enrichment-acceleration`
 
 ### Purpose
 
@@ -2516,6 +2516,15 @@ Milestone 9.4 with outcome `global-dressing-acceleration`, `global-dressing-equi
 - Preserve the APV-bearing Robin sector, explicit zero-APV bottom sector, stationary sector, and unresolved reference completion throughout every accepted correction.
 - Orthogonalize accepted corrections using $H_\gamma$.
 - Compare every enriched physical invariant subspace with the dense Milestone-9.1 projectors.
+- For an approximate block $X$ with Ritz vectors $XC$ and frequencies $\Theta$, evaluate the exact residual
+
+  ```math
+  R=iJ_\gamma XC-H_\gamma XC\Theta.
+  ```
+
+- Precondition internal-wave corrections with the flat signed-frequency eigensystem. Precondition directions emerging from the flat zero-frequency sector with the verified first-order zero-block splitting, because the unmodified flat zero block is singular.
+- Use both preconditioners only to generate coordinates. Every residual, Ritz value, physical diagnostic, and accepted projector continues to use the exact finite-terrain forms.
+- Compare an enriched block with an independently diagonalized dense block at the same resolution. Report cross-resolution and cross-padding drift separately so errors in the selective coordinates are not confused with errors already present in the dense discretization.
 
 ### Automated acceptance
 
@@ -2523,6 +2532,33 @@ Milestone 9.4 with outcome `global-dressing-acceleration`, `global-dressing-equi
 - Repeated enrichment reproduces validated dense eigenvalues and physical invariant subspaces within $10^{-9}$.
 - Physical-energy structure, the complete stationary subspace, and the physical/remainder classification remain invariant after every accepted enrichment; projected APV and bottom evolution retain their validated exact or convergent behavior.
 - Resonant calculations converge only when the complete coupled stationary and wave block is retained.
+
+### Completed result
+
+The public `auditResidualEnrichedTerrainModes` diagnostic reuses the complete Milestone-9.4 setup and preserves its result. The exact finite-amplitude iteration works in the primitive polynomial ambient space, keeps the nine-dimensional exact stationary space fixed, closes every correction under Fourier conjugacy, and expands any backward-error-inseparable Ritz cluster before applying a correction. Directions are removed from a proposed correction only when finite-terrain energy orthogonalization proves them algebraically dependent.
+
+The degree-12, padding-two reference begins with 36 dynamical seed coordinates. Three exact-residual corrections increase the dynamical trial dimension to 156 inside the 1027-dimensional primitive ambient space. The physical stationary-plus-trial representation therefore has compression factor `6.224`.
+
+The validated internal-wave block reaches:
+
+| Diagnostic | Final defect |
+|---|---:|
+| Dense physical-energy projector | numerical zero |
+| Relative frequency | below \(10^{-12}\) |
+| Energy-scaled Ritz residual | \(1.37\times10^{-11}\) |
+| Projected volume APV | below \(10^{-12}\) |
+| Bottom evolution | \(1.55\times10^{-12}\) |
+| Strong primitive equations | below \(2\times10^{-10}\) |
+| Padding excess over the dense oracle | numerical zero |
+| Nested-representation excess | \(1.08\times10^{-9}\) |
+
+The internal Ritz residual decreases from `2.13e-6` for the globally dressed seed to `8.15e-9`, `8.37e-10`, and `1.37e-11` under successive exact corrections. Exact restrictions retain Hermitian physical energy and skew-Hermitian exchange at roundoff throughout.
+
+The active directions emerging from the flat zero-frequency block remain explicitly retained as unresolved topographic-boundary candidates. Milestone 10 does not promote them to physical modes because it does not repeat the complete terrain-amplitude continuation required by Milestone 9.1. Their omission from the validated internal projector does not delete them from the primitive ambient eigensystem or unresolved complement.
+
+The measured outcome is `residual-enrichment-acceleration`. Milestone 11 is now scientifically authorized but remains separately scoped and has not begun.
+
+The nine focused Milestone-10 tests and the complete repository suite pass 190 tests with zero failures. Static analysis reports no issues in all 92 MATLAB files.
 
 ## Milestone 11: Matrix-free terrain-energy operators
 
