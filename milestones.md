@@ -1,6 +1,6 @@
 # Terrain-energy Galerkin milestones
 
-> **Checkpoint after Milestone 10.2.1:** the exact coupled Sylvester correction recovers the fixed-discretization zonal internal-wave projector in one update, but the resulting physical projector does not stabilize under primitive vertical refinement. The measured outcome is `coupled-block-isolation-blocker`. Per the milestone stopping rule, the iterative Krylov/Jacobi--Davidson stage and the two-dimensional control were not attempted. Milestone 10.3 and matrix-free work remain inactive.
+> **Checkpoint before Milestone 10.2.2:** the exact coupled Sylvester correction recovers the fixed-discretization zonal internal-wave projector in one update, but the resulting physical projector does not stabilize under primitive vertical refinement. Milestone 10.2.2 will determine whether the measured \(5.96\times10^{-4}\) drift is an unresolved horizontal or vertical geometric-scattering tail or evidence that the eight-dimensional block is not spectrally isolated. Milestone 10.3 and matrix-free work remain inactive.
 
 ## Objective
 
@@ -2765,7 +2765,7 @@ Compare the ordinary globally dressed production seed with the frozen \(s_{\rm r
 - **`coupled-block-formulation-blocker`:** the exact coupled correction fails to recover the dense physical subspace.
 - **`coupled-block-isolation-blocker`:** the declared internal-wave sector cannot be separated consistently from another physical sector.
 
-Only `coupled-block-acceleration` authorizes Milestone 10.3. Every other outcome stops for analysis or an additional algorithmic milestone. No replacement APV rows, empirical corrections, post hoc symmetrization, APV-nullspace projection, frequency cutoff, mode deletion, matrix-free production work, or time integration is permitted.
+Only `coupled-block-acceleration` would have authorized Milestone 10.3 directly. The measured `coupled-block-isolation-blocker` outcome instead activates Milestone 10.2.2. No replacement APV rows, empirical corrections, post hoc symmetrization, APV-nullspace projection, frequency cutoff, mode deletion, matrix-free production work, or time integration is permitted.
 
 ### Implementation result
 
@@ -2779,6 +2779,100 @@ The milestone instructions require stopping as soon as the exact oracle establis
 
 The focused Milestone-10.2.1 suite passes five tests. The complete repository suite passes 211 tests with zero failures, and `checkcode` reports no issues in all 101 MATLAB files.
 
+## Milestone 10.2.2: Geometric-cascade and spectral-isolation audit
+
+- [ ] Complete — blocking diagnostic gate
+
+### Purpose
+
+Determine whether the Milestone-10.2.1 projector drift is caused by an unresolved horizontal or vertical geometric-scattering tail, or because the declared eight-dimensional internal-wave sector becomes spectrally inseparable from a larger physical block.
+
+The finite-terrain dynamics remain linear in the state. The cascade diagnosed here is produced by repeated multiplication by stationary geometric coefficients such as
+
+```math
+\gamma^{-1}
+=
+\frac{1}{1-h/D}
+=
+\sum_{n=0}^{\infty}
+\left(\frac{h}{D}\right)^n.
+```
+
+It is therefore a representation and isolation audit, not a nonlinear wave--wave calculation and not a modification of the physical eigensystem.
+
+### Dependencies
+
+Milestone 10.2.1 with outcome `coupled-block-isolation-blocker`.
+
+### Scattering and tail definitions
+
+Let \(\mathcal H\) be the terrain Fourier support and \(\mathcal K_{\rm seed}\) the support of the flat production-wave block. Define
+
+```math
+\mathcal K_0=\mathcal K_{\rm seed},
+\qquad
+\mathcal K_{m+1}=\mathcal K_m+\mathcal H,
+\qquad
+\mathcal S_m=\mathcal K_m\setminus\mathcal K_{m-1}.
+```
+
+For sinusoidal terrain, \(\mathcal S_m\) contains the newly accessible \(\boldsymbol K\pm m\boldsymbol q\) sidebands. Let \(\mathcal V_{m,p}\) retain scattering order \(m\) and primitive vertical degree \(p\), and let \(\Pi_{m,p}\) be its physical-energy projector in one common comparison space. For an \(H_\gamma\)-orthonormal basis \(Y_\gamma\) of the continued physical block, measure
+
+```math
+\tau_{m,p}
+=
+\left\|
+\left(I-\Pi_{m,p}\right)Y_\gamma
+\right\|_{H_\gamma,2}.
+```
+
+This quantity is invariant under rotations or reorderings inside the physical block.
+
+### Planned diagnostic
+
+```matlab
+audit = problem.auditGeometricCascadeIsolation( ...
+    trustedModeBounds=[1 0], ...
+    waveModeIndices=[1;2], ...
+    scatteringOrders=[1;2;3;4;5], ...
+    primitivePolynomialDegrees=[8;10;12;14], ...
+    comparisonPolynomialDegree=16, ...
+    paddingFactors=[2;3], ...
+    terrainScales=[0;1/16;1/8;1/4;1/2;3/4;1]);
+```
+
+The oracle will:
+
+1. Continue the flat eight-dimensional, symmetry-preserving, conjugate-closed wave projector through the prescribed terrain amplitudes.
+2. Vary horizontal scattering order and vertical degree independently and embed all results into the degree-16 comparison space with the existing adjoint-consistent transfers.
+3. Compare physical-energy spectral projectors rather than individual eigenvectors. Dense primitive eigenvectors are validation data only and never become construction coordinates.
+4. Report energy by horizontal shell, vertical tail, cumulative \(\tau_{m,p}\), physical-energy principal angles, spectral gaps, normwise backward uncertainty, and padding sensitivity.
+5. Decompose the worst drifting principal directions into exact stationary, declared internal-wave, bottom/MDA, higher-wave, and unresolved primitive sectors.
+6. Enlarge the tracked block only when its separation from another direction is less than \(10^3\) times the combined backward uncertainty. The enlarged block must retain complete symmetry classes and Fourier conjugates.
+7. Run the two-dimensional \(\lvert k\rvert,\lvert\ell\rvert\le1\), \(j=1\) control only after the zonal calculation reaches `cascade-resolved`.
+
+The exact stationary space, primitive dense oracle, production coordinate contract, public coefficient layout, unresolved completion, and unmodified finite-terrain \(H_\gamma,J_\gamma\) forms remain fixed.
+
+### Automated acceptance
+
+- Common-space transfer adjointness, physical-energy normalization, shell-energy accounting, and Fourier conjugacy close below \(10^{-11}\).
+- Fixed-discretization Ritz, projected-APV, bottom-evolution, and strong primitive residuals retain the Milestone-10.2.1 tolerances \(10^{-10}\), \(10^{-8}\), \(10^{-10}\), and \(10^{-5}\).
+- Padding factors two and three give physical projectors and tail measures agreeing below \(10^{-10}\).
+- The final two independent horizontal-scattering refinements and the final two independent vertical refinements give projector drift and omitted-tail amplitude below \(10^{-8}\).
+- An accepted block is separated from its complement by at least \(10^3\) times the combined normwise backward uncertainty.
+- The accepted stationary-plus-wave representation retains at least factor-two compression relative to the primitive ambient space.
+- Small-amplitude shell amplitude and shell energy are reported against their expected \(O(h^m)\) and \(O(h^{2m})\) onsets for sinusoidal terrain. These are diagnostics of the scattering path rather than gates imposed on resonant cases.
+- If the zonal calculation passes, the two-dimensional control must satisfy the same physical, tail, isolation, padding, and compression gates.
+
+### Outcome classification
+
+- **`cascade-resolved`:** the original eight-dimensional projector is spectrally isolated, its horizontal and vertical tails converge, and every physical and economy gate passes.
+- **`cascade-slow`:** the projector and tail measures decrease systematically, but the final tolerance or factor-two economy gate is not reached.
+- **`resonant-block-required`:** the eight-dimensional projector loses isolation, but a smallest larger conjugate-closed physical block converges.
+- **`cascade-nonconvergent`:** neither a stable physical projector nor systematic horizontal and vertical tail decay is established.
+
+Only `cascade-resolved` authorizes Milestone 10.3. `resonant-block-required` requires an explicit revision of the production block before further work. The other outcomes stop for analysis. No iterative coupled solver, bottom-wave classification, matrix-free operator, time integration, frequency cutoff, replacement APV row, empirical correction, symmetrization, APV-nullspace projection, or mode deletion is included.
+
 ## Milestone 10.3: Complete bottom and topographic-wave sector
 
 - [ ] Complete — blocking gate
@@ -2789,7 +2883,7 @@ Partition every declared flat bottom and zero-frequency coordinate into the exac
 
 ### Dependencies
 
-Milestone 10.2.1 with outcome `coupled-block-acceleration`.
+Milestone 10.2.2 with outcome `cascade-resolved`.
 
 ### Deliverables
 
@@ -2861,6 +2955,7 @@ Milestone 10.3.
 
 - Test arbitrary conjugate-symmetric production states, not only individual eigenmodes.
 - Report deliberately omitted oracle energy as spectral truncation error rather than unresolved production energy.
+- Record the selected horizontal scattering order, vertical support, physical-energy tail estimate, spectral-isolation margin, and unresolved-energy fraction with the production basis.
 - Diagonalize the complete reduced physical-energy pencil and record the stationary, internal, and topographic mode counts.
 
 ### Automated acceptance and exits
@@ -2904,7 +2999,7 @@ basis = WVTerrainEnergyBasis.fromGalerkin(problem, ...
     paddingFactor=paddingFactor);
 ```
 
-`WVTerrainEnergyGalerkin` remains the scientific construction and oracle object. `WVTerrainEnergyBasis` stores the production layout, exact reduced forms, terrain modes, family projectors, reconstruction maps, truncation metadata, and construction version.
+`WVTerrainEnergyGalerkin` remains the scientific construction and oracle object. `WVTerrainEnergyBasis` stores the production layout, exact reduced forms, terrain modes, family projectors, reconstruction maps, selected scattering and vertical supports, physical-energy tail estimate, spectral-isolation margin, unresolved-energy fraction, and construction version.
 
 ### Deliverables
 
@@ -2919,6 +3014,7 @@ basis = WVTerrainEnergyBasis.fromGalerkin(problem, ...
 - Matrix-free actions reproduce the complete dense production oracle within $10^{-10}$.
 - Hermitian and skew-Hermitian identities close within $10^{-12}$.
 - Stationary, internal-wave, topographic-wave, and complete-basis projectors agree with Milestone 10.4 within $10^{-9}$.
+- Matrix-free truncation metadata reproduces the Milestone-10.4 scattering support, vertical support, tail estimate, and isolation margin.
 - Matrix-free construction retains the Milestone-10.4 dimension reduction and performs no global primitive-matrix assembly online.
 - No diagnostic pressure solve occurs during an operator application.
 
@@ -3058,6 +3154,7 @@ Milestone 13.
 | **E1.1 — Production-state contract** | 10.1 | Establish a complete physical coordinate set with exact degree-of-freedom accounting. |
 | **E1.2 — Complete internal waves** | 10.2 | Continue and enrich every declared internal-wave block. |
 | **E1.2.1 — Coupled-block internal waves** | 10.2.1 | Exact correction passed at fixed resolution but exposed a nested vertical-isolation blocker; the iterative stage was not attempted. |
+| **E1.2.2 — Geometric-cascade isolation** | 10.2.2 | Resolve horizontal and vertical terrain-scattering tails independently, test spectral isolation of the complete internal-wave block, and stop before bottom-wave classification. |
 | **E1.3 — Bottom/topographic sector** | 10.3 | Partition every bottom coordinate into the exact stationary or converged topographic-wave space. |
 | **E1.4 — Complete basis gate** | 10.4 | Prove complete, economical coverage of the declared production state. |
 | **E2 — Matrix-free production basis** | 11 | Reproduce the complete dense production oracle without global primitive matrices. |
@@ -3073,7 +3170,7 @@ Use one focused commit per completed milestone and retain acceptance evidence in
 
 The continuum and dense-oracle scientific proof of concept is established by Milestones 5–10: the boundary coordinate is represented as part of a complete linked state, the projected primitive system preserves physical energy, derives stationary volume APV, converges to the strong bottom equation, constructs the complete stationary balanced space, and demonstrates that global dressing followed by exact residual enrichment efficiently recovers a selected internal-wave subspace.
 
-Scientific completeness of the production basis requires Milestones 10.1–10.4, including the intervening Milestone-10.2.1 coupled-block gate. Every declared wave, APV, bottom, and MDA coordinate must belong to the stationary, internal-wave, or topographic-wave projector, with no unresolved coordinate inside the production state. Guard modes and omitted primitive-oracle directions are numerical support and truncation diagnostics rather than prognostic degrees of freedom.
+Scientific completeness of the production basis requires Milestones 10.1–10.4, including the intervening Milestone-10.2.1 coupled-block gate and Milestone-10.2.2 geometric-cascade isolation gate. Every declared wave, APV, bottom, and MDA coordinate must belong to the stationary, internal-wave, or topographic-wave projector, with no unresolved coordinate inside the production state. The selected horizontal scattering support, vertical support, omitted-tail estimate, and unresolved-energy fraction must be recorded with the production basis. Guard modes and omitted primitive-oracle directions are numerical support and truncation diagnostics rather than prognostic degrees of freedom.
 
 A complete forward wave–vortex model requires Milestones 11–13: matrix-free construction of the complete production basis, arbitrary-state phase and Cayley evolution, and convergent stationary, topographic-wave, sinusoidal-terrain, and Gaussian-ridge benchmarks.
 
