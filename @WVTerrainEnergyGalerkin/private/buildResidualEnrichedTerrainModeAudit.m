@@ -1,4 +1,4 @@
-function audit = buildResidualEnrichedTerrainModeAudit(problem,trustedBounds,supportBounds,stationaryDegree,degrees,comparisonDegree,paddingFactors,terrainScales,tangentStep,maximumIterations,quadratureOrder,productionContract)
+function [audit,setup] = buildResidualEnrichedTerrainModeAudit(problem,trustedBounds,supportBounds,stationaryDegree,degrees,comparisonDegree,paddingFactors,terrainScales,tangentStep,maximumIterations,quadratureOrder,productionContract)
 % Build the Milestone-10 exact-residual terrain-mode enrichment oracle.
 
 if nargin < 12

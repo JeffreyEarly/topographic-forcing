@@ -1,6 +1,6 @@
 # Terrain-energy Galerkin milestones
 
-> **Checkpoint after Milestone 10.2:** the production physical-state contract remains valid, and complete zonal and two-dimensional wave-coverage controls have been run. The present multiblock residual-correction algorithm is a numerical blocker: it is not stable under the required refinement and provides no trial-space economy in the zonal control. Milestone 10.2.1 now specifies the required coupled invariant-subspace correction oracle. Milestone 10.3 and matrix-free work remain inactive until that gate returns `coupled-block-acceleration`.
+> **Checkpoint after Milestone 10.2.1:** the exact coupled Sylvester correction recovers the fixed-discretization zonal internal-wave projector in one update, but the resulting physical projector does not stabilize under primitive vertical refinement. The measured outcome is `coupled-block-isolation-blocker`. Per the milestone stopping rule, the iterative Krylov/Jacobi--Davidson stage and the two-dimensional control were not attempted. Milestone 10.3 and matrix-free work remain inactive.
 
 ## Objective
 
@@ -2690,7 +2690,7 @@ The focused Milestone-10.2 suite passes eight tests. The complete repository sui
 
 ## Milestone 10.2.1: Coupled-block internal-wave correction
 
-- [ ] Complete — blocking gate
+- [x] Complete — blocking gate
 
 ### Purpose
 
@@ -2766,6 +2766,18 @@ Compare the ordinary globally dressed production seed with the frozen \(s_{\rm r
 - **`coupled-block-isolation-blocker`:** the declared internal-wave sector cannot be separated consistently from another physical sector.
 
 Only `coupled-block-acceleration` authorizes Milestone 10.3. Every other outcome stops for analysis or an additional algorithmic milestone. No replacement APV rows, empirical corrections, post hoc symmetrization, APV-nullspace projection, frequency cutoff, mode deletion, matrix-free production work, or time integration is permitted.
+
+### Implementation result
+
+The public `auditCoupledBlockInternalWaveCorrection` diagnostic retains the production contract and complete stationary space, forms one physical-energy-orthonormal production wave block, and solves the constrained complementary Sylvester equation in Cholesky-scaled energy coordinates. The dense eigensystem is evaluated only afterward as an independent projector oracle. The exact correction updates the invariant subspace as \(Y+\Delta\); it does not append \(\Delta\) as an additional physical coordinate.
+
+For the prescribed zonal \(j=1,2\) control at primitive degrees \(8,10,12\), one exact coupled correction reduces the energy-scaled Ritz residual to \(1.69\times10^{-12}\). At degree twelve, the dense-projector, projected-APV, bottom-evolution, correction-equation, and correction-orthogonality defects are \(4.03\times10^{-10}\), \(1.16\times10^{-9}\), \(3.50\times10^{-13}\), \(4.30\times10^{-15}\), and \(6.55\times10^{-17}\), respectively. Padding factors two and three agree to \(4.63\times10^{-13}\). The exact update retains eight joint physical coordinates inside a \(1027\)-dimensional ambient oracle; the Milestone-10.2 independent construction required \(48\) trial directions.
+
+The blocking result is the nested degree-\(8,10,12\) physical-projector drift, \(5.96\times10^{-4}\), compared with the required \(10^{-8}\). Thus the coupled equation repairs the frequency-local correction algorithm at each fixed discretization, but the declared internal-wave sector is not isolated consistently from the changing primitive completion under vertical refinement. This is `coupled-block-isolation-blocker`, not `coupled-block-formulation-blocker`.
+
+The milestone instructions require stopping as soon as the exact oracle establishes an isolation blocker. Consequently, the iterative coupled Krylov/Jacobi--Davidson realization, slope-seed comparison, and two-dimensional meridional control were not attempted. No numerical direction was removed or reclassified, and Milestone 10.3 remains blocked.
+
+The focused Milestone-10.2.1 suite passes five tests. The complete repository suite passes 211 tests with zero failures, and `checkcode` reports no issues in all 101 MATLAB files.
 
 ## Milestone 10.3: Complete bottom and topographic-wave sector
 
@@ -3045,7 +3057,7 @@ Milestone 13.
 | **E1 — Selective modes** | 10 | Implement residual enrichment and validate it exclusively against the dense oracle. |
 | **E1.1 — Production-state contract** | 10.1 | Establish a complete physical coordinate set with exact degree-of-freedom accounting. |
 | **E1.2 — Complete internal waves** | 10.2 | Continue and enrich every declared internal-wave block. |
-| **E1.2.1 — Coupled-block internal waves** | 10.2.1 | Test the exact coupled complementary correction, then its iterative block realization; stop unless it robustly and economically recovers both split controls. |
+| **E1.2.1 — Coupled-block internal waves** | 10.2.1 | Exact correction passed at fixed resolution but exposed a nested vertical-isolation blocker; the iterative stage was not attempted. |
 | **E1.3 — Bottom/topographic sector** | 10.3 | Partition every bottom coordinate into the exact stationary or converged topographic-wave space. |
 | **E1.4 — Complete basis gate** | 10.4 | Prove complete, economical coverage of the declared production state. |
 | **E2 — Matrix-free production basis** | 11 | Reproduce the complete dense production oracle without global primitive matrices. |
