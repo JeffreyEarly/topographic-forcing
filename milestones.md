@@ -1,6 +1,6 @@
 # Terrain-energy Galerkin milestones
 
-> **Checkpoint after Milestone 10.2:** the production physical-state contract remains valid, and complete zonal and two-dimensional wave-coverage controls have been run. The present multiblock residual-correction algorithm is a numerical blocker: it is not stable under the required refinement and provides no trial-space economy in the zonal control. Milestone 10.3 and matrix-free work remain inactive. The next work must reformulate Milestone 10.2 without altering the physical production state or the finite-terrain weak forms.
+> **Checkpoint after Milestone 10.2:** the production physical-state contract remains valid, and complete zonal and two-dimensional wave-coverage controls have been run. The present multiblock residual-correction algorithm is a numerical blocker: it is not stable under the required refinement and provides no trial-space economy in the zonal control. Milestone 10.2.1 now specifies the required coupled invariant-subspace correction oracle. Milestone 10.3 and matrix-free work remain inactive until that gate returns `coupled-block-acceleration`.
 
 ## Objective
 
@@ -2688,6 +2688,85 @@ The measured outcome is `internal-wave-numerical-blocker`. Milestone 10.3 must n
 
 The focused Milestone-10.2 suite passes eight tests. The complete repository suite passes 206 tests with zero failures, and static analysis reports no issues in all 98 MATLAB files.
 
+## Milestone 10.2.1: Coupled-block internal-wave correction
+
+- [ ] Complete — blocking gate
+
+### Purpose
+
+Determine whether the Milestone-10.2 failure came from generating separate flat-frequency residual corrections even though the reduced Ritz diagonalization used their joint span. Replace that frequency-local correction step by a genuinely coupled invariant-subspace correction without changing the production state, exact stationary space, primitive oracle, or finite-terrain forms.
+
+### Dependencies
+
+Milestone 10.2 with outcome `internal-wave-numerical-blocker`.
+
+### Coupled formulation
+
+Begin with every globally dressed production wave block in one finite-terrain-energy-orthonormal trial space \(X\), after projecting out the exact stationary space \(G_\gamma\). Solve the joint Ritz problem and define
+
+```math
+Y=XC,
+\qquad
+R=iJ_\gamma Y-H_\gamma Y\Theta,
+\qquad
+U=\begin{bmatrix}G_\gamma&Y\end{bmatrix}.
+```
+
+Treat \(Y\) as an invariant subspace. Its correction must therefore be unchanged by reordering or rotating the Ritz vectors inside that subspace. Replace the separate shifted-vector corrections by
+
+```math
+iJ_\gamma\Delta
+-H_\gamma\Delta\Theta
++H_\gamma U\Lambda
+=-R,
+\qquad
+U^*H_\gamma\Delta=0.
+```
+
+The Lagrange multiplier \(\Lambda\) enforces finite-terrain-energy orthogonality to both the exact stationary space and the current Ritz space. Every reduced solve, residual, and accepted projector continues to use the unchanged exact \(H_\gamma,J_\gamma\) forms.
+
+### Two-stage oracle
+
+1. **Exact complementary oracle.** Solve the coupled Sylvester or saddle system directly at reduced resolution. Determine whether the exact block correction repairs the failed meridional block and the nested vertical drift. Dense primitive eigenvectors remain validation data and must not become construction coordinates.
+2. **Iterative production candidate.** Solve the same coupled equation with a block Krylov or Jacobi--Davidson method. Use the flat signed-frequency operator only as a preconditioner, share Krylov directions across all residual columns, and use thick restart while retaining the complete production Ritz subspace and every backward-error-inseparable cluster.
+
+Compare the ordinary globally dressed production seed with the frozen \(s_{\rm ref}=s_{\rm rms}/2\) slope-compatible seed. The slope-compatible family is only an optional starting coordinate or preconditioner and does not alter the production contract or the final physical eigensystem.
+
+### Controls
+
+- Repeat the zonal trusted-band calculation with \(j=1,2\), giving eight declared wave coordinates.
+- Repeat the two-dimensional \(\lvert k\rvert,\lvert\ell\rvert\le1\) calculation with \(j=1\), giving sixteen declared wave coordinates and retaining the previously failed meridional block.
+- Use primitive degrees \(8,10,12\), padding factors two and three, nested guard supports, and at least three terrain amplitudes including the Milestone-10.2 reference amplitude.
+- Retain the independent-block enrichment as the economy control and report
+
+  ```math
+  N_{\rm joint},
+  \qquad
+  N_{\rm independent},
+  \qquad
+  N_{\rm ambient}.
+  ```
+
+### Automated acceptance
+
+- The dense physical-energy projector defect is below \(10^{-9}\).
+- The energy-scaled Ritz residual is below \(10^{-10}\).
+- Projected APV, bottom evolution, and strong primitive residuals are below \(10^{-8}\), \(10^{-10}\), and \(10^{-5}\), respectively.
+- Stationary orthogonality and Fourier conjugacy close below \(10^{-10}\).
+- Degree-eight to degree-twelve and padding-two to padding-three projector drift are below \(10^{-8}\).
+- The formerly failed meridional block passes every physical, refinement, guard, and padding gate independently.
+- The joint stationary-plus-wave representation achieves at least factor-two compression relative to the primitive ambient space.
+
+### Outcome classification
+
+- **`coupled-block-acceleration`:** every physical and refinement gate passes and \(N_{\rm joint}\le0.8N_{\rm independent}\).
+- **`coupled-block-equivalent`:** every physical and refinement gate passes, but the twenty-percent correction-recycling target does not.
+- **`coupled-block-iterative-blocker`:** the exact complementary oracle passes but the iterative block solver does not reproduce it robustly.
+- **`coupled-block-formulation-blocker`:** the exact coupled correction fails to recover the dense physical subspace.
+- **`coupled-block-isolation-blocker`:** the declared internal-wave sector cannot be separated consistently from another physical sector.
+
+Only `coupled-block-acceleration` authorizes Milestone 10.3. Every other outcome stops for analysis or an additional algorithmic milestone. No replacement APV rows, empirical corrections, post hoc symmetrization, APV-nullspace projection, frequency cutoff, mode deletion, matrix-free production work, or time integration is permitted.
+
 ## Milestone 10.3: Complete bottom and topographic-wave sector
 
 - [ ] Complete — blocking gate
@@ -2698,7 +2777,7 @@ Partition every declared flat bottom and zero-frequency coordinate into the exac
 
 ### Dependencies
 
-Milestone 10.2.
+Milestone 10.2.1 with outcome `coupled-block-acceleration`.
 
 ### Deliverables
 
@@ -2966,6 +3045,7 @@ Milestone 13.
 | **E1 — Selective modes** | 10 | Implement residual enrichment and validate it exclusively against the dense oracle. |
 | **E1.1 — Production-state contract** | 10.1 | Establish a complete physical coordinate set with exact degree-of-freedom accounting. |
 | **E1.2 — Complete internal waves** | 10.2 | Continue and enrich every declared internal-wave block. |
+| **E1.2.1 — Coupled-block internal waves** | 10.2.1 | Test the exact coupled complementary correction, then its iterative block realization; stop unless it robustly and economically recovers both split controls. |
 | **E1.3 — Bottom/topographic sector** | 10.3 | Partition every bottom coordinate into the exact stationary or converged topographic-wave space. |
 | **E1.4 — Complete basis gate** | 10.4 | Prove complete, economical coverage of the declared production state. |
 | **E2 — Matrix-free production basis** | 11 | Reproduce the complete dense production oracle without global primitive matrices. |
@@ -2981,7 +3061,7 @@ Use one focused commit per completed milestone and retain acceptance evidence in
 
 The continuum and dense-oracle scientific proof of concept is established by Milestones 5–10: the boundary coordinate is represented as part of a complete linked state, the projected primitive system preserves physical energy, derives stationary volume APV, converges to the strong bottom equation, constructs the complete stationary balanced space, and demonstrates that global dressing followed by exact residual enrichment efficiently recovers a selected internal-wave subspace.
 
-Scientific completeness of the production basis requires Milestones 10.1–10.4. Every declared wave, APV, bottom, and MDA coordinate must belong to the stationary, internal-wave, or topographic-wave projector, with no unresolved coordinate inside the production state. Guard modes and omitted primitive-oracle directions are numerical support and truncation diagnostics rather than prognostic degrees of freedom.
+Scientific completeness of the production basis requires Milestones 10.1–10.4, including the intervening Milestone-10.2.1 coupled-block gate. Every declared wave, APV, bottom, and MDA coordinate must belong to the stationary, internal-wave, or topographic-wave projector, with no unresolved coordinate inside the production state. Guard modes and omitted primitive-oracle directions are numerical support and truncation diagnostics rather than prognostic degrees of freedom.
 
 A complete forward wave–vortex model requires Milestones 11–13: matrix-free construction of the complete production basis, arbitrary-state phase and Cayley evolution, and convergent stationary, topographic-wave, sinusoidal-terrain, and Gaussian-ridge benchmarks.
 
