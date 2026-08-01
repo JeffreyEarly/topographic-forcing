@@ -1,6 +1,6 @@
 # Terrain-energy Galerkin milestones
 
-> **Checkpoint before Milestone 10.2.6:** the exact constant-$N$ mixed Dirichlet--Neumann family passes its analytic controls and improves the stationary projector monotonically, but the `analytic-modal-seed` outcome does not provide economical complete coverage. The next experiment compares a complete WKB-stretched Chebyshev primitive state with the mature Legendre oracle. Milestone 10.3 and matrix-free work remain inactive until one complete representation passes physical energy, projected APV, bottom evolution, reconstruction, and convergence gates.
+> **Checkpoint after Milestone 10.2.6:** the complete Legendre primitive sequence passes the dense spectral-representation gate and is selected for Milestone 10.3. The WKB--Chebyshev proposal is exactly equivalent for constant $N$, but for variable stratification its unweighted Chebyshev horizontal-velocity space does not form the same exact vertical derivative sequence and its bottom-evolution residual stagnates near $1.5\times10^{-5}$. The measured outcome is `wkb-spectral-fallback`. Milestone 10.3 is now the next approved increment; matrix-free work and time integration remain inactive.
 
 ## Objective
 
@@ -3380,7 +3380,7 @@ The focused analytic and preserved Milestone-10.2.5 regression suites each pass 
 
 ## Milestone 10.2.6: Complete WKB-Chebyshev primitive oracle
 
-- [ ] Complete — blocking spectral-representation gate
+- [x] Complete — `wkb-spectral-fallback`; complete Legendre state selected
 
 ### Purpose
 
@@ -3467,6 +3467,16 @@ The audit must cover constant stratification, exponential stratification, a loca
 - **`complete-spectral-blocker`:** neither complete representation passes.
 
 The first three outcomes authorize Milestone 10.3. Select the passing representation with the fewest coordinates at matched accuracy. If measured costs differ by less than ten percent, retain Legendre as the mature default. The earlier modal experiments remain valuable as initialization maps, diagnostics, and possible preconditioners, but their compression gates no longer block a complete forward state.
+
+### Measured result
+
+The public [`auditWKBPrimitiveForwardState`](<@WVTerrainEnergyGalerkin/auditWKBPrimitiveForwardState.m>) implements the complete mixed spaces, independent quadrature, common dealiased projection, matched Legendre control, and content-addressed cache. The reduced dense qualification used trusted bounds `[1 0]`, nested supports `[1 1;1 2]`, WKB degrees $8,12,16$, Legendre degrees $12,16,20$, padding factors two and three, and terrain scales $0,1/2,1$. Padding was varied on the converged outer support at the lowest vertically qualified degree, while the two-dimensional geometry control used degree eight; this separates horizontal projection tests from the thermocline-driven vertical degree.
+
+For constant $N$, the WKB--Chebyshev and Legendre physical projectors agree to $5.27\times10^{-14}$. The variable-stratification WKB sequence converges in its physical projector and APV diagnostic, but not in the strong bottom identity. In the exponential control, the degree-$8,12,16$ bottom defects are $1.35\times10^{-5}$, $1.43\times10^{-5}$, and $1.51\times10^{-5}$ even as the projector defect falls from $2.07\times10^{-6}$ to $3.19\times10^{-13}$. The thermocline control shows the same separation. The failure is therefore not inadequate Chebyshev resolution. For variable $N$, $\partial_\xi=s_0'(\xi)\partial_{s_0}$ and $s_0'(\xi)=2N(\xi)/\int N\,d\xi$ is nonconstant, so the proposed $\mathcal F_p=\operatorname{span}\{T_j\}$ does not contain the physical derivatives of every $\mathcal G_p$ function at finite degree. The exact compatible vertical sequence retained by the physical-coordinate Legendre construction is lost.
+
+The complete Legendre state passes. At degree 20 and outer support `[1 2]`, the projected APV and bottom defects are $1.13\times10^{-13}$ and $4.28\times10^{-12}$; the stationary Green defect is $6.49\times10^{-15}$. Padding factors two and three give physical-projector drift $9.41\times10^{-14}$, and the degree-eight two-dimensional control gives APV, bottom, and Green defects $5.39\times10^{-17}$, $3.25\times10^{-14}$, and $9.23\times10^{-14}$. The selected outer-support state retains 931 admissible coordinates. The result is **`wkb-spectral-fallback`**, which authorizes Milestone 10.3 using the complete Legendre representation.
+
+The focused WKB suite verifies exact coordinate controls, constant-$N$ equivalence, complete audit evidence, opt-in resumable caching, unchanged public layouts, and option validation. The existing global primitive suite remains green. Disposable audit artifacts remain under ignored `output/` and no cache write occurs when caching is disabled.
 
 ## Milestone 10.3: Complete spectral production-state gate
 

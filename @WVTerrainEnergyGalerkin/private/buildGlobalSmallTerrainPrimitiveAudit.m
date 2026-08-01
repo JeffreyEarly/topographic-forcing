@@ -11,11 +11,12 @@ arguments
     options.rejectTerrainNyquist (1,1) logical = false
     options.evaluationScales (:,1) double = zeros(0,1)
     options.shouldAuditTangent (1,1) logical = true
+    options.verticalCoordinate (1,1) string {mustBeMember(options.verticalCoordinate,["legendre","wkb"])} = "legendre"
 end
 
 context = buildContext(problem,polynomialDegree,quadratureOrder, ...
     options.horizontalLayout,options.paddingFactor,options.trustedModeBounds, ...
-    options.rejectTerrainNyquist);
+    options.rejectTerrainNyquist,options.verticalCoordinate);
 flat = descriptorAtScale(context,0);
 evaluatedDirections = repmat(flat,numel(options.evaluationScales),1);
 for iScale = 1:numel(options.evaluationScales)
@@ -114,10 +115,11 @@ audit.diagnosis = diagnosis;
 audit.nextScope = "finite-amplitude-periodic-terrain-only-if-compatible";
 end
 
-function context = buildContext(problem,degree,quadratureOrder,horizontalLayout,paddingFactor,trustedModeBounds,rejectTerrainNyquist)
+function context = buildContext(problem,degree,quadratureOrder,horizontalLayout,paddingFactor,trustedModeBounds,rejectTerrainNyquist,verticalCoordinate)
 wvt = problem.originatingTransform;
-quadrature = legendreQuadrature(quadratureOrder,wvt.Lz);
-spaces = polynomialSpaces(degree,quadrature,wvt.Lz);
+[quadrature,spaces,verticalDiagnostics] = ...
+    buildPrimitiveVerticalDiscretization(wvt,degree,quadratureOrder, ...
+    verticalCoordinate);
 nK = height(horizontalLayout);
 nF = size(spaces.F,2);
 nG = size(spaces.G,2);
@@ -201,8 +203,8 @@ for iK = 1:nK
     bottomValueFull(iK,ieta) = spaces.Hendpoint(1,:);
 end
 
-kByState = repelem(horizontalLayout.k,nXBlock);
-lByState = repelem(horizontalLayout.l,nXBlock);
+kByState = kron(horizontalLayout.k(:),ones(nXBlock,1));
+lByState = kron(horizontalLayout.l(:),ones(nXBlock,1));
 RuX = Ru.*(1i*kByState.');
 RuY = Ru.*(1i*lByState.');
 RvX = Rv.*(1i*kByState.');
@@ -239,8 +241,9 @@ if numel(N20) ~= nZ || ~isreal(N20) || any(~isfinite(N20)) || any(N20 <= 0)
     error("WVTerrainEnergyGalerkin:InvalidPrimitiveStratification", ...
         "N2Function must return finite positive values on the primitive quadrature.")
 end
-[Pq,Pqr] = legendreValues(quadrature.r,nZ-1);
-N2Xi = (2/wvt.Lz)*(Pqr/Pq)*N20;
+[Pq,Pqr] = legendreValuesForPrimitiveAudit(quadrature.r,nZ-1);
+N2Coordinate = (Pqr/Pq)*N20;
+N2Xi = quadrature.coordinateDerivative.*N2Coordinate;
 
 trustedHorizontalModes = abs(horizontalLayout.kMode) <= trustedModeBounds(1) ...
     & abs(horizontalLayout.lMode) <= trustedModeBounds(2);
@@ -272,7 +275,9 @@ context = struct("problem",problem,"wvt",wvt,"quadrature",quadrature,"spaces",sp
     "Pxy",Pxy,"Pq",Pq,"Iq",Iq,"apvVerticalWeight",apvVerticalWeight, ...
     "terrainMultiplication",terrainMultiplication, ...
     "continuityDiagnostics",continuityDiagnostics,"phaseGramDefect",phaseGramDefect, ...
-    "projectionDiagnostics",projectionDiagnostics);
+    "projectionDiagnostics",projectionDiagnostics, ...
+    "verticalCoordinate",verticalCoordinate, ...
+    "verticalDiagnostics",verticalDiagnostics);
 end
 
 function [multiplication,diagnostics] = projectedTerrainMultiplication(problem,horizontalLayout,phase,H,HX,HY,nXY,rejectTerrainNyquist)
@@ -553,23 +558,110 @@ J1 = c.wvt.rho0*(horizontalExchange+verticalExchange);
 end
 
 function [Y,diagnostics] = solveGaugedSystem(S,F,gauge)
-[U,Sigma,~] = svd(S,"econ");
+if size(S,1) > 1200
+    [Y,diagnostics] = solveLargeEquilibratedGaugedSystem(S,F,gauge);
+    return
+end
+[rawU,rawSigma,~] = svd(S,"econ");
+rawSingularValues = diag(rawSigma);
+rawTolerance = max(size(S))*eps(max(rawSingularValues))*100;
+rawNullity = nnz(rawSingularValues <= rawTolerance);
+if rawNullity == 1
+    leftNull = rawU(:,end);
+    bordered = [S leftNull;gauge' 0];
+    solution = bordered\[F;zeros(1,size(F,2))];
+    Y = solution(1:end-1,:);
+    diagnostics = solveDiagnostics(S,F,gauge,Y,leftNull, ...
+        rawSingularValues,rawTolerance,rawNullity,rawNullity, ...
+        rcond(bordered),ones(size(S,1),1),ones(size(S,2),1),false);
+    return
+end
+
+rowNorm = vecnorm(S,2,2);
+rowScale = ones(size(rowNorm));
+rowTolerance = max(size(S))*eps(max(rowNorm))*100;
+nonzeroRows = rowNorm > rowTolerance;
+rowScale(nonzeroRows) = 1./rowNorm(nonzeroRows);
+rowScaled = rowScale.*S;
+columnNorm = vecnorm(rowScaled,2,1).';
+columnScale = ones(size(columnNorm));
+columnTolerance = max(size(S))*eps(max(columnNorm))*100;
+nonzeroColumns = columnNorm > columnTolerance;
+columnScale(nonzeroColumns) = 1./columnNorm(nonzeroColumns);
+scaledS = rowScaled.*columnScale.';
+scaledF = rowScale.*F;
+[U,Sigma,~] = svd(scaledS,"econ");
 singularValues = diag(Sigma);
-tolerance = max(size(S))*eps(max(singularValues))*100;
+tolerance = max(size(scaledS))*eps(max(singularValues))*100;
 nullity = nnz(singularValues <= tolerance);
 if nullity ~= 1
     error("WVTerrainEnergyGalerkin:UnexpectedPrimitivePressureNullity", ...
-        "The ungauged global primitive saddle has nullity %d instead of one.",nullity)
+        "The equilibrated primitive saddle has nullity %d instead of one (raw nullity %d).", ...
+        nullity,rawNullity)
 end
-leftNull = U(:,end);
-bordered = [S leftNull;gauge' 0];
-solution = bordered\[F;zeros(1,size(F,2))];
-Y = solution(1:end-1,:);
-diagnostics = struct("pressureNullity",nullity,"singularValues",singularValues, ...
+leftNullScaled = U(:,end);
+scaledGauge = columnScale.*gauge;
+bordered = [scaledS leftNullScaled;scaledGauge' 0];
+solution = bordered\[scaledF;zeros(1,size(F,2))];
+Y = columnScale.*solution(1:end-1,:);
+leftNull = rowScale.*leftNullScaled;
+leftNull = leftNull/norm(leftNull);
+diagnostics = solveDiagnostics(S,F,gauge,Y,leftNull,singularValues, ...
+    tolerance,nullity,rawNullity,rcond(bordered),rowScale,columnScale,true);
+end
+
+function [Y,diagnostics] = solveLargeEquilibratedGaugedSystem(S,F,gauge)
+% Avoid a full dense SVD whose workspace dominates the large-support oracle.
+rowNorm = vecnorm(S,2,2);
+rowScale = ones(size(rowNorm));
+rowTolerance = max(size(S))*eps(max(rowNorm))*100;
+nonzeroRows = rowNorm > rowTolerance;
+rowScale(nonzeroRows) = 1./rowNorm(nonzeroRows);
+rowScaled = rowScale.*S;
+columnNorm = vecnorm(rowScaled,2,1).';
+columnScale = ones(size(columnNorm));
+columnTolerance = max(size(S))*eps(max(columnNorm))*100;
+nonzeroColumns = columnNorm > columnTolerance;
+columnScale(nonzeroColumns) = 1./columnNorm(nonzeroColumns);
+scaledS = rowScaled.*columnScale.';
+scaledF = rowScale.*F;
+numberOfTriplets = min(6,size(scaledS,1)-1);
+options = struct("tol",1e-12,"maxit",500,"disp",0);
+[U,Sigma,~] = svds(scaledS,numberOfTriplets,"smallest",options);
+[singularValues,permutation] = sort(diag(Sigma));
+U = U(:,permutation);
+largestSingularValueBound = sqrt(norm(scaledS,1)*norm(scaledS,Inf));
+tolerance = max(size(scaledS))*eps(largestSingularValueBound)*100;
+nullity = nnz(singularValues <= tolerance);
+if nullity ~= 1
+    error("WVTerrainEnergyGalerkin:UnexpectedPrimitivePressureNullity", ...
+        "The equilibrated large primitive saddle has %d resolved null directions instead of one.", ...
+        nullity)
+end
+leftNullScaled = U(:,1);
+scaledGauge = columnScale.*gauge;
+bordered = [scaledS leftNullScaled;scaledGauge' 0];
+solution = bordered\[scaledF;zeros(1,size(F,2))];
+Y = columnScale.*solution(1:end-1,:);
+leftNull = rowScale.*leftNullScaled;
+leftNull = leftNull/norm(leftNull);
+diagnostics = solveDiagnostics(S,F,gauge,Y,leftNull,singularValues, ...
+    tolerance,nullity,NaN,NaN,rowScale,columnScale,true);
+end
+
+function diagnostics = solveDiagnostics(S,F,gauge,Y,leftNull, ...
+    singularValues,tolerance,nullity,rawNullity,borderedRcond,rowScale, ...
+    columnScale,wasEquilibrated)
+diagnostics = struct("pressureNullity",nullity, ...
+    "rawPressureNullity",rawNullity,"singularValues",singularValues, ...
     "nullTolerance",tolerance,"leftNullVector",leftNull, ...
     "gaugedSaddleResidual",norm(S*Y-F,"fro")/max(norm(F,"fro"),realmin), ...
     "pressureGaugeDefect",norm(gauge'*Y,"fro")/max(norm(Y,"fro"),realmin), ...
-    "borderedReciprocalConditionNumber",rcond(bordered));
+    "borderedReciprocalConditionNumber",borderedRcond, ...
+    "minimumRowScale",min(rowScale),"maximumRowScale",max(rowScale), ...
+    "minimumColumnScale",min(columnScale), ...
+    "maximumColumnScale",max(columnScale), ...
+    "wasEquilibrated",wasEquilibrated);
 end
 
 function tangent = centeredTangent(plus,minus,step)
@@ -927,48 +1019,4 @@ end
 
 function value = matrixDefect(residual,reference)
 value = norm(residual,"fro")/max(norm(reference,"fro"),realmin);
-end
-
-function quadrature = legendreQuadrature(order,D)
-index = (1:order-1)';
-offDiagonal = index./sqrt(4*index.^2-1);
-[vectors,values] = eig(diag(offDiagonal,1)+diag(offDiagonal,-1),"vector");
-[r,permutation] = sort(values);
-vectors = vectors(:,permutation);
-weightR = 2*(vectors(1,:)').^2;
-quadrature = struct("r",r,"xi",D*(r-1)/2,"weight",D*weightR/2);
-end
-
-function spaces = polynomialSpaces(degree,quadrature,D)
-r = quadrature.r;
-[F,Fr] = legendreValues(r,degree);
-Fxi = (2/D)*Fr;
-G = (1-r.^2).*F(:,1:degree);
-Gxi = (2/D)*(-2*r.*F(:,1:degree)+(1-r.^2).*Fr(:,1:degree));
-chi = (1-r)/2;
-H = [G chi];
-Hxi = [Gxi -ones(size(r))/D];
-[Pressure,PressureR] = legendreValues(r,degree+1);
-PressureXi = (2/D)*PressureR;
-[Fendpoint,~] = legendreValues([-1;1],degree);
-Gendpoint = (1-[-1;1].^2).*Fendpoint(:,1:degree);
-Hendpoint = [Gendpoint [1;0]];
-spaces = struct("F",F,"Fxi",Fxi,"G",G,"Gxi",Gxi,"H",H,"Hxi",Hxi, ...
-    "Pressure",Pressure,"PressureXi",PressureXi,"Fendpoint",Fendpoint, ...
-    "Hendpoint",Hendpoint);
-end
-
-function [P,Pr] = legendreValues(r,degree)
-P = zeros(numel(r),degree+1);
-Pr = zeros(numel(r),degree+1);
-P(:,1) = 1;
-if degree == 0
-    return
-end
-P(:,2) = r;
-Pr(:,2) = 1;
-for n = 2:degree
-    P(:,n+1) = ((2*n-1)*r.*P(:,n)-(n-1)*P(:,n-1))/n;
-    Pr(:,n+1) = ((2*n-1)*(P(:,n)+r.*Pr(:,n))-(n-1)*Pr(:,n-1))/n;
-end
 end
