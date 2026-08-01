@@ -1,6 +1,6 @@
 # Terrain-energy Galerkin milestones
 
-> **Checkpoint after Milestone 10.2.2:** the eight-dimensional zonal production-wave block is physically clean and spectrally isolated, and its geometric Fourier tail converges through scattering order five. Its vertical primitive tail decreases systematically but remains above tolerance at degree fourteen, so the milestone records `cascade-slow`. Milestone 10.3 and matrix-free work remain inactive until a revised vertical representation or higher-degree convergence study resolves this stop.
+> **Checkpoint after Milestone 10.2.3:** fixed-\(\kappa\) internal waves, ordinary flat APV-bearing geostrophic modes, explicit zero-APV bottom inversions, and the compatible \(\kappa=0\) sector form a physically interpretable modal ambient space, and the fixed-\(\kappa\) wave/provider controls pass. The ordinary flat geostrophic sector converges too slowly to represent the exact finite-terrain stationary space economically: at the largest tested modal count its representation defect is \(4.26\times10^{-3}\) and its compression factor is only \(1.68\). The recorded outcome is `geostrophic-modal-blocker`; Milestone 10.3 and matrix-free work remain inactive.
 
 ## Objective
 
@@ -2908,6 +2908,88 @@ The outcome is therefore **`cascade-slow`**. The earlier \(5.96\times10^{-4}\) d
 
 The focused Milestone-10.2.2 suite passes seven tests. The complete repository suite passes 218 tests with zero failures, and static analysis reports no issues in all 104 MATLAB files.
 
+## Milestone 10.2.3: Flat wave–vortex modal ambient oracle
+
+- [x] Complete — `geostrophic-modal-blocker`; Milestone 10.3 remains blocked
+
+### Purpose
+
+Test whether the slow primitive vertical tail isolated by Milestone 10.2.2 can be replaced by a physically organized flat wave–vortex ambient space rather than by increasing generic polynomial degree. The candidate coordinates are
+
+```math
+\mathcal V_{\rm modal}
+=
+\mathcal W_{\kappa}^{\rm flat}
+\oplus
+\mathcal G_{\kappa}^{\rm flat}
+\oplus
+\mathcal B_{\kappa}^{0}
+\oplus
+\mathcal M_0,
+```
+
+where \(\mathcal W_{\kappa}^{\rm flat}\) contains fixed-\(\kappa\) nonhydrostatic internal-wave modes, \(\mathcal G_{\kappa}^{\rm flat}\) contains ordinary APV-bearing flat geostrophic modes, \(\mathcal B_{\kappa}^{0}\) is the explicit zero-APV bottom inversion, and \(\mathcal M_0\) is the compatible \(\kappa=0\) inertial, MDA, and mean-bottom sector. No Robin tuning or local-slope coordinate is used. The primitive polynomial system remains an independent validation and quadrature oracle rather than a candidate production basis.
+
+### Dependencies
+
+Milestone 10.2.2 with outcome `cascade-slow`, the Milestone-8 exact finite-terrain stationary construction, and the Milestone-10.1 production coordinate contract. The isolated InternalModesEVP checkout is pinned to commit `df86687` and is used only to generate and independently qualify the one-dimensional modal families; the WaveVortexModel InternalModes dependency is unchanged.
+
+### Oracle
+
+The public diagnostic is
+
+```matlab
+audit = problem.auditWaveVortexModalAmbient( ...
+    trustedModeBounds=[1 0], ...
+    targetWaveModeIndices=[1;2], ...
+    waveGuardModeCounts=[2;4;6;8;12], ...
+    geostrophicModeCounts=[2;4;6;8;12], ...
+    scatteringOrders=[1;2;3;4;5], ...
+    primitiveReferenceDegrees=[16;18;20], ...
+    paddingFactors=[2;3], ...
+    terrainScales=[0;1/8;1/4;1/2;3/4;1], ...
+    internalModesEVPOrders=[128;256], ...
+    shouldRunTwoDimensionalControl=true, ...
+    cacheDirectory="output/milestone-10.2.3-cache");
+```
+
+For each horizontal coefficient the oracle constructs the modal families directly, embeds them into the primitive comparison space, removes the exact finite-terrain stationary space before identifying the dynamical wave projector, and restricts the unchanged exact finite-terrain \(H_\gamma,J_\gamma,Q_\gamma,B,R_h\) forms. It varies wave and geostrophic counts independently, compares padding and horizontal support, retains the complete primitive eigensystem as validation data, and never promotes a dense eigenvector to a construction coordinate. Every cache artifact is disposable, content addressed, signature checked, restricted to ignored `output/`, and written only when caching is enabled.
+
+### Acceptance and outcome classification
+
+The modal provider, endpoint conditions, flat reconstruction, conjugacy, energy normalization, and exact-form structure must close near roundoff. The finite-terrain internal-wave projector, frequencies, Ritz equation, APV, bottom evolution, and strong primitive equations must agree with the converged primitive oracle. The exact stationary space must be represented and stationary to the declared tolerances. Padding, guard support, polynomial reference degree, wave count, and geostrophic count must converge independently, and an accepted production ambient must retain at least factor-two compression.
+
+The declared outcomes are:
+
+- **`wave-vortex-modal-acceleration`:** all physical gates pass with at least factor-two compression;
+- **`wave-vortex-modal-equivalent`:** all physical gates pass without factor-two compression;
+- **`wave-modal-blocker`:** the fixed-\(\kappa\) wave family or its finite-terrain continuation does not converge;
+- **`geostrophic-modal-blocker`:** the ordinary flat balanced/bottom family does not converge to the exact finite-terrain stationary space economically;
+- **`primitive-reference-blocker`:** the independent polynomial validation sequence does not stabilize;
+- **`provider-blocker`:** the isolated one-dimensional EVP provider fails its qualification.
+
+Only `wave-vortex-modal-acceleration` would authorize Milestone 10.3. No frequency cutoff, replacement APV row, empirical correction, post hoc symmetrization, APV-nullspace projection, mode deletion, matrix-free operator, or time integration is included.
+
+### Outcome
+
+The approved constant-\(N\) zonal oracle used resolution `[6 14 5]`, trusted band `[1 0]`, wave and ordinary geostrophic counts \(2,4,6,8,12\), primitive reference degrees \(16,18,20\), scattering orders one through five, terrain amplitude \(2.5\,\mathrm{m}\), and padding factors two and three. The isolated provider orders 128 and 256 agree in physical-energy projector to \(1.51\times10^{-11}\), with maximum endpoint defect \(3.32\times10^{-12}\). The flat modal control is correspondingly clean: its wave-projector defect is zero, and its Ritz, APV, bottom, and strong residuals are \(1.68\times10^{-12}\), \(6.04\times10^{-14}\), \(1.00\times10^{-13}\), and \(1.47\times10^{-13}\).
+
+The finite-terrain count sweep is
+
+| Wave/geostrophic count | Modal dimension | Primitive/modal compression | Wave-projector defect | Stationary representation defect |
+|---:|---:|---:|---:|---:|
+| 2 | 160 | 8.92 | \(2.97\times10^{-2}\) | \(5.82\times10^{-1}\) |
+| 4 | 298 | 4.79 | \(1.68\times10^{-3}\) | \(6.41\times10^{-2}\) |
+| 6 | 436 | 3.27 | \(6.92\times10^{-4}\) | \(2.36\times10^{-2}\) |
+| 8 | 574 | 2.49 | \(4.32\times10^{-4}\) | \(1.17\times10^{-2}\) |
+| 12 | 850 | 1.68 | \(2.33\times10^{-4}\) | \(4.26\times10^{-3}\) |
+
+At the largest count the frequency, Ritz, projected-APV, bottom, and strong defects are \(1.11\times10^{-8}\), \(1.23\times10^{-5}\), \(2.53\times10^{-8}\), \(9.70\times10^{-6}\), and \(2.83\times10^{-6}\). The exact stationary weak-row and bottom-tangency defects are \(2.07\times10^{-7}\) and \(4.07\times10^{-8}\). Padding factors two and three give the same \(2.33\times10^{-4}\) wave-projector discrepancy, and nested horizontal support stabilizes at that value. Thus neither dealiasing nor missing horizontal guard modes explains the stop.
+
+The outcome is **`geostrophic-modal-blocker`**. The fixed-\(\kappa\) internal-wave coordinates and isolated InternalModesEVP provider are not the failure. The ordinary flat APV-bearing geostrophic modes plus the explicit bottom inversion converge systematically, but they approximate the exact terrain-dependent stationary inclusion too slowly: the factor-two economy gate is lost before the stationary or wave projector reaches tolerance. The two-dimensional control is not attempted because the zonal acceleration gate does not pass. Milestone 10.3 remains inactive; a future increment must construct a more terrain-adapted balanced/stationary coordinate family while retaining the successful fixed-\(\kappa\) wave sector and the primitive oracle.
+
+The focused Milestone-10.2.3 suite passes six tests. The complete repository suite passes 224 tests with zero failures, and static analysis reports no issues in all 107 MATLAB files.
+
 ## Milestone 10.3: Complete bottom and topographic-wave sector
 
 - [ ] Complete — blocking gate
@@ -2918,7 +3000,7 @@ Partition every declared flat bottom and zero-frequency coordinate into the exac
 
 ### Dependencies
 
-Milestone 10.2.2 with outcome `cascade-resolved`.
+Milestone 10.2.3 with outcome `wave-vortex-modal-acceleration`. The measured `geostrophic-modal-blocker` outcome does not satisfy this dependency.
 
 ### Deliverables
 
@@ -3190,6 +3272,7 @@ Milestone 13.
 | **E1.2 — Complete internal waves** | 10.2 | Continue and enrich every declared internal-wave block. |
 | **E1.2.1 — Coupled-block internal waves** | 10.2.1 | Exact correction passed at fixed resolution but exposed a nested vertical-isolation blocker; the iterative stage was not attempted. |
 | **E1.2.2 — Geometric-cascade isolation** | 10.2.2 | Resolve horizontal and vertical terrain-scattering tails independently, test spectral isolation of the complete internal-wave block, and stop before bottom-wave classification. |
+| **E1.2.3 — Flat wave–vortex modal ambient** | 10.2.3 | Replace generic polynomial candidate coordinates by fixed-\(\kappa\) waves, ordinary flat geostrophic modes, explicit bottom inversions, and the compatible mean sector; stop if the exact terrain stationary space is not represented economically. |
 | **E1.3 — Bottom/topographic sector** | 10.3 | Partition every bottom coordinate into the exact stationary or converged topographic-wave space. |
 | **E1.4 — Complete basis gate** | 10.4 | Prove complete, economical coverage of the declared production state. |
 | **E2 — Matrix-free production basis** | 11 | Reproduce the complete dense production oracle without global primitive matrices. |
@@ -3205,7 +3288,7 @@ Use one focused commit per completed milestone and retain acceptance evidence in
 
 The continuum and dense-oracle scientific proof of concept is established by Milestones 5–10: the boundary coordinate is represented as part of a complete linked state, the projected primitive system preserves physical energy, derives stationary volume APV, converges to the strong bottom equation, constructs the complete stationary balanced space, and demonstrates that global dressing followed by exact residual enrichment efficiently recovers a selected internal-wave subspace.
 
-Scientific completeness of the production basis requires Milestones 10.1–10.4, including the intervening Milestone-10.2.1 coupled-block gate and Milestone-10.2.2 geometric-cascade isolation gate. Every declared wave, APV, bottom, and MDA coordinate must belong to the stationary, internal-wave, or topographic-wave projector, with no unresolved coordinate inside the production state. The selected horizontal scattering support, vertical support, omitted-tail estimate, and unresolved-energy fraction must be recorded with the production basis. Guard modes and omitted primitive-oracle directions are numerical support and truncation diagnostics rather than prognostic degrees of freedom.
+Scientific completeness of the production basis requires Milestones 10.1–10.4, including the intervening Milestone-10.2.1 coupled-block, Milestone-10.2.2 geometric-cascade, and Milestone-10.2.3 flat wave–vortex ambient gates. Every declared wave, APV, bottom, and MDA coordinate must belong to the stationary, internal-wave, or topographic-wave projector, with no unresolved coordinate inside the production state. The selected horizontal scattering support, vertical support, modal family and count, omitted-tail estimate, and unresolved-energy fraction must be recorded with the production basis. Guard modes and omitted primitive-oracle directions are numerical support and truncation diagnostics rather than prognostic degrees of freedom.
 
 A complete forward wave–vortex model requires Milestones 11–13: matrix-free construction of the complete production basis, arbitrary-state phase and Cayley evolution, and convergent stationary, topographic-wave, sinusoidal-terrain, and Gaussian-ridge benchmarks.
 

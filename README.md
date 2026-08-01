@@ -1,6 +1,6 @@
 # Topographic forcing research implementations
 
-> **Scientific checkpoint after Milestone 10.2.2:** the eight-dimensional zonal production-wave block is physically clean and separated from its complement by more than \(5\times10^{11}\) times backward uncertainty. Its horizontal geometric cascade converges through scattering order five, but its vertical primitive tail is \(6.35\times10^{-7}\) at degree fourteen, above the \(10^{-8}\) gate. The recorded outcome is `cascade-slow`; Milestone 10.3 remains inactive. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) and the [Milestone 10.2.2 outcome](milestones.md#milestone-1022-geometric-cascade-and-spectral-isolation-audit) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
+> **Scientific checkpoint after Milestone 10.2.3:** replacing generic polynomial candidate coordinates by fixed-\(\kappa\) waves, ordinary flat geostrophic modes, explicit zero-APV bottom inversions, and the compatible mean sector verifies the wave/provider construction but returns `geostrophic-modal-blocker`. At the largest tested modal count the exact terrain stationary-space representation defect is \(4.26\times10^{-3}\), the internal-wave projector defect is \(2.33\times10^{-4}\), and compression has fallen to \(1.68\). Milestone 10.3 remains inactive. Read [Read me first: terrain-energy Galerkin status](READ_ME_FIRST.md) and the [Milestone 10.2.3 outcome](milestones.md#milestone-1023-flat-wavevortex-modal-ambient-oracle) before continuing. The implemented mean-depth generator and scattering classes remain a validated first-order baseline.
 
 Potential upstream Fourier and modal-layout additions are prioritized in [Missing WaveVortexModel Infrastructure](MISSING_WAVEVORTEXMODEL_INFRASTRUCTURE.md).
 
@@ -373,6 +373,25 @@ audit = problem.auditGeometricCascadeIsolation( ...
 Artifacts are content addressed, signature validated, and restricted to the ignored `output/` directory. Omitting `cacheDirectory` performs no cache writes.
 
 The focused Milestone-10.2.2 suite passes seven tests. The complete repository suite passes 218 tests with zero failures, and `checkcode` reports no issues in all 104 MATLAB files.
+
+Milestone 10.2.3 is exposed by `auditWaveVortexModalAmbient`. It retains the primitive polynomial system only as an independent oracle and constructs the candidate ambient space from fixed-\(\kappa\) internal waves, ordinary APV-bearing flat geostrophic modes, explicit zero-APV bottom inversions, and compatible \(\kappa=0\) states. The flat wave and isolated InternalModesEVP controls pass, and increasing modal count improves the finite-terrain projector systematically. The ordinary flat geostrophic sector nevertheless represents the exact terrain stationary space too slowly to reach tolerance before losing factor-two compression. The resulting `geostrophic-modal-blocker` classification leaves Milestone 10.3 inactive.
+
+```matlab
+audit = problem.auditWaveVortexModalAmbient( ...
+    trustedModeBounds=[1 0], ...
+    targetWaveModeIndices=[1;2], ...
+    waveGuardModeCounts=[2;4;6;8;12], ...
+    geostrophicModeCounts=[2;4;6;8;12], ...
+    scatteringOrders=[1;2;3;4;5], ...
+    primitiveReferenceDegrees=[16;18;20], ...
+    paddingFactors=[2;3], ...
+    internalModesEVPOrders=[128;256], ...
+    cacheDirectory="output/milestone-10.2.3-cache");
+```
+
+The cache is optional, content addressed, signature validated, restricted to ignored `output/`, and disabled without disk writes by default. The isolated InternalModesEVP checkout is pinned to `df86687`; neither InternalModes checkout is modified and the WaveVortexModel dependency remains unchanged.
+
+The focused Milestone-10.2.3 suite passes six tests. The complete repository suite passes 224 tests with zero failures, and `checkcode` reports no issues in all 107 MATLAB files.
 
 ## Terrain-energy Galerkin flat oracle
 

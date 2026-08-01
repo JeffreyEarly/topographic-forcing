@@ -37,6 +37,7 @@ classdef WVTerrainEnergyGalerkin < handle
     % - Topic: Audit the production physical-state contract
     % - Topic: Audit complete production internal-wave coverage
     % - Topic: Audit geometric-cascade isolation
+    % - Topic: Audit a flat wave-vortex modal ambient
     % - Topic: Audit the Branch-P discrete oracle
     % - Topic: Audit terrain compatibility
     % - Topic: Audit constrained evolution
