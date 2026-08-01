@@ -1,6 +1,6 @@
 # Terrain-energy Galerkin milestones
 
-> **Checkpoint after Milestone 10.2.3:** fixed-\(\kappa\) internal waves, ordinary flat APV-bearing geostrophic modes, explicit zero-APV bottom inversions, and the compatible \(\kappa=0\) sector form a physically interpretable modal ambient space, and the fixed-\(\kappa\) wave/provider controls pass. The ordinary flat geostrophic sector converges too slowly to represent the exact finite-terrain stationary space economically: at the largest tested modal count its representation defect is \(4.26\times10^{-3}\) and its compression factor is only \(1.68\). The recorded outcome is `geostrophic-modal-blocker`; Milestone 10.3 and matrix-free work remain inactive.
+> **Checkpoint before Milestone 10.2.5:** fixed-$\kappa$ internal waves remain the verified wave coordinates, but neither ordinary flat nor trained signed-Robin geostrophic coordinates economically represent the exact finite-terrain stationary inclusion. Global $G_1$ dressing of the bottom-tangent Robin combinations reduces stationary weak-row and bottom defects, yet the best stationary-projector defect remains $1.20\times10^{-2}$ and the finite-Robin Gram condition number reaches $1.33\times10^{15}$. The next experiment will enforce the global terrain-tangent trace constraint before compressing the homogeneous vertical interior. Milestone 10.3 and matrix-free work remain inactive unless Milestone 10.2.5 returns `global-tangent-acceleration`.
 
 ## Objective
 
@@ -2968,7 +2968,7 @@ The declared outcomes are:
 - **`primitive-reference-blocker`:** the independent polynomial validation sequence does not stabilize;
 - **`provider-blocker`:** the isolated one-dimensional EVP provider fails its qualification.
 
-Only `wave-vortex-modal-acceleration` would authorize Milestone 10.3. No frequency cutoff, replacement APV row, empirical correction, post hoc symmetrization, APV-nullspace projection, mode deletion, matrix-free operator, or time integration is included.
+The measured `geostrophic-modal-blocker` outcome routes the roadmap to Milestone 10.2.4 before Milestone 10.3. No frequency cutoff, replacement APV row, empirical correction, post hoc symmetrization, APV-nullspace projection, mode deletion, matrix-free operator, or time integration is included.
 
 ### Outcome
 
@@ -2990,6 +2990,281 @@ The outcome is **`geostrophic-modal-blocker`**. The fixed-\(\kappa\) internal-wa
 
 The focused Milestone-10.2.3 suite passes six tests. The complete repository suite passes 224 tests with zero failures, and static analysis reports no issues in all 107 MATLAB files.
 
+## Milestone 10.2.4: Terrain-dressed Robin stationary-coordinate oracle
+
+- [x] Complete — blocking stationary-compression gate
+
+### Purpose
+
+Determine whether bottom-localized Robin geostrophic modes become an economical representation of the exact finite-terrain stationary space when combined with the global first terrain correction verified in Milestones 6.8 and 9.4. This experiment retains the successful fixed-$\kappa$ internal-wave sector from Milestone 10.2.3 and isolates the failed balanced-coordinate sector.
+
+For scalar Robin columns $\Phi_{\ell_b}$, define the globally dressed geostrophic coordinates
+
+```math
+X_{\rm g}^{[1]}(\ell_b,\delta)
+=
+\left(G_0+\delta G_1\right)\Phi_{\ell_b},
+```
+
+and the candidate ambient space
+
+```math
+\mathcal V_{\ell_b}^{[1]}
+=
+\mathcal W_{\kappa}^{\rm flat}
+\oplus
+X_{\rm g}^{[1]}(\ell_b,\delta)
+\oplus
+\mathcal B_{\kappa}^{0}
+\oplus
+\mathcal M_0.
+```
+
+Here $\mathcal W_{\kappa}^{\rm flat}$ is the qualified fixed-$\kappa$ wave family, $G_1$ retains every terrain-generated horizontal sideband, $\mathcal B_{\kappa}^{0}$ remains the independent zero-APV bottom inversion, and $\mathcal M_0$ is the compatible mean sector. The Robin condition shapes vertical convergence only. The exact finite-terrain $H_\gamma,J_\gamma,Q_\gamma,B,R_h$ forms and the exact Milestone-8 stationary space remain the physical evolution and validation oracles.
+
+The implementation refines this schematic expression to preserve admissibility. If $T_{\ell_b}$ spans the bottom-tangent scalar combinations and $C_{\ell_b}$ is its complementary scalar subspace,
+
+```math
+R_1G_0\Phi_{\ell_b}T_{\ell_b}=0,
+```
+
+then the equal-dimension balanced ambient is
+
+```math
+X_{\rm g}^{[1]}
+=
+\left[
+(G_0+\delta G_1)\Phi_{\ell_b}T_{\ell_b}
+\quad
+G_0\Phi_{\ell_b}C_{\ell_b}
+\right].
+```
+
+Only the tangent combinations may receive the stationary $G_1$ correction: applying $G_0+\delta G_1$ to a non-tangent scalar column creates nonzero mapped normal velocity at the bottom. The complementary Robin directions remain admissible flat coordinates and are retained for later dynamical classification; none is removed.
+
+### Dependencies
+
+Milestone 10.2.3 with outcome `geostrophic-modal-blocker`, the Milestone-6.8 $G_0,G_1$ construction, the Milestone-8 exact finite-terrain stationary space, the Milestone-9.2 qualified signed-Robin provider, and the Milestone-10.1 production coordinate contract. The isolated InternalModesEVP checkout remains pinned to commit `df86687` and neither InternalModes checkout may be modified.
+
+### Training and ablations
+
+Use the existing constant-$N$, zonal sinusoidal-terrain case with padding factor two, primitive reference degree 18, geostrophic count eight, and
+
+```math
+\frac{\ell_b}{D}
+\in
+\left\{
+-\frac18,-\frac14,-\frac12,-1,\infty
+\right\}.
+```
+
+For every $\ell_b$, compare at equal retained dimension:
+
+1. ordinary flat geostrophic modes $G_0\Phi_\infty$;
+2. undressed Robin modes $G_0\Phi_{\ell_b}$;
+3. globally dressed Robin modes $(G_0+\delta G_1)\Phi_{\ell_b}$.
+
+Select $\ell_b$ using the smallest exact stationary-projector representation defect, subject to provider, endpoint, conditioning, conjugacy, Green-identity, and bottom-tangency gates. Break numerical ties using the smaller internal-wave projector defect and then the smaller physical-energy Gram condition number. Freeze the selected $\ell_b$ before every validation calculation. Cross-$\ell_b$ variation is a finite-order convergence diagnostic rather than a physical invariance requirement.
+
+Retain the explicit zero-APV bottom inversion separately for every $\ell_b$. A Robin eigenfunction must not be identified with, substituted for, or allowed to duplicate that independent boundary coordinate.
+
+### Oracle
+
+The planned public diagnostic is
+
+```matlab
+audit = problem.auditTerrainDressedRobinStationaryAmbient( ...
+    trustedModeBounds=[1 0], ...
+    supportModeBounds=[1 2;1 3;1 4], ...
+    targetWaveModeIndices=[1;2], ...
+    geostrophicModeCounts=[2;4;6;8;12], ...
+    robinLengthRatios=[-1/8;-1/4;-1/2;-1;Inf], ...
+    trainingGeostrophicModeCount=8, ...
+    primitiveReferenceDegrees=[16;18;20], ...
+    paddingFactors=[2;3], ...
+    terrainScales=[0;1/8;1/4;1/2;3/4;1], ...
+    internalModesEVPOrders=[128;256], ...
+    shouldRunTwoDimensionalControl=true, ...
+    cacheDirectory="output/milestone-10.2.4-cache");
+```
+
+Training uses only the declared padding-two, degree-18, count-eight case. Validation uses the frozen $\ell_b$ while varying modal count, primitive reference degree, horizontal support, padding, and terrain amplitude. The two-dimensional trusted-band control runs only after the zonal acceleration gate passes.
+
+Apply $G_1$ globally with the common dealiased terrain projection and retain every generated sideband inside the declared support. Compare the dressed span with the exact Milestone-8 stationary projector without appending missing stationary directions. Attach the unchanged fixed-$\kappa$ wave family and measure the resulting internal-wave projector, frequency, APV, bottom-evolution, and strong primitive residuals. Reuse signature-compatible Milestone-10.2.3 primitive-oracle cache artifacts when available; every new artifact remains disposable, content addressed, signature validated, opt-in, and restricted to ignored `output/`.
+
+No frequency cutoff, replacement APV row, empirical correction, post hoc symmetrization, APV-nullspace projection, mode deletion, dense-oracle construction coordinate, matrix-free operator, or time integration is included.
+
+### Automated acceptance
+
+- Robin provider and endpoint defects are below $10^{-10}$.
+- Analytic and centered $G_1$ actions agree below $10^{-9}$.
+- Fourier selection, conjugacy, and the Hermitian/skew-Hermitian finite-terrain structure close below $10^{-11}$.
+- Tangent Green identities and stationary weak rows close below $10^{-10}$.
+- The frozen dressed basis represents the exact stationary projector within $10^{-8}$.
+- Stationary bottom tangency and stationary weak-row residuals are below $10^{-10}$.
+- Internal-wave projector and frequency defects are below $10^{-8}$.
+- Projected APV, bottom-evolution, and strong primitive residuals are below $10^{-8}$, $10^{-10}$, and $10^{-5}$.
+- Padding, support, and primitive-reference-degree projector drifts are below $10^{-8}$.
+- The accepted ambient space retains at least factor-two compression relative to the primitive reference.
+- Report separately the improvement from replacing the ordinary flat modes by Robin modes and the additional improvement from applying $G_1$.
+
+Classify the result as:
+
+- **`dressed-robin-acceleration`:** a finite negative $\ell_b$ passes every physical and economy gate;
+- **`dressed-flat-acceleration`:** $\ell_b=\infty$ passes after global dressing, showing that Robin localization is unnecessary for the tested production basis;
+- **`dressed-stationary-equivalent`:** every physical gate passes but factor-two compression does not;
+- **`dressed-stationary-seed`:** global dressing materially improves stationary and wave projectors but does not pass the finite-amplitude physical gates;
+- **`dressed-stationary-blocker`:** neither Robin localization nor global first-order dressing gives a convergent stationary representation.
+
+Under the original Milestone-10.2.4 gate, only `dressed-robin-acceleration` or `dressed-flat-acceleration` would have authorized Milestone 10.3. Neither occurred; the measured blocker routes the roadmap to Milestone 10.2.5.
+
+### Outcome
+
+The declared constant-$N$ zonal training oracle used resolution `[6 14 5]`, support `[1 4]`, primitive reference degree 18, geostrophic count eight, padding factor two, and isolated provider orders 128 and 256. No Robin length passed the prerequisite provider, centered-inclusion, conjugacy, APV Green-identity, and stationary-compression gates, so no value of $\ell_b$ was frozen and the independent finite-amplitude validation sweep was correctly skipped.
+
+The dressed stationary results are:
+
+| $\ell_b/D$ | Stationary representation | Stationary weak row | Bottom tangency | APV Green identity | Gram condition number |
+|---:|---:|---:|---:|---:|---:|
+| $-1/8$ | $1.66\times10^{-2}$ | $7.48\times10^{-5}$ | $6.54\times10^{-8}$ | $4.48\times10^{-3}$ | $2.89\times10^{12}$ |
+| $-1/4$ | $1.39\times10^{-2}$ | $1.36\times10^{-4}$ | $1.23\times10^{-7}$ | $2.12\times10^{-3}$ | $5.09\times10^{12}$ |
+| $-1/2$ | $1.26\times10^{-2}$ | $1.54\times10^{-4}$ | $1.41\times10^{-7}$ | $1.04\times10^{-3}$ | $3.54\times10^{13}$ |
+| $-1$ | $1.20\times10^{-2}$ | $1.61\times10^{-4}$ | $1.48\times10^{-7}$ | $5.25\times10^{-4}$ | $1.33\times10^{15}$ |
+| $\infty$ | $1.26\times10^{-2}$ | $1.68\times10^{-4}$ | $1.59\times10^{-7}$ | $5.35\times10^{-5}$ | $1.99\times10^{7}$ |
+
+The tangent scalar combinations themselves satisfy bottom tangency below $3\times10^{-20}$. Thus the failure is not caused by dressing inadmissible columns. Relative to the undressed coordinates, $G_1$ lowers the stationary weak-row and bottom defects by factors between approximately $2.5$ and $5.6$, but it does not materially lower the exact stationary-projector error. Finite negative Robin lengths give at most a small projector improvement over the ordinary value $1.26\times10^{-2}$ while worsening the physical-energy Gram conditioning by five to eight orders of magnitude. Their provider and endpoint comparisons are $1.05\times10^{-10}$--$2.75\times10^{-10}$, and analytic-versus-centered $G_1$ defects are approximately $2.0\times10^{-9}$; these narrow numerical misses do not explain the much larger $10^{-2}$--$10^{-3}$ physical defects.
+
+The outcome is **`dressed-stationary-blocker`**. Bottom localization and the first stationary terrain derivative improve selected residuals, but a count-eight Robin family still does not economically span the exact finite-terrain stationary inclusion. Milestone 10.3 remains inactive. The next formulation, if pursued, must construct the stationary coordinates from the global tangent constraint itself rather than dress a truncated collection of independently generated per-wavenumber Robin functions.
+
+The focused Milestone-10.2.4 suite passes six tests. The complete repository suite passes 230 tests with zero failures; static analysis covers all 109 MATLAB files.
+
+## Milestone 10.2.5: Global tangent-scalar stationary compression oracle
+
+- [ ] Complete — blocking stationary-compression gate
+
+### Purpose
+
+Reverse the unsuccessful per-wavenumber construction order:
+
+```math
+\boxed{
+\text{enforce the global terrain constraint first}
+\quad\longrightarrow\quad
+\text{compress its vertical dependence second}.
+}
+```
+
+The exact stationary scalar space will be represented as
+
+```math
+\mathcal S_{\gamma,N}
+=
+\mathcal S_{0,N}
+\oplus
+\mathcal L_{\gamma,N}\mathcal C_{h,N},
+```
+
+where the zero-bottom-trace sector carries the interior APV structure and the second sector contains energy-minimal lifts of globally terrain-tangent bottom traces. The successful fixed-$\kappa$ waves, explicit zero-APV bottom inversion, compatible mean sector, public coefficient layout, and exact finite-terrain forms remain unchanged.
+
+### Dependencies
+
+Milestone 10.2.4 with outcome `dressed-stationary-blocker`, the Milestone-7 exact finite-terrain primitive forms, the Milestone-8 polynomial stationary oracle, the Milestone-10.1 production contract, and the qualified isolated InternalModesEVP checkout pinned to commit `df86687`. The polynomial oracle remains the independent validation space and may not be inserted as a construction coordinate.
+
+### Global trace factorization
+
+Construct the projected bottom-trace operator with the common dealiased product:
+
+```math
+\mathcal T_{h,N}b
+\equiv
+P_{M\to N}
+\left[
+(\partial_xb)h_y-(\partial_yb)h_x
+\right].
+```
+
+Use a conjugate-consistent singular-value decomposition to obtain the gauge-free tangent kernel and its retained complement,
+
+```math
+\mathcal C_{h,N}
+\equiv
+\ker\mathcal T_{h,N},
+\qquad
+\mathcal C_{h,N}^{\perp}.
+```
+
+For each $b\in\mathcal C_{h,N}$, construct the lift $\mathcal L_{\gamma,N}b$ with trace $b$ and finite-terrain-energy orthogonality to every zero-bottom-trace geostrophic state. By the APV Green identity, this is the energy-minimal projected-zero-volume-APV representative of the trace. Retain the lifted non-tangent traces in $\mathcal C_{h,N}^{\perp}$ as complementary coordinates for later dynamical classification; do not delete them or call them stationary.
+
+### Two-stage oracle
+
+1. **Polynomial factorization control**
+   - Factor the existing global polynomial stationary scalar space into zero-bottom-trace and lifted tangent-trace sectors.
+   - Reconstruct the Milestone-8 stationary projector without adding or deleting a direction.
+   - Preserve every non-tangent trace direction in a separately identified complementary sector.
+   - Verify the factorization, trace, stationary Green, weak-row, bottom-tangency, conjugacy, and dimension identities before any modal compression is attempted.
+
+2. **Independent modal compression**
+   - Generate mixed Dirichlet--Neumann interior modes with the isolated InternalModesEVP checkout pinned to `df86687`:
+
+     ```math
+     \phi_b=0,
+     \qquad
+     \partial_\xi\phi(0)=0.
+     ```
+
+   - Use the public explicit zero-APV bottom inversion as the boundary pivot. Introduce no additional bottom degree of freedom.
+   - Build the tangent and non-tangent lifts in the retained zero-trace modal space, map them through the exact terrain geostrophic-state construction, and physical-energy orthogonalize the result.
+   - Append the verified fixed-$\kappa$ wave family and compatible $\kappa=0$ sector.
+   - Train only the smallest acceptable interior geostrophic-mode count on the declared constant-$N$ zonal case. Freeze that count before independent changes in support, padding, primitive reference degree, terrain amplitude, stratification, and terrain dimensionality.
+   - Compare with the polynomial stationary and dynamical projectors without inserting dense polynomial stationary vectors into the modal candidate.
+
+### Public audit
+
+```matlab
+audit = problem.auditGlobalTangentStationaryCompression( ...
+    trustedModeBounds=[1 0], ...
+    supportModeBounds=[1 2;1 3;1 4], ...
+    targetWaveModeIndices=[1;2], ...
+    interiorGeostrophicModeCounts=[2;4;6;8;12], ...
+    stationaryReferenceDegree=4, ...
+    primitiveReferenceDegrees=[16;18;20], ...
+    paddingFactors=[2;3], ...
+    terrainScales=[0;1/8;1/4;1/2;3/4;1], ...
+    internalModesEVPOrders=[128;256], ...
+    shouldRunTwoDimensionalControl=true, ...
+    cacheDirectory="output/milestone-10.2.5-cache");
+```
+
+The audit must make the training record, frozen modal count, independent validation cases, polynomial-factorization result, stationary and complementary trace dimensions, and full physical degree-of-freedom accounting explicit. Cache artifacts are disposable, content addressed, signature validated, opt-in, and confined to ignored `output/`; disabling caching performs no hidden disk writes.
+
+### Automated acceptance
+
+- Polynomial factorization, projector reconstruction, and complete dimension accounting close below $10^{-12}$.
+- The trace-nullspace rank is stable under the declared support and padding changes, and Fourier conjugacy closes below $10^{-11}$.
+- The analytic zonal-ridge tangent-trace kernel is recovered below $10^{-12}$.
+- The isolated mixed-boundary provider closes its endpoint, physical-energy, and potential-enstrophy checks below $10^{-11}$ at qualified orders 128 and 256.
+- Lift trace and finite-terrain energy-minimization defects are below $10^{-10}$.
+- Every tangent lift has projected volume APV below $10^{-10}$.
+- The compressed stationary projector agrees with the independent polynomial stationary projector below $10^{-8}$.
+- Stationary APV Green, weak-row, and bottom-tangency defects are below $10^{-10}$.
+- The internal-wave physical-energy projector and frequency defects are below $10^{-8}$.
+- Internal-wave APV, bottom-evolution, and strong primitive residuals are below $10^{-8}$, $10^{-10}$, and $10^{-5}$.
+- Padding, support, primitive-reference-degree, and terrain-amplitude projector drifts are below $10^{-8}$ after the modal count is frozen.
+- The flat explicit bottom-inversion projector is recovered without duplication.
+- Stationary and non-tangent trace sectors are $H_\gamma$-orthogonal and account for the declared trace dimension within $10^{-10}$.
+- The accepted modal space retains at least factor-two compression relative to the primitive ambient reference.
+
+### Outcome classification
+
+- **`global-tangent-acceleration`:** every physical gate passes with at least factor-two compression;
+- **`global-tangent-equivalent`:** every physical gate passes without factor-two compression;
+- **`global-tangent-seed`:** the polynomial factorization passes and the modal construction materially improves convergence, but the final physical gates do not all pass;
+- **`global-tangent-modal-blocker`:** the exact polynomial factorization passes, but the mixed-boundary modes or their lifts do not converge;
+- **`global-tangent-factorization-blocker`:** the polynomial stationary space does not admit the proposed finite factorization within tolerance;
+- **`global-tangent-provider-blocker`:** the isolated one-dimensional provider cannot represent or qualify the required mixed endpoint problem.
+
+Only `global-tangent-acceleration` authorizes Milestone 10.3. Every other outcome stops for analysis or repair. No bottom- or topographic-wave classification, frequency cutoff, replacement APV row, empirical correction, post hoc symmetrization, APV-nullspace projection, mode deletion, matrix-free work, or time integration is included.
+
 ## Milestone 10.3: Complete bottom and topographic-wave sector
 
 - [ ] Complete — blocking gate
@@ -3000,7 +3275,7 @@ Partition every declared flat bottom and zero-frequency coordinate into the exac
 
 ### Dependencies
 
-Milestone 10.2.3 with outcome `wave-vortex-modal-acceleration`. The measured `geostrophic-modal-blocker` outcome does not satisfy this dependency.
+Milestone 10.2.5 with outcome `global-tangent-acceleration`. Milestone 10.2.3 established the fixed-$\kappa$ wave sector, while Milestone 10.2.4 established that independently truncated Robin families do not economically represent the stationary space; neither result by itself satisfies this dependency.
 
 ### Deliverables
 
@@ -3273,6 +3548,8 @@ Milestone 13.
 | **E1.2.1 — Coupled-block internal waves** | 10.2.1 | Exact correction passed at fixed resolution but exposed a nested vertical-isolation blocker; the iterative stage was not attempted. |
 | **E1.2.2 — Geometric-cascade isolation** | 10.2.2 | Resolve horizontal and vertical terrain-scattering tails independently, test spectral isolation of the complete internal-wave block, and stop before bottom-wave classification. |
 | **E1.2.3 — Flat wave–vortex modal ambient** | 10.2.3 | Replace generic polynomial candidate coordinates by fixed-\(\kappa\) waves, ordinary flat geostrophic modes, explicit bottom inversions, and the compatible mean sector; stop if the exact terrain stationary space is not represented economically. |
+| **E1.2.4 — Terrain-dressed stationary coordinates** | 10.2.4 | Train and freeze the Robin length, apply the global $G_0+\delta G_1$ stationary dressing, and stop unless the exact stationary and internal-wave projectors pass with factor-two compression. |
+| **E1.2.5 — Global tangent stationary compression** | 10.2.5 | Factor the global terrain-tangent trace space before vertical compression, validate the modal lifts against the polynomial stationary oracle, and stop unless every physical gate passes with factor-two compression. |
 | **E1.3 — Bottom/topographic sector** | 10.3 | Partition every bottom coordinate into the exact stationary or converged topographic-wave space. |
 | **E1.4 — Complete basis gate** | 10.4 | Prove complete, economical coverage of the declared production state. |
 | **E2 — Matrix-free production basis** | 11 | Reproduce the complete dense production oracle without global primitive matrices. |
@@ -3288,7 +3565,7 @@ Use one focused commit per completed milestone and retain acceptance evidence in
 
 The continuum and dense-oracle scientific proof of concept is established by Milestones 5–10: the boundary coordinate is represented as part of a complete linked state, the projected primitive system preserves physical energy, derives stationary volume APV, converges to the strong bottom equation, constructs the complete stationary balanced space, and demonstrates that global dressing followed by exact residual enrichment efficiently recovers a selected internal-wave subspace.
 
-Scientific completeness of the production basis requires Milestones 10.1–10.4, including the intervening Milestone-10.2.1 coupled-block, Milestone-10.2.2 geometric-cascade, and Milestone-10.2.3 flat wave–vortex ambient gates. Every declared wave, APV, bottom, and MDA coordinate must belong to the stationary, internal-wave, or topographic-wave projector, with no unresolved coordinate inside the production state. The selected horizontal scattering support, vertical support, modal family and count, omitted-tail estimate, and unresolved-energy fraction must be recorded with the production basis. Guard modes and omitted primitive-oracle directions are numerical support and truncation diagnostics rather than prognostic degrees of freedom.
+Scientific completeness of the production basis requires Milestones 10.1–10.4, including the intervening Milestone-10.2.1 coupled-block, Milestone-10.2.2 geometric-cascade, Milestone-10.2.3 flat wave–vortex ambient, Milestone-10.2.4 terrain-dressed stationary-coordinate, and Milestone-10.2.5 global tangent-scalar gates. The exact stationary space must be represented economically before bottom/topographic-wave classification begins. Every declared wave, APV, bottom, and MDA coordinate must belong to the stationary, internal-wave, or topographic-wave projector, with no unresolved coordinate inside the production state. The selected horizontal scattering support, vertical support, modal family and count, tangent-trace rank, frozen interior-mode count, omitted-tail estimate, and unresolved-energy fraction must be recorded with the production basis. Guard modes and omitted primitive-oracle directions are numerical support and truncation diagnostics rather than prognostic degrees of freedom.
 
 A complete forward wave–vortex model requires Milestones 11–13: matrix-free construction of the complete production basis, arbitrary-state phase and Cayley evolution, and convergent stationary, topographic-wave, sinusoidal-terrain, and Gaussian-ridge benchmarks.
 
